@@ -492,8 +492,8 @@ void loadSplines(){
     fSplines2 = fSplines;
   }
   else{
-    fSplines = new TFile("timePDF_DRnew_Large.root","read");//To generate with my code ProduceWSPlots.c
-    fSplines2 = new TFile("timePDF_Directionality.root","read");//To generate with my code ProduceWSPlots.c
+    fSplines = new TFile("../inputs/timePDF_DRnew_Large.root","read");//To generate with my code ProduceWSPlots.c
+    fSplines2 = new TFile("../inputs/timePDF_Directionality.root","read");//To generate with my code ProduceWSPlots.c
   }
   for(int pmtType=0;pmtType<nPMTtypes;pmtType++){
     //Load 1D t-tof splines
