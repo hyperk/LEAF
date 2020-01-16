@@ -488,7 +488,7 @@ Double_t valueTimePDF(Double_t *time, Double_t *par){
 void loadSplines(){
   TFile *fSplines, *fSplines2;
   if(isHE){
-    fSplines = new TFile("timePDF_HE.root","read");//To generate with my code ProduceWSPlots.c
+    fSplines = new TFile("../inputs/timePDF_HE.root","read");//To generate with my code ProduceWSPlots.c
     fSplines2 = fSplines;
   }
   else{
@@ -1210,8 +1210,8 @@ int main (int argc, char **argv){
 
   loadSplines();
   
-  char *filename=NULL;
-  char *outfilename=NULL;
+  std::string filename="";
+  std::string outfilename="";
   int verbose=-1;
   bool hybrid = true;//false;//true;
   bool Gamma = false;//Is the mother particle a gamma or another particle?
@@ -1258,57 +1258,14 @@ int main (int argc, char **argv){
   
   TFile *file;
   // Open the file
-  if (filename==NULL){
-    //file = new TFile("/disk01/usr5/bquilain/WCSimData/wcsim_hk_e500_center_nominal.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/WCSimData/wcsim_hkmpmt_e500_center_nominal.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkmpmt_e500_center_nominal.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_trash.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e500_center_nominal_2muniformsphere.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e10_center_nominal_2muniformsphere.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e10_center_nominal_fulltank_1000events.root","read");   
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e10_center_nominal_fulltank.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e10_center_nominal_fulltank_10hitstrigger.root","read");
-    //wcsim_hkhybridmpmt_e10_center_nominal_fulltank_0hitstrigger_1000events.root
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e10_center_nominal_fulltank_0hitstrigger_1000events.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e10_center_nominal_fulltank_0hitstrigger_nodn.root","read");
-
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374100Hz_e10_center_nominal_0hitstrigger_nodn.root","read");
-    
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e10_center_nominal_fulltank_0hitstrigger.root","read");
-    
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374_e10_center_nominal_fulltank_0hitstrigger.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374_e10_center_nominal_fulltank_0hitstrigger_nodnno950.root","read");
-    file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374100Hz_e5_center_nominal_fulltank_0hitstrigger_10000.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374100Hz_e10_center_nominal_fulltank_0hitstrigger.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374100Hz_e10_center_nominal_fulltank_0hitstrigger.root","read");
-
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374100Hz_e10_center_nominal_fulltank_0hitstrigger_nodn_10000.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374100Hz_e3_center_nominal_fulltank_0hitstrigger_nodn.root","read");
-
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374_e10_center_nominal_fulltank_0hitstrigger_noqe.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374_e10_trash.root","read");
-    
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e500_center_nominal_2muniformsphere_100events.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/trash.root","read");
-
-    
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e500_center_nominal.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e500_center_nominal_onlybal.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e500_center_nominal_2.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/WCSimData/wcsim_hkmpmt_mu500_center_nominal_fulltank.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/fiTQun/HK_704cmx548cmID_mPMT_40perCent/timepdf/11_100_0_0_0/11_100_0_0_0.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/fiTQun/HK_704cmx548cmID_mPMT_40perCent/timepdf/11_900_0_6_0/11_900_0_6_0.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkmpmt100HzDN_e4_center_nominal_fulltank.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkmpmt_e4_center_nominal_fulltank.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/WCSimData/wcsim_hk_e3_center_nominal_fulltank.root","read");
-    //file = new TFile("../test.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/fiTQun/HK_704cmx548cmID_mPMT_40perCent/timepdf/11_900_0_3_0/11_900_0_3_0.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/fiTQun/HK_704cmx548cmID_mPMT_40perCent/timepdf/11_900_0_3_0/11_900_0_3_0.root","read");
+  if (filename == ""){
+    // Test input
+    file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt10pc14374100Hz_e10_center_nominal_fulltank_0hitstrigger_10000.root","read");
 
 
     
   }else{
-    file = new TFile(filename,"read");
+    file = new TFile(filename.c_str(),"read");
   }
   if (!file->IsOpen()){
     cout << "Error, could not open input file: " << filename << endl;
@@ -1403,8 +1360,8 @@ int main (int argc, char **argv){
   Int_t bsnhit_200ns[nPMTtypes]; //nsel (SLE)
   Int_t pmtTypeFill;
   
-  if(outfilename==NULL) sprintf(outfilename,"out.root");
-  TFile * outfile = new TFile(outfilename,"RECREATE");
+  if(outfilename == "") outfilename = "out.root";
+  TFile * outfile = new TFile(outfilename.c_str(),"RECREATE");
   TTree *bstree = new TTree("bstree","bstree");
   bstree->Branch("bsvertex", bsvertex, "bsvertex[4]/F");
   bstree->Branch("mcvertex", mcvertex, "mcvertex[4]/F");
@@ -1430,6 +1387,7 @@ int main (int argc, char **argv){
     //TFile * fOutput = new TFile(OutputFile,"recreate");
 
   for(int i=0;i<nPMTtypes;i++){
+    std::cout << " PMT Type: " << i << std::endl;
     ChargeProfile2D_onlyFront[i] = new TH2D(Form("ChargeProfile2D_onlyFront_pmtType%d",i),"",TankSize/2,-TankSize/2.,TankSize/2.,TankSize/2,-TankSize/2.,TankSize/2.);
     ChargeProfile2D[i] = new TH2D(Form("ChargeProfile2D_pmtType%d",i),"",TankSize/2,-TankSize/2.,TankSize/2.,TankSize/2,-TankSize/2.,TankSize/2.);
     ChargeProfile2DTop[i] = new TH2D(Form("ChargeProfile2DTop_pmtType%d",i),"",TankSize/2,-TankSize/2.,TankSize/2.,TankSize/2,-TankSize/2.,TankSize/2.);
@@ -1444,9 +1402,12 @@ int main (int argc, char **argv){
     TimeProfile[i] = new TH1D(Form("TimeProfile_pmtType%d",i),"",1e4,0,5e3);
     TimeHitProfile[i] = new TH1D(Form("TimeHitProfile_pmtType%d",i),"",1e4,0,5e3);
 
-    TimeTOFProfile[i] = new TH1D(Form("TimeTOFProfile_pmtType%d",i),"",1e4,-1e2,1e3);TimeTOFProfile[i]->Sumw2();
-    TimeTOFProfile_currentEvent[i] = new TH1D(Form("TimeTOFProfile_currentEvent_pmtType%d",i),"",1e4,-1e2,1e3);TimeTOFProfile[i]->Sumw2();
-    HitTimeTOFProfile[i] = new TH1D(Form("HitTimeTOFProfile_pmtType%d",i),"",1e4,-1e2,1e3);HitTimeTOFProfile[i]->Sumw2();
+    TimeTOFProfile[i] = new TH1D(Form("TimeTOFProfile_pmtType%d",i),"",1e4,-1e2,1e3);
+    TimeTOFProfile[i]->Sumw2();
+    TimeTOFProfile_currentEvent[i] = new TH1D(Form("TimeTOFProfile_currentEvent_pmtType%d",i),"",1e4,-1e2,1e3);
+    TimeTOFProfile[i]->Sumw2();
+    HitTimeTOFProfile[i] = new TH1D(Form("HitTimeTOFProfile_pmtType%d",i),"",1e4,-1e2,1e3);
+    HitTimeTOFProfile[i]->Sumw2();
 
     ChargePerPMT[i] = new TH1D(Form("ChargePerPMT_pmtType%d",i),"",500,0,500);
 
