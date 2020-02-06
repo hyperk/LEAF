@@ -1,1 +1,2 @@
-*.root
+*.root*.o
+app/FitVertexLE
