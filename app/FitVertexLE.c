@@ -1582,9 +1582,10 @@ int main (int argc, char **argv){
 	printf("Track momentum: %f\n", wcsimroottrack->GetP());
 	printf("Track mass: %f\n", wcsimroottrack->GetM());
       
-	for (int j=0; j<3; j++)
+	for (int j=0; j<3; j++){
 	  printf("Track start: %d %f\n",j, wcsimroottrack->GetStart(j));
 	  printf("Track dir: %d %f\n",j, wcsimroottrack->GetDir(j));
+      }
       }
 
       
