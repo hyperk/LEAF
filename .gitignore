@@ -1,0 +1,4 @@
+*.root*.o
+app/FitVertexLE
+*.swp
+*.o
