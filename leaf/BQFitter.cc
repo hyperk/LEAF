@@ -214,12 +214,22 @@ void BQFitter::SetGeometry( WCSimRootGeom * wGeo, double dDarkRate_Normal, doubl
 	fDarkRate_mPMT   = dDarkRate_mPMT;
 	
 	if ( dDarkRate_Normal == 0 ) {
+#ifdef WCSIM_wo_mPMT	
+		fDarkRate_ns[0] = 8400.  * 2e4 * /*fWCGeo->GetWCNumPMT() */ 1e-9;
+		fDarkRate_ns[1] = 0;
+#else
 		fDarkRate_ns[0] = 8400.  * 2e4 * /*fWCGeo->GetWCNumPMT(false) */ 1e-9;
 		fDarkRate_ns[1] = 100.   * 5e3 * /*fWCGeo->GetWCNumPMT(true ) */ 1e-9 * 19;
+#endif
 	}
-	else {
+	else {	
+#ifdef WCSIM_wo_mPMT	
+		fDarkRate_ns[0] = fDarkRate_Normal * fWCGeo->GetWCNumPMT() * 1e-9;
+		fDarkRate_ns[1] = 0;
+#else
 		fDarkRate_ns[0] = fDarkRate_Normal * fWCGeo->GetWCNumPMT(false) * 1e-9;
 		fDarkRate_ns[1] = fDarkRate_mPMT   * fWCGeo->GetWCNumPMT(true ) * 1e-9 * 19;
+#endif
 	}
 	
 	this->LoadPMTInfo();
@@ -298,8 +308,12 @@ void BQFitter::LoadPMTInfo() {
 		fPMT_TubeInMPMT[iPMT]   = 0;
 	}*/
 	
+#ifdef WCSIM_wo_mPMT	
+	int iNbr_Norm = fWCGeo->GetWCNumPMT();
+#else
 	int iNbr_Norm = fWCGeo->GetWCNumPMT(false);
-	int iNbr_mPMT = iNbr_Norm;// fWCGeo->GetWCNumPMT(true);
+	int iNbr_mPMT = fWCGeo->GetWCNumPMT(true);
+#endif
 	
 	fPMT_Info	.resize(MAX_PMT);
 	fPMT_Group	.assign(MAX_PMT,0);
@@ -311,7 +325,11 @@ void BQFitter::LoadPMTInfo() {
 	// Normal PMTs
 	for ( int iPMT=0; iPMT < iNbr_Norm; iPMT++ ) {
 	
+#ifdef WCSIM_wo_mPMT	
+		wPMT = fWCGeo->GetPMT(iPMT);
+#else
 		wPMT = fWCGeo->GetPMT(iPMT,false);
+#endif
 		std::vector<double> vPMT(6,0);
 		
 		for ( int j=0; j < 3; j++ ) {
@@ -324,10 +342,12 @@ void BQFitter::LoadPMTInfo() {
 		fPMT_Info      [iPMT] = vPMT;
 	}
 	
+#ifndef WCSIM_wo_mPMT	
 	// mPMTs
 	for ( int iPMT=0; iPMT < iNbr_mPMT; iPMT++ ) {
 	
 		wPMT = fWCGeo->GetPMT(iPMT,true);
+		
 		std::vector<double> vPMT(6,0);
 		
 		for ( int j=0; j < 3; j++ ) {
@@ -341,6 +361,7 @@ void BQFitter::LoadPMTInfo() {
 		fPMT_Group     [iNewID] = this->GroupPMTs(1,wPMT.GetmPMT_PMTNo());
 		fPMT_Info      [iNewID] = vPMT;
 	}
+#endif
 }
 
 
@@ -446,14 +467,14 @@ void BQFitter::MakeEventInfo(double lowerLimit, double upperLimit) {
 		fEventInfo[i].NoiseIntegral   = this->SplineIntegral(fSplineTimePDFDarkRate[i],lowerLimit,upperLimit);
 		fEventInfo[i].SignalIntegral  = this->SplineIntegralAndSubstract(fSplineTimePDFQueue[i],fSplineTimePDFDarkRate[i],lowerLimit,upperLimit);
 		
-		if(VERBOSE==3) std::cout<<"nhits="<<fEventInfo[i].hits<<", DR average="<<signalDR
+		if(VERBOSE>=3) std::cout<<"nhits="<<fEventInfo[i].hits<<", DR average="<<signalDR
 					<<", signal over noise="<<fEventInfo[i].SignaloverNoise
 					<<", signal integral="  <<fEventInfo[i].SignalIntegral
 					<<", DR integral="	<<fEventInfo[i].NoiseIntegral
 					<<",in integral="	<<fEventInfo[i].SignalIntegral/fEventInfo[i].NoiseIntegral<<std::endl;
 	
 		
-		//if(VERBOSE==2){
+		//if(VERBOSE>=2){
 		//	std::cout<<"Lower limit = "<<lowerLimit<<", proba = "<<fSplineTimePDFQueue[i]->Eval(lowerLimit)<<std::endl;
 		//	std::cout<<"Upper limit = "<<upperLimit<<", proba = "<<fSplineTimePDFQueue[i]->Eval(upperLimit)<<std::endl;
 		//}
@@ -549,7 +570,7 @@ double BQFitter::FindNLL_Likelihood(std::vector<double> vertexPosition, int nhit
 			proba = fSplineTimePDFQueue[pmtType]->Eval(residual);
 			//else proba = 1;//fSplineTimePDFQueue[pmtType]->Eval(residual);
 #ifdef VERBOSE_NLL
-			if(verbose==3){
+			if(VERBOSE>=3){
 				std::cout << "hit#"<<ihit<<", hit time =" << hitTime << ", vertex time = " << vertexPosition[3] << ", distance PMT vs vertex = " << distance << ", tof="<<tof<<std::endl;
 				std::cout<<"Residual="<<residual<<", proba="<<proba<<", pmt type="<<pmtType<<std::endl;
 			}
@@ -570,7 +591,7 @@ double BQFitter::FindNLL_Likelihood(std::vector<double> vertexPosition, int nhit
 				//And add again the DR
 				proba+=DR;
 #ifdef VERBOSE_NLL
-				if(verbose==3) std::cout<<"proba after scaling="<<proba<<std::endl;
+				if(VERBOSE>=3) std::cout<<"proba after scaling="<<proba<<std::endl;
 #endif
 			}
 			
@@ -581,7 +602,7 @@ double BQFitter::FindNLL_Likelihood(std::vector<double> vertexPosition, int nhit
 				proba=fSplineTimePDFQueue[pmtType]->Eval(upperLimit);
 				//if(pmtType==1) proba/=1;
 #ifdef VERBOSE_NLL
-				if(verbose==3 && pmtType==1) std::cout<<"PMT type = "<< pmtType <<", Upper limit = "<<upperLimit<<", residual = "<<residual<<", proba = "<<proba<<std::endl;
+				if(VERBOSE>=3 && pmtType==1) std::cout<<"PMT type = "<< pmtType <<", Upper limit = "<<upperLimit<<", residual = "<<residual<<", proba = "<<proba<<std::endl;
 #endif
 			}
 			else if( residual <= lowerLimit ){
@@ -589,7 +610,7 @@ double BQFitter::FindNLL_Likelihood(std::vector<double> vertexPosition, int nhit
 				proba=fSplineTimePDFQueue[pmtType]->Eval(lowerLimit);
 				//if(pmtType==1) proba/=1;
 #ifdef VERBOSE_NLL
-				if(verbose==3 && pmtType==1) std::cout<<"PMT type = "<< pmtType <<", Lower limit = "<<lowerLimit<<", residual = "<<residual<<", proba = "<<proba<<std::endl;
+				if(VERBOSE>=3 && pmtType==1) std::cout<<"PMT type = "<< pmtType <<", Lower limit = "<<lowerLimit<<", residual = "<<residual<<", proba = "<<proba<<std::endl;
 #endif
 			}
 		}
@@ -620,7 +641,7 @@ double BQFitter::FindNLL_Likelihood(std::vector<double> vertexPosition, int nhit
 		NLLdir=this->FindNLLDirectionality(vertexPosition, nhits, VERBOSE,lowerLimit,upperLimit);
 		
 #ifdef VERBOSE_NLL
-		if(verbose == 2) std::cout<<"NLL = "<<NLL<<", dir (L) = "<<TMath::Exp(-NLLdirBaye)<<", dir 2 = "<<NLLdir<<std::endl;
+		if(VERBOSE>=2) std::cout<<"NLL = "<<NLL<<", dir (L) = "<<TMath::Exp(-NLLdir)<<", dir 2 = "<<NLLdir<<std::endl;
 #endif
 		if(directionality == 1) NLL+=NLLdir;
 		else if(directionality == 2) NLL=NLLdir;
@@ -681,7 +702,7 @@ double BQFitter::FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nh
 		if( bCondition ){
 			NLL++;//= fSplineTimePDFQueue[pmtType]->Eval(residual);
 #ifdef VERBOSE_NLL
-			if(verbose==3){
+			if(VERBOSE>=3){
 				std::cout<<"Residual="<<residual<<", pmt type="<<pmtType<<std::endl;
 				std::cout << "hit#"<<ihit<<", hit time =" << hitTime << ", vertex time = " << vertexPosition[3] << ", distance PMT vs vertex = " << distance << ", tof="<<tof<<std::endl;
 				std::cout<<"residual="<<residual<<std::endl;
@@ -698,7 +719,7 @@ double BQFitter::FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nh
 	if(NLL!=0) NLL=-TMath::Log(NLL);
 	else NLL=1e15;
 	
-	//if(verbose==2) cout<<"NLL="<<NLL<<endl;
+	//if(VERBOSE>=2) cout<<"NLL="<<NLL<<endl;
 	if(directionality!=0){
 		//double NLLdirBaye=0;
 		double NLLdir=0;
@@ -707,7 +728,7 @@ double BQFitter::FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nh
 		NLLdir=this->FindNLLDirectionality(vertexPosition, nhits, VERBOSE,fHitTimeLimitsNegative,fHitTimeLimitsPositive);
 #ifdef VERBOSE_NLL
 			
-		if(verbose == 2) std::cout<<"NLL = "<<NLL<<", dir (L) = "<<TMath::Exp(-NLLdirBaye)<<", dir = "<<NLLdir<<std::endl;
+		if(VERBOSE>=2) std::cout<<"NLL = "<<NLL<<", dir (L) = "<<TMath::Exp(-NLLdir)<<", dir = "<<NLLdir<<std::endl;
 #endif
 		if(directionality == 1) NLL+=NLLdir;
 		else if(directionality == 2) NLL=NLLdir;
@@ -769,7 +790,7 @@ double BQFitter::FindNLL(std::vector<double> vertexPosition, int nhits, bool lik
 				proba = fSplineTimePDFQueue[pmtType]->Eval(residual);
 				//else proba = 1;//fSplineTimePDFQueue[pmtType]->Eval(residual);
 #ifdef VERBOSE_NLL
-				if(verbose==3){
+				if(VERBOSE>=3){
 					std::cout << "hit#"<<ihit<<", hit time =" << hitTime << ", vertex time = " << vertexPosition[3] << ", distance PMT vs vertex = " << distance << ", tof="<<tof<<std::endl;
 					std::cout<<"Residual="<<residual<<", proba="<<proba<<", pmt type="<<pmtType<<std::endl;
 				}
@@ -788,7 +809,7 @@ double BQFitter::FindNLL(std::vector<double> vertexPosition, int nhits, bool lik
 					proba*=Factor;
 					//And add again the DR
 					proba+=DR;
-					if(verbose==3) std::cout<<"proba after scaling="<<proba<<std::endl;
+					if(VERBOSE>=3) std::cout<<"proba after scaling="<<proba<<std::endl;
 				}
 			}
 			else if(killEdges && residual >= upperLimit){
@@ -796,7 +817,7 @@ double BQFitter::FindNLL(std::vector<double> vertexPosition, int nhits, bool lik
 				proba=fSplineTimePDFQueue[pmtType]->Eval(upperLimit);
 				//if(pmtType==1) proba/=1;
 #ifdef VERBOSE_NLL
-				if(verbose==3 && pmtType==1) std::cout<<"PMT type = "<< pmtType <<", Upper limit = "<<upperLimit<<", residual = "<<residual<<", proba = "<<proba<<std::endl;
+				if(VERBOSE>=3 && pmtType==1) std::cout<<"PMT type = "<< pmtType <<", Upper limit = "<<upperLimit<<", residual = "<<residual<<", proba = "<<proba<<std::endl;
 #endif
 			}
 			else if(killEdges && residual <= lowerLimit){
@@ -804,7 +825,7 @@ double BQFitter::FindNLL(std::vector<double> vertexPosition, int nhits, bool lik
 				proba=fSplineTimePDFQueue[pmtType]->Eval(lowerLimit);
 				//if(pmtType==1) proba/=1;
 #ifdef VERBOSE_NLL
-				if(verbose==3 && pmtType==1) std::cout<<"PMT type = "<< pmtType <<", Lower limit = "<<lowerLimit<<", residual = "<<residual<<", proba = "<<proba<<std::endl;
+				if(VERBOSE>=3 && pmtType==1) std::cout<<"PMT type = "<< pmtType <<", Lower limit = "<<lowerLimit<<", residual = "<<residual<<", proba = "<<proba<<std::endl;
 #endif
 			}
 			else{
@@ -819,7 +840,7 @@ double BQFitter::FindNLL(std::vector<double> vertexPosition, int nhits, bool lik
 			if(condition){
 				NLL++;//= fSplineTimePDFQueue[pmtType]->Eval(residual);
 #ifdef VERBOSE_NLL
-				if(verbose==3){
+				if(VERBOSE>=3){
 					std::cout<<"Residual="<<residual<<", pmt type="<<pmtType<<std::endl;
 					std::cout << "hit#"<<ihit<<", hit time =" << hitTime << ", vertex time = " << vertexPosition[3] << ", distance PMT vs vertex = " << distance << ", tof="<<tof<<std::endl;
 					std::cout<<"residual="<<residual<<", proba="<<proba<<std::endl;
@@ -850,7 +871,7 @@ double BQFitter::FindNLL(std::vector<double> vertexPosition, int nhits, bool lik
 		if(NLL!=0) NLL=-TMath::Log(NLL);
 		else NLL=1e15;
 	}
-	//if(verbose==2) cout<<"NLL="<<NLL<<endl;
+	//if(VERBOSE>=2) cout<<"NLL="<<NLL<<endl;
 	if(directionality!=0){
 		double NLLdir=0;
 		double NLLdir2=0;
@@ -862,7 +883,7 @@ double BQFitter::FindNLL(std::vector<double> vertexPosition, int nhits, bool lik
 			//NLLdir=findNLLDirectionalityBayes(vertexPosition, nhits, verbose,fHitTimeLimitsNegative,fHitTimeLimitsPositive);
 			NLLdir2=this->FindNLLDirectionality(vertexPosition, nhits, verbose,fHitTimeLimitsNegative,fHitTimeLimitsPositive);
 		}
-		if(verbose == 2) std::cout<<"NLL = "<<NLL<<", dir (L) = "<<TMath::Exp(-NLLdir)<<", dir 2 = "<<NLLdir2<<std::endl;
+		if(VERBOSE>=2) std::cout<<"NLL = "<<NLL<<", dir (L) = "<<TMath::Exp(-NLLdir)<<", dir 2 = "<<NLLdir2<<std::endl;
 		if(directionality == 1) NLL+=NLLdir2;
 		else if(directionality == 2) NLL=NLLdir2;
 	}
@@ -921,13 +942,13 @@ double BQFitter::FindNLLDirectionality(std::vector<double> vVtxPos, int nhits, i
 			}
 			NLL += -TMath::Log(proba);
       
-			if(verbose==3){
+			if(VERBOSE>=3){
 				//std::cout<<"PMT type="<<pmtType<< ", hit#"<<ihit<<", theta =" << vDirection[1] << ", proba="<<proba<<std::endl;
 				std::cout<<"PMT type="<<pmtType<< ", hit#"<<ihit<<", theta =" << theta << ", proba="<<proba<<std::endl;
 			}
 		}
 	}
-	if(verbose==2) std::cout<<"NLL directionnel="<<NLL<<std::endl;
+	if(VERBOSE>=2) std::cout<<"NLL directionnel="<<NLL<<std::endl;
 	return NLL;
 }
 /************************************************************************************************************************/
@@ -960,7 +981,7 @@ std::vector< std::vector<double> > BQFitter::SearchVertex(int nhits,int toleranc
 #ifdef CHECK_TO_TRUE_VTX
 		double distanceTrue= GetDistance(hPos.Vtx,fTrueVtxPos);
 #ifdef VERBOSE_VTX
-		if(verbose == 2) std::cout<<"time distance to true = "<< hPos.Vtx[3] - fTrueVtxPos[3] <<"ns, distance to true = " << distanceTrue << "m, "<<std::endl;
+		if(VERBOSE>=2) std::cout<<"time distance to true = "<< hPos.Vtx[3] - fTrueVtxPos[3] <<"ns, distance to true = " << distanceTrue << "m, "<<std::endl;
 #endif
 #endif
 		if ( likelihood ) 	hPos.NLL = this->FindNLL_Likelihood  (hPos.Vtx,nhits,lowerLimit,upperLimit,false,false,directionality);
@@ -1153,13 +1174,13 @@ std::vector< std::vector<double> > BQFitter::SearchVertexFine(std::vector< std::
 	for(int icand=0;icand<nCandidates;icand++){
 		if(verbose) std::cout<<"Candidate #"<<icand<<std::endl;
 		for(double time = initialVertex[icand][VTX_T] - limits[0]/fLightSpeed; time <= initialVertex[icand][VTX_T]+limits[0]/fLightSpeed; time+=(stepSize/fLightSpeed)){
-			if(verbose == 2) std::cout << "Time = " << time << "ns" << std::endl;
+			if(VERBOSE>=2) std::cout << "Time = " << time << "ns" << std::endl;
 			for(double x = initialVertex[icand][VTX_X] - limits[1]; x <= initialVertex[icand][VTX_X] + limits[1];x+=stepSize){
-				if(verbose == 2) std::cout << "x = " << x << "m" << std::endl;
+				if(VERBOSE>=2) std::cout << "x = " << x << "m" << std::endl;
 				for(double y = initialVertex[icand][VTX_Y] - limits[2]; y <= initialVertex[icand][VTX_Y] + limits[2];y+=stepSize){
-					if(verbose == 2) std::cout << "y = " << y << "m" << std::endl;
+					if(VERBOSE>=2) std::cout << "y = " << y << "m" << std::endl;
 					for(double z = initialVertex[icand][VTX_Z] - limits[3]; z <= initialVertex[icand][VTX_Z] + limits[3];z+=stepSize){
-						if(verbose == 2) std::cout << "z = " << z << "m" << std::endl;
+						if(VERBOSE>=2) std::cout << "z = " << z << "m" << std::endl;
 
 						std::vector<double> tVtxPosition(4,0.);//In centimeters
 						tVtxPosition[0] = x;//radius*TMath::Cos(angle);
@@ -1168,11 +1189,11 @@ std::vector< std::vector<double> > BQFitter::SearchVertexFine(std::vector< std::
 						tVtxPosition[3] = time;
 
 						double distanceTrue = GetDistance(tVtxPosition,fTrueVtxPos);
-						if(verbose == 2) std::cout<<"time distance to true = "<<tVtxPosition[3]-fTrueVtxPos[3]<<"ns, distance to true = "<<distanceTrue<<"m, "<<std::endl;
+						if(VERBOSE>=2) std::cout<<"time distance to true = "<<tVtxPosition[3]-fTrueVtxPos[3]<<"ns, distance to true = "<<distanceTrue<<"m, "<<std::endl;
 
 						double NLL=0;
 						if(average){
-							if(verbose==2) std::cout << std::endl << "Vertex timing = "<<tVtxPosition[3]-fTrueVtxPos[3]<<", (x,y,z)=("<<tVtxPosition[0]-fTrueVtxPos[0]<<","<<tVtxPosition[1]-fTrueVtxPos[1]<<","<<tVtxPosition[2]-fTrueVtxPos[2]<<")"<<std::endl;
+							if(VERBOSE>=2) std::cout << std::endl << "Vertex timing = "<<tVtxPosition[3]-fTrueVtxPos[3]<<", (x,y,z)=("<<tVtxPosition[0]-fTrueVtxPos[0]<<","<<tVtxPosition[1]-fTrueVtxPos[1]<<","<<tVtxPosition[2]-fTrueVtxPos[2]<<")"<<std::endl;
 							//double vNLL[fAveraging];
 							for(int irand=0;irand<fAveraging;irand++){
 								//Determine the position around the vertex
@@ -1189,7 +1210,7 @@ std::vector< std::vector<double> > BQFitter::SearchVertexFine(std::vector< std::
 								double nll=this->FindNLL(randVertexPosition,nhits,likelihood,verbose,lowerLimit,upperLimit,false,false,directionality);
 								//double nll=this->FindNLL(randVertexPosition,nhits,likelihood,verbose,lowerLimit,upperLimit);
 								//double nll=findRMS(iPMTConfiguration,randVertexPosition,fHitInfo,nhits,verbose,lowerLimit,upperLimit);
-								if(verbose==2) std::cout << "Randomized Vertex timing = "<<randVertexPosition[3]-fTrueVtxPos[3]<<", (x,y,z)=("<<randVertexPosition[0]-fTrueVtxPos[0]<<","<<randVertexPosition[1]-fTrueVtxPos[1]<<","<<randVertexPosition[2]-fTrueVtxPos[2]<<"), nll="<<nll<<std::endl;
+								if(VERBOSE>=2) std::cout << "Randomized Vertex timing = "<<randVertexPosition[3]-fTrueVtxPos[3]<<", (x,y,z)=("<<randVertexPosition[0]-fTrueVtxPos[0]<<","<<randVertexPosition[1]-fTrueVtxPos[1]<<","<<randVertexPosition[2]-fTrueVtxPos[2]<<"), nll="<<nll<<std::endl;
 								NLL+=nll;
 								//vNLL[irand]=nll;
 							}
@@ -1285,7 +1306,7 @@ std::vector< std::vector<double> > BQFitter::SearchVertexFine(std::vector< std::
 
 //here is the function where minimization gonna take place. The loop is inside this function
 std::vector< std::vector<double> > BQFitter::MinimizeVertex(std::vector< std::vector<double> > initialVertex,double * limits, double stepSize,int nhits,int nCandidates,int tolerance,int verbose,bool /*likelihood*/,bool /*average*/,double lowerLimit, double upperLimit, int directionality){
-	if(verbose==2) std::cout<<"Minimizer"<<std::endl;
+	if(VERBOSE>=2) std::cout<<"Minimizer"<<std::endl;
 	//2. How to set the search?
 	//double stepSize = 0.5;//in m
 	//double * reconstructedVertexPosition = new double[4];
@@ -1294,7 +1315,7 @@ std::vector< std::vector<double> > BQFitter::MinimizeVertex(std::vector< std::ve
 
 	std::vector<struct FitPosition>  tVtxContainer;
 
-	if(verbose==2) std::cout<<"Minimizer"<<std::endl;
+	if(VERBOSE>=2) std::cout<<"Minimizer"<<std::endl;
 	TFitter * minimizer = new TFitter(8);//4=nb de params?
 	TMinuit * minuit = minimizer->GetMinuit();
 	
@@ -2161,9 +2182,11 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 	int iHitsTotal = fHitInfo.size();
 	
 	int iPMTConfiguration = 0; // Normal PMT
+#ifndef WCSIM_wo_mPMT
 	if ( bHybrid ) {
 		iPMTConfiguration = 1; // Hybrid configuration
 	}
+#endif
 	
 	//Proceed to the fit.
 	double * tLimits = new double[4];
@@ -2229,7 +2252,7 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 			std::vector< std::vector<double> > tRecoVtxPos = this->SearchVertex_Main(iHitsTotal,iTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false/*fUseDirectionality*/);
 			
 						
-			if(VERBOSE==2){
+			if(VERBOSE>=2){
 				for(unsigned int a=0;a<tRecoVtxPos.size();a++) std::cout<<"Candidate vertex [ " << a << " ] = " <<tRecoVtxPos[a][0] << " , " << tRecoVtxPos[a][1] << " , " << tRecoVtxPos[a][2] << " , " << tRecoVtxPos[a][3] << std::endl;
 			}
 			timer.Stop();
@@ -2267,7 +2290,7 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 		    
 				//double ** tRecoVtxPosFine = this->SearchVertexFine(tRecoVtxPos,tLimits,dStepSizeFine,iHitsTotal,iTolerance,iToleranceFine,VERBOSE);
 				//double ** tRecoVtxPosFine = this->SearchVertexFine(tRecoVtxPos,tLimits,dStepSizeFine,iHitsTotal,iTolerance,iToleranceFine,VERBOSE,true,false,-100,500);
-				//if(VERBOSE == 2){
+				//if(VERBOSE>=2){
 					//for(int a=0;a<toleranceFine;a++) std::cout<<"Fine candidate vertex time = "<<tRecoVtxPosFine[a][0]<<std::endl;
 				//}
 				////////////////////////////////////////
@@ -2292,7 +2315,13 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 					for(int a=0; a<iToleranceFine3; a++) std::cout<<"Final candidate vertex time = "<<tRecoVtxPosFine3[a][0]<<", x = "<<tRecoVtxPosFine3[a][1]<<", y = "<<tRecoVtxPosFine3[a][2]<<", z="<<tRecoVtxPosFine3[a][3]<<std::endl;
 				}
 				//////////////////////////////////////////	
+				/*
+				// Actually not used anywhere, commeted on 2020/05/13 by Guillaume
 				fPDFNorm_fullTimeWindow = this->SplineIntegral(fSplineTimePDFQueue[iPMTConfiguration],fSTimePDFLimitsQueueNegative_fullTimeWindow,fSTimePDFLimitsQueuePositive_fullTimeWindow);
+				if(VERBOSE == 1){
+					std::cout << " fPDFNorm_fullTimeWindow " << fPDFNorm_fullTimeWindow << std::endl;
+				}
+				*/
 				for(int i=0;i<4;i++) tLimits[i] = 100;//dStepSizeFine2;//particleStart[i]*1e-2;//onversion to meter
 				//double ** fRecoVtxPosFinal = tRecoVtxPosFine3;//this->SearchVertexFine(,tLimits,dStepSizeFinal,iHitsTotal,iToleranceFine3,iToleranceFinal,VERBOSE,true,false);
 				//double ** fRecoVtxPosFinal = minimizeVertex(fTrueVtxPosDouble,tLimits,dStepSizeFinal,iHitsTotal,iToleranceFine3,iToleranceFinal,VERBOSE,true,false,-100,100);
@@ -2307,7 +2336,13 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 			
 				timer.Reset();
 				timer.Start();
+				/*
+				// Actually not used anywhere, commeted on 2020/05/13 by Guillaume
 				fPDFNorm_fullTimeWindow = this->SplineIntegral(fSplineTimePDFQueue[iPMTConfiguration],fSTimePDFLimitsQueueNegative_fullTimeWindow,fSTimePDFLimitsQueuePositive_fullTimeWindow);
+				if(VERBOSE == 1){
+					std::cout << " fPDFNorm_fullTimeWindow " << fPDFNorm_fullTimeWindow << std::endl;
+				}
+				*/
 				for(int i=0;i<4;i++) tLimits[i] = 2*dStepSize;
 				
 				//fRecoVtxPosFinal = this->MinimizeVertex(tRecoVtxPos,tLimits,dStepSizeFinal,iHitsTotal,iTolerance,iToleranceFinal,VERBOSE,true,false,fMinimizeLimitsNegative,fMinimizeLimitsPositive,fUseDirectionality);

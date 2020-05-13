@@ -35,10 +35,15 @@
 #include "TRandom3.h"
 #include "TSpline.h"
 
+// If using a WCSim version without mPMT implementation
+#define WCSIM_wo_mPMT
+
 #define VERBOSE 		0
+//#define VERBOSE_NLL
 
 // Verbose level in functions:
 #undef VERBOSE_VTX // In SearchVertex
+#undef VERBOSE_NLL
 
 #define NPMT_CONFIGURATION 	2
 //Different PMT config in an mPMT. I assumed here a rotational symetry of the mPMT, so PMT 1 to 12 are the same, 13 to 18 are the same and 19 is separated
@@ -125,6 +130,7 @@ class BQFitter/* : public TObject */{
 		void ResetHitInfo() { fHitInfo.clear(); }
 		void AddHit(double time, double charge, int pmtType, int tubeNumber) {
 		
+
 			// tubeNumber is from 1 to xxx in Hit array
 			// but from 0 to xxx -1 in PMT info
 			tubeNumber -= 1;
@@ -138,6 +144,12 @@ class BQFitter/* : public TObject */{
 				hHit.PMT = tubeNumber;
 			}
 			else { 		      // mPMT
+			
+#ifdef WCSIM_wo_mPMT
+				//Reject hit if it's not from a standard PMT
+				return;
+#endif
+
 				hHit.PMT = mPMT_ID_SHIFT + tubeNumber;
 			}
 			
