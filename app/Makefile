@@ -18,11 +18,11 @@ SRC= $(WCSIMDIR)/src
 
 CXXFLAGS += -I$(LIB) -I$(SRC) -I$(INC) 
 
-TARGET= FitVertexLE
+TARGET= FitVertexLE AnalyzeWSHierarchy
 
 all: $(TARGET)
 FitVertexLE: FitVertexLE.o
-
+AnalyzeWSHierarchy: AnalyzeWSHierarchy.o
 
 %: %.o
 	@echo "Now make $@"
