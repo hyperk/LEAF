@@ -310,10 +310,17 @@ void BQFitter::LoadPMTInfo() {
 	
 #ifdef WCSIM_wo_mPMT	
 	int iNbr_Norm = fWCGeo->GetWCNumPMT();
+	int iNbr_mPMT = 0;
 #else
 	int iNbr_Norm = fWCGeo->GetWCNumPMT(false);
 	int iNbr_mPMT = fWCGeo->GetWCNumPMT(true);
+	
+#ifdef BUG_WCGEO
+	iNbr_mPMT = iNbr_Norm;
+#endif	
 #endif
+	std::cout << " LEAF setting # PMT = " << iNbr_Norm << std::endl;
+	std::cout << " LEAF setting # mPMT = " << iNbr_mPMT << std::endl;
 	
 	fPMT_Info	.resize(MAX_PMT);
 	fPMT_Group	.assign(MAX_PMT,0);

@@ -36,7 +36,9 @@
 #include "TSpline.h"
 
 // If using a WCSim version without mPMT implementation
-#define WCSIM_wo_mPMT
+//#define WCSIM_wo_mPMT
+// If using a WCSim version with bugged number of PMT implementation
+#define BUG_WCGEO
 
 #define VERBOSE 		0
 //#define VERBOSE_NLL
