@@ -168,7 +168,8 @@ void BQFitter::LoadSplines() {
 		fSplines2 = new TFile("${LEAFDIR}/inputs/timePDF_Directionality_DRnew.root","read");//To generate with my code ProduceWSPlots.c
 	}
 	
-	// Prevent TGraph2D to be append to TFile
+	// Prevent TGraph2D to be append to TFile (this is needed as we are doing multiple copy of TGraph2D)
+	// For a strange reason sometimes the TGraph2D is see as a TH1 and stored in an open TFile
 	TH1::AddDirectory(false);
 
 	for(int pmtType=0;pmtType<NPMT_CONFIGURATION;pmtType++){
