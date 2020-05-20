@@ -29,11 +29,15 @@
 #include "TFile.h"
 #include "TFitter.h"
 #include "TH1D.h"
+#include "TH2D.h"
+#include "TGraph2D.h"
+#include "TF1.h"
 #include "TMath.h"
 #include "TMinuit.h"
 #include "TObject.h"
 #include "TRandom3.h"
 #include "TSpline.h"
+#include "TPaletteAxis.h"
 
 // If using a WCSim version without mPMT implementation
 //#define WCSIM_wo_mPMT
@@ -67,10 +71,15 @@
 
 #define GetPMTType(x)		x>=mPMT_ID_SHIFT?1:0
 #define GetDistance(a,b)	sqrt( (a[0]-b[0])*(a[0]-b[0]) + (a[1]-b[1])*(a[1]-b[1]) + (a[2]-b[2])*(a[2]-b[2]) )
+#define GetLength(a)		sqrt( (a[0]*a[0]) + (a[1]*a[1]) + (a[2]*a[2]) )
+#define GetScalarProd(a,b)	a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
 
 #define N_THREAD		30
 
 #define CNS2CM 			21.58333
+
+// mPMT Info:
+#define mPMT_TOP_ID		19
 
 std::mutex mtx;
 
@@ -179,6 +188,7 @@ class BQFitter/* : public TObject */{
 		void Init();
 		void LoadSplines();
 		void LoadPMTInfo();
+		void MakeMPMTReferencial(int iPMT);
 		void MakePositionList();
 		
 		double GetDistanceOld(std::vector<double> A, std::vector<double> B);
@@ -224,6 +234,8 @@ class BQFitter/* : public TObject */{
 						int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false,
 						double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true);
 
+		
+		void VectorVertexPMT( std::vector<double> vertex, int iPMT, double* dAngles );
 	// Variables:
 	private:
 	
@@ -276,11 +288,16 @@ class BQFitter/* : public TObject */{
 		static BQFitter* myFitter;
 
 		// Spline
-		TSpline3 * fSplineTimePDFQueue[NPMT_CONFIGURATION];
-		TSpline3 * fSplineTimePDFDarkRate[NPMT_CONFIGURATION];
+		TSpline3 *	fSplineTimePDFQueue[NPMT_CONFIGURATION];
+		TSpline3 *	fSplineTimePDFDarkRate[NPMT_CONFIGURATION];
 		
 		// Histo
-		TH1D * hPMTDirectionality_1D[NPMT_CONFIGURATION][NGROUP_PMT];
+		//TH1D * 	hPMTDirectionality_1D[NPMT_CONFIGURATION][NGROUP_PMT];
+		//TH2D * 	hPMTDirectionality_2D[NPMT_CONFIGURATION][NGROUP_PMT];
+		TGraph2D * 	gPMTDirectionality_2D[NPMT_CONFIGURATION][NGROUP_PMT];
+				
+		// TF1
+		TF1 * 		fDistResponsePMT[NPMT_CONFIGURATION];
 		
 		
 		double fDarkRate_dir_proba[NPMT_CONFIGURATION][NGROUP_PMT];
@@ -371,6 +388,13 @@ class BQFitter/* : public TObject */{
 		// 5 -> PMT DIR Z
 		std::vector<int> 			fPMT_Group; 
 		std::vector<int> 			fPMT_TubeInMPMT; 
+		
+		// mPMT Referencial
+		std::vector<int> 			fPMT_RefInMPMT; 
+		std::vector< std::vector<double> > 	fPMT_RefX;
+		std::vector< std::vector<double> > 	fPMT_RefY;
+		std::vector< std::vector<double> > 	fPMT_RefZ;
+		
 		
 		
 		double fLastLowerLimit;
