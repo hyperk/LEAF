@@ -204,6 +204,16 @@ BQFitter.o: BQFitter.cc /usr/include/stdc-predef.h BQFitter.hh \
  /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TVectorDfwd.h \
  /usr/lib/gcc/x86_64-redhat-linux/4.8.5/include/float.h \
  /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TFitResultPtr.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TH2D.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TH2.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TMatrixFBasefwd.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TMatrixDBasefwd.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TGraph2D.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TVirtualHistPainter.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TF1.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TFormula.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TBits.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/Math/ParamFunctor.h \
  /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TMath.h \
  /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TError.h \
  /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TMinuit.h \
@@ -211,4 +221,13 @@ BQFitter.o: BQFitter.cc /usr/include/stdc-predef.h BQFitter.hh \
  /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TRandom.h \
  /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TSpline.h \
  /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TGraph.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TPaletteAxis.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TPave.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TBox.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TAttBBox2D.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/GuiTypes.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TPoint.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TGaxis.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TLine.h \
+ /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TAttText.h \
  /usr/local/sklib_gcc4.8.5/root_v5.34.36/include/TStopwatch.h
