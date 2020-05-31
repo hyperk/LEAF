@@ -106,7 +106,7 @@ void BQFitter::Init() {
 
 	// Parameters
 	fStepByStep 					= false;
-	fUseDirectionality 				= true;
+	fUseDirectionality 				= false;
 	fHighEnergy					= false;
 	
 	// If true, we apply same cuts for timing as B&L PMT when searching vertex. 
@@ -124,8 +124,8 @@ void BQFitter::Init() {
 	fMinimizeLimitsNegative				= -700;
 	fMinimizeLimitsPositive				= 1000;
 	
-	fSearchVtxStep					= 300;
-	
+	fSearchVtxStep					= 300;//in cm, the step size for coarse grid search
+	fSearchVtxTolerance = 60;//Number of candidate vertex that are kept after coarse grid search	
 	fHitTimeLimitsNegative				= -5;//-10;//-5;//-5
 	fHitTimeLimitsPositive				= 7;//15;//7;//7
 	
@@ -212,18 +212,18 @@ void BQFitter::SetGeometry( WCSimRootGeom * wGeo, double dDarkRate_Normal, doubl
 	
 	fDarkRate_Normal = dDarkRate_Normal;
 	fDarkRate_mPMT   = dDarkRate_mPMT;
-	
+
 	if ( dDarkRate_Normal == 0 ) {
-#ifdef WCSIM_wo_mPMT	
-		fDarkRate_ns[0] = 8400.  * 2e4 * /*fWCGeo->GetWCNumPMT() */ 1e-9;
+#ifdef WCSIM_single_PMT_type	
+		fDarkRate_ns[0] = 4200.  * 2e4 * /*fWCGeo->GetWCNumPMT() */ 1e-9;
 		fDarkRate_ns[1] = 0;
 #else
-		fDarkRate_ns[0] = 8400.  * 2e4 * /*fWCGeo->GetWCNumPMT(false) */ 1e-9;
+		fDarkRate_ns[0] = 4200.  * 2e4 * /*fWCGeo->GetWCNumPMT(false) */ 1e-9;
 		fDarkRate_ns[1] = 100.   * 5e3 * /*fWCGeo->GetWCNumPMT(true ) */ 1e-9 * 19;
 #endif
 	}
 	else {	
-#ifdef WCSIM_wo_mPMT	
+#ifdef WCSIM_single_PMT_type	
 		fDarkRate_ns[0] = fDarkRate_Normal * fWCGeo->GetWCNumPMT() * 1e-9;
 		fDarkRate_ns[1] = 0;
 #else
@@ -308,7 +308,7 @@ void BQFitter::LoadPMTInfo() {
 		fPMT_TubeInMPMT[iPMT]   = 0;
 	}*/
 	
-#ifdef WCSIM_wo_mPMT	
+#ifdef WCSIM_single_PMT_type	
 	int iNbr_Norm = fWCGeo->GetWCNumPMT();
 #else
 	int iNbr_Norm = fWCGeo->GetWCNumPMT(false);
@@ -325,7 +325,7 @@ void BQFitter::LoadPMTInfo() {
 	// Normal PMTs
 	for ( int iPMT=0; iPMT < iNbr_Norm; iPMT++ ) {
 	
-#ifdef WCSIM_wo_mPMT	
+#ifdef WCSIM_single_PMT_type	
 		wPMT = fWCGeo->GetPMT(iPMT);
 #else
 		wPMT = fWCGeo->GetPMT(iPMT,false);
@@ -342,7 +342,7 @@ void BQFitter::LoadPMTInfo() {
 		fPMT_Info      [iPMT] = vPMT;
 	}
 	
-#ifndef WCSIM_wo_mPMT	
+#ifndef WCSIM_single_PMT_type	
 	// mPMTs
 	for ( int iPMT=0; iPMT < iNbr_mPMT; iPMT++ ) {
 	
@@ -719,20 +719,6 @@ double BQFitter::FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nh
 	if(NLL!=0) NLL=-TMath::Log(NLL);
 	else NLL=1e15;
 	
-	//if(VERBOSE>=2) cout<<"NLL="<<NLL<<endl;
-	if(directionality!=0){
-		//double NLLdirBaye=0;
-		double NLLdir=0;
-		
-		//NLLdirBaye=findNLLDirectionalityBayes(vertexPosition, nhits, verbose,fHitTimeLimitsNegative,fHitTimeLimitsPositive);
-		NLLdir=this->FindNLLDirectionality(vertexPosition, nhits, VERBOSE,fHitTimeLimitsNegative,fHitTimeLimitsPositive);
-#ifdef VERBOSE_NLL
-			
-		if(VERBOSE>=2) std::cout<<"NLL = "<<NLL<<", dir (L) = "<<TMath::Exp(-NLLdir)<<", dir = "<<NLLdir<<std::endl;
-#endif
-		if(directionality == 1) NLL+=NLLdir;
-		else if(directionality == 2) NLL=NLLdir;
-	}
 	
 	//std::cout<<"NLL="<<NLL<<std::endl;
 
@@ -971,7 +957,7 @@ std::vector< std::vector<double> > BQFitter::SearchVertex(int nhits,int toleranc
 	clock_t timeStart=clock();
 		
 	if ( fPositionList.size() == 0 ) std::cout << " Position list not filled " << std::endl;
-	
+	if(VERBOSE>=3) std::cout<<"Number of hits for coarse grid search = "<<nhits<<std::endl;
 	for ( unsigned int iPos = 0; iPos < fPositionList.size(); iPos++ ) {
 		
   		struct FitPosition hPos;
@@ -991,7 +977,7 @@ std::vector< std::vector<double> > BQFitter::SearchVertex(int nhits,int toleranc
 	  
 	  	tVtxContainer.push_back(hPos);
 	  	
-		//std::cout << "Test Pos: " << hPos.Vtx[3] << " " << hPos.Vtx[0] << " " << hPos.Vtx[1] << " " << hPos.Vtx[2] << " NLL = " << hPos.NLL << " " << likelihood << std::endl;
+		if(VERBOSE>=3) std::cout << "Test Pos: " << hPos.Vtx[3] << " " << hPos.Vtx[0] << " " << hPos.Vtx[1] << " " << hPos.Vtx[2] << " NLL = " << hPos.NLL << " " << likelihood << std::endl;
 					
 #ifdef VERBOSE_VTX
 		//if(verbose && distanceToTrue < 2) std::cout << "Distance to true vertex = " << distanceToTrue << ", Probability = " << NLL <<std::endl;
@@ -1108,7 +1094,7 @@ void BQFitter::SearchVertex_thread(
 	std::vector<struct FitPosition>  tVtxContainer;
 			
 	if ( fPositionList.size() == 0 ) std::cout << " Position list not filled " << std::endl;
-	
+	if(VERBOSE>=3) std::cout<<"Number of hits for coarse grid search = "<<nhits<<std::endl;	
 	int iEnd = (iIte+iStart);
 	if ( iEnd > (int) fPositionList.size() ) iEnd = fPositionList.size();
 	
@@ -1123,7 +1109,7 @@ void BQFitter::SearchVertex_thread(
 		else 			hPos.NLL = this->FindNLL_NoLikelihood(hPos.Vtx,nhits,lowerLimit,upperLimit,false,false,directionality);
 		
 		//std::cout << " Thread3 " << iPos << " " << iPos-iStart << " " << iEnd <<  std::endl;	
-		hPos.NLL += fRand->Uniform(0,1e-5);//Here only not to have exactly the same value for 2NLL, and be removed from map
+		//hPos.NLL += fRand->Uniform(0,1e-5);//Here only not to have exactly the same value for 2NLL, and be removed from map
 	  
 	  	tVtxContainer.push_back(hPos);
 	}
@@ -1146,7 +1132,6 @@ void BQFitter::SearchVertex_thread(
 		vPos[2] = hPos.Vtx[2];
 		vPos[3] = hPos.Vtx[3];
 		vPos[4] = hPos.NLL;
-		
 		fThreadOutput.push_back(vPos);
 	}
 	mtx.unlock();
@@ -1325,7 +1310,10 @@ std::vector< std::vector<double> > BQFitter::MinimizeVertex(std::vector< std::ve
 	double p1=verbose-1;
 	minimizer->ExecuteCommand("SET PRINTOUT",&p1,1);//quiet mode
 	minuit->SetErrorDef(1);
-	minuit->SetPrintLevel(-1); // quiet mode
+	//minuit->SetPrintLevel(-1); // quiet mode
+	if(VERBOSE<2){
+	  minuit->mnexcm("SET NOWarnings",0,0,err);
+	}
 	arglist[0]=2;
 	minuit->mnexcm("SET STR",arglist,1,err);//set strategy sets the number of derivative estimated. in the present case (2), this is the highest number of it with a counter-balance: very slow!
 	minimizer->SetFCN(MinuitLikelihood);//here is function to minimize
@@ -1451,6 +1439,8 @@ std::vector< std::vector<double> > BQFitter::MinimizeVertex(std::vector< std::ve
 		if(verbose>=1) std::cout<<"NLL="<<hPos.NLL<<std::endl;
 #endif
 		tVtxContainer.push_back(hPos);
+
+		if(VERBOSE>=2) std::cout<<"Initial vertex position = "<<initialVertex[icand][0]<<","<<initialVertex[icand][1]<<","<<initialVertex[icand][2]<<","<<initialVertex[icand][3]<<", Candidate vertex position = ("<<tCandRecoVtxPos[0]<<","<<tCandRecoVtxPos[1]<<","<<tCandRecoVtxPos[2]<<","<<tCandRecoVtxPos[3]<<", NLL = "<<fmin<<std::endl;
 	}	 
 	 
 	std::sort(tVtxContainer.begin(),tVtxContainer.end(),SortingNLL());
@@ -1568,7 +1558,10 @@ void BQFitter::MinimizeVertex_thread(
 	double p1=verbose-1;
 	minimizer->ExecuteCommand("SET PRINTOUT",&p1,1);//quiet mode
 	minuit->SetErrorDef(1);
-	minuit->SetPrintLevel(-1); // quiet mode
+	//minuit->SetPrintLevel(verbose-1); // quiet mode
+	if(VERBOSE<2){
+	  minuit->mnexcm("SET NOWarnings",0,0,err);
+	}
 	arglist[0]=2;
 	minuit->mnexcm("SET STR",arglist,1,err);//set strategy sets the number of derivative estimated. in the present case (2), this is the highest number of it with a counter-balance: very slow!
 	minimizer->SetFCN(MinuitLikelihood);//here is function to minimize
@@ -1636,6 +1629,7 @@ void BQFitter::MinimizeVertex_thread(
 		hPos.NLL = fmin;
 		
 		tVtxContainer.push_back(hPos);
+		if(VERBOSE>=2) std::cout<<"Initial vertex position = "<<initialVertex[icand][0]<<","<<initialVertex[icand][1]<<","<<initialVertex[icand][2]<<","<<initialVertex[icand][3]<<", Candidate vertex position = ("<<tCandRecoVtxPos[0]<<","<<tCandRecoVtxPos[1]<<","<<tCandRecoVtxPos[2]<<","<<tCandRecoVtxPos[3]<<", NLL = "<<fmin<<std::endl;
 	}	 
 	 
 	std::sort(tVtxContainer.begin(),tVtxContainer.end(),SortingNLL());
@@ -2182,7 +2176,7 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 	int iHitsTotal = fHitInfo.size();
 	
 	int iPMTConfiguration = 0; // Normal PMT
-#ifndef WCSIM_wo_mPMT
+#ifndef WCSIM_single_PMT_type
 	if ( bHybrid ) {
 		iPMTConfiguration = 1; // Hybrid configuration
 	}
@@ -2246,14 +2240,13 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 				
 			//2.a. Coarse vertex search from scratch
 			double dStepSize=fSearchVtxStep;//in centimeters
-			int iTolerance=60;//30
-			
+			int iTolerance=fSearchVtxTolerance;//30
 			//std::vector< std::vector<double> > tRecoVtxPos = this->SearchVertex(iHitsTotal,iTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false/*fUseDirectionality*/);
 			std::vector< std::vector<double> > tRecoVtxPos = this->SearchVertex_Main(iHitsTotal,iTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false/*fUseDirectionality*/);
 			
 						
 			if(VERBOSE>=2){
-				for(unsigned int a=0;a<tRecoVtxPos.size();a++) std::cout<<"Candidate vertex [ " << a << " ] = " <<tRecoVtxPos[a][0] << " , " << tRecoVtxPos[a][1] << " , " << tRecoVtxPos[a][2] << " , " << tRecoVtxPos[a][3] << std::endl;
+			  for(unsigned int a=0;a<tRecoVtxPos.size();a++) std::cout<<"Candidate vertex [ " << a << " ] = " <<tRecoVtxPos[a][0] << " , " << tRecoVtxPos[a][1] << " , " << tRecoVtxPos[a][2] << " , " << tRecoVtxPos[a][3] << ", NLL = "<< tRecoVtxPos[a][4] << std::endl;
 			}
 			timer.Stop();
 			//std::cout << "SearchVertex took: " << timer.RealTime() << std::endl;
@@ -2276,7 +2269,10 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 				dDist2True=TMath::Sqrt(dDist2True);
 				if(dDist2True < 2*dStepSize && dTime2True < 2*dStepSize/fLightSpeed) bTrueIncluded=true;
 			}
-			if(!bTrueIncluded) continue;
+			if(!bTrueIncluded){
+			  if(VERBOSE>=2) std::cout<<"Coarse vertex #"<<a<<" is killed"<<std::endl;
+			  continue;
+			}
 #endif
 		
 			double dStepSizeFinal=10;
@@ -2326,7 +2322,7 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 				//double ** fRecoVtxPosFinal = tRecoVtxPosFine3;//this->SearchVertexFine(,tLimits,dStepSizeFinal,iHitsTotal,iToleranceFine3,iToleranceFinal,VERBOSE,true,false);
 				//double ** fRecoVtxPosFinal = minimizeVertex(fTrueVtxPosDouble,tLimits,dStepSizeFinal,iHitsTotal,iToleranceFine3,iToleranceFinal,VERBOSE,true,false,-100,100);
 				fRecoVtxPosFinal = this->MinimizeVertex(tRecoVtxPosFine3,tLimits,dStepSizeFinal,iHitsTotal,iToleranceFine3,iToleranceFinal,VERBOSE,true,false,fMinimizeLimitsNegative,fMinimizeLimitsPositive,fUseDirectionality);
-				if(VERBOSE == 1){
+				if(VERBOSE >= 1){
 					for(int a=0;a<iToleranceFinal;a++){
 						std::cout<<"Final candidate vertex time = "<<fRecoVtxPosFinal[a][0]<<", x = "<<fRecoVtxPosFinal[a][1]<<", y = "<<fRecoVtxPosFinal[a][2]<<", z="<<fRecoVtxPosFinal[a][3]<<std::endl;
 					}
@@ -2357,10 +2353,26 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 				//if(VERBOSE == 1){
 				//	for(int a=0;a<iToleranceFinal;a++) std::cout<<"Final candidate vertex time = "<<fRecoVtxPosFinal[a][0]<<", x = "<<fRecoVtxPosFinal[a][1]<<", y = "<<fRecoVtxPosFinal[a][2]<<", z="<<fRecoVtxPosFinal[a][3]<<std::endl;
 				//}
+				if(VERBOSE >= 1){
+				  for(int a=0;a<iToleranceFinal;a++){
+				    double dT2True=0;
+				    double dD2True=0;
+				    for(int j=0;j<4;j++){
+				      if(j==3) dT2True = fRecoVtxPosFinal[a][j]-fTrueVtxPos[j];
+				      else{
+					//std::cout<<"Distance in "<<j<<" is ="<<fRecoVtxPosFinal[a][j]<<","<<fTrueVtxPos[j]<<std::endl;
+					//std::cout<<"Distance in "<<j<<" is ="<<pow(tRecoVtxPosFine3[a][j]-fTrueVtxPos[j],2)<<std::endl;
+					dD2True+=(fRecoVtxPosFinal[a][j]-fTrueVtxPos[j])*(fRecoVtxPosFinal[a][j]-fTrueVtxPos[j]);
+				      }
+				    }
+				    dD2True=TMath::Sqrt(dD2True);
+				    std::cout<<"Final candidate vertex time = "<<fRecoVtxPosFinal[a][0]<<", x = "<<fRecoVtxPosFinal[a][1]<<", y = "<<fRecoVtxPosFinal[a][2]<<", z="<<fRecoVtxPosFinal[a][3]<<", Vertex found has a time difference of "<<dT2True<<"ns and a distance of "<<dD2True<<std::endl;
+				  }
+				}
 				timer.Stop();
 				//std::cout << "Minimizer took: " << timer.RealTime() << std::endl;
 			}
-
+			
 		/*
 			//Bonus:
 			//double dStepSizeFinal=20;
@@ -2396,7 +2408,7 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 
 		  
 			// Bonus: Probe the NLL space near the true vertex:
-			if(bFirstEvent){
+			if(true){
 				for(int i=0;i<4;i++) tLimits[i] = 2000;//dStepSizeFineFine;//particleStart[i]*1e-2;//onversion to meter
 				double dStepSizeTrue=500;
 				int iToleranceTrue=200;

@@ -36,10 +36,12 @@
 #include "TSpline.h"
 
 // If using a WCSim version without mPMT implementation
-#define WCSIM_wo_mPMT
+#define WCSIM_single_PMT_type
 
 #define VERBOSE 		0
+//#define CHECK_TO_TRUE_VTX
 //#define VERBOSE_NLL
+//#define VERBOSE_WARNINGMINUIT
 
 // Verbose level in functions:
 #undef VERBOSE_VTX // In SearchVertex
@@ -145,7 +147,7 @@ class BQFitter/* : public TObject */{
 			}
 			else { 		      // mPMT
 			
-#ifdef WCSIM_wo_mPMT
+#ifdef WCSIM_single_PMT_type
 				//Reject hit if it's not from a standard PMT
 				return;
 #endif
@@ -302,7 +304,6 @@ class BQFitter/* : public TObject */{
 		double fTankHeight;
 		double fTankHalfHeight;
 		double fLightSpeed;
-		double fSearchVtxStep;
 		
 		// Fitter parameters:
 		double fIntegrationTimeWindow;
@@ -311,6 +312,8 @@ class BQFitter/* : public TObject */{
 		bool   fLimit_mPMT;
 		int    fAveraging;
 		bool   fHighEnergy;
+		double fSearchVtxStep;
+		double fSearchVtxTolerance;
 		
 		// WCSim objects:
 		WCSimRootGeom * fWCGeo;
