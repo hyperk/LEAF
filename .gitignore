@@ -2,3 +2,4 @@
 app/FitVertexLE
 *.swp
 *.o
+.depend
