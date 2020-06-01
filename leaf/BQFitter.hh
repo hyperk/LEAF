@@ -76,7 +76,7 @@
 #define GetLength(a)		sqrt( (a[0]*a[0]) + (a[1]*a[1]) + (a[2]*a[2]) )
 #define GetScalarProd(a,b)	a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
 
-#define N_THREAD		30
+#define N_THREAD		12
 
 #define CNS2CM 			21.58333
 
@@ -109,6 +109,7 @@ class BQFitter/* : public TObject */{
 		
 		void SetGeometry( WCSimRootGeom * wGeo, double dDarkRate_Normal=8.4, double dDarkRate_mPMT=100. );
 		void SetTrueVertexInfo(std::vector<double> vtx, double time);
+		void SetNThread(int iThread=N_THREAD) { fThread=iThread; }
 		
 		struct FitterOutput {
 		
@@ -374,6 +375,7 @@ class BQFitter/* : public TObject */{
 		std::vector< PMTHitExt > fInTime20;
 		std::vector< PMTHitExt > fInTime30;
 		std::vector< PMTHitExt > fInTime50;
+		std::vector< PMTHitExt > fHitExtInfo;
 		
 		// Random generator
 		TRandom3 * fRand;
@@ -403,6 +405,8 @@ class BQFitter/* : public TObject */{
 		double fLastLowerLimit;
 		double fLastUpperLimit;
 		struct EventInfo fEventInfo[NPMT_CONFIGURATION];
+		
+		int fThread;
 		
 		std::vector< std::vector<double> > fPositionList;
 		
@@ -450,6 +454,8 @@ class BQFitter/* : public TObject */{
 		// if Simple = true, energy is needed
 		std::vector<double> GetDirection(double dEnergy, std::vector<PMTHitExt> tInTime, bool bSimple, double dCutOff);
 		
+		// Return Bonsai-like goodness of fit
+		double GoodnessBonsai();
 		
 		void MakeAnalysis(int iType);
 

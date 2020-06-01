@@ -242,6 +242,9 @@ int main(int argc, char** argv){
 	std::cout << " ID " << nPMT_ID << std::endl;
 	std::cout << " mPMT " << nMultPMT << std::endl;
 
+	// Threading is not supported on Sukap jobs
+	// On sukap machine 10 cores is the maximum allowed (12 thread allow to use about 10 cores at maximum)
+	BQFitter::GetME()->SetNThread(12);
 	BQFitter::GetME()->SetGeometry(fGeometry,dDarkNoise * 1e3,dDarkNoiseHybrid * 1e3);
 
 #ifdef BONSAI
