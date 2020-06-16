@@ -3,3 +3,4 @@ app/FitVertexLE
 *.swp
 *.o
 .depend
+lib/

@@ -27,6 +27,9 @@ all: .depend ../lib/libBQFitter.so
 
 # library
 ../lib/libBQFitter.so: BQFitter.o 
+	@if [ ! -d ../lib ]; then \
+		mkdir ../lib; \
+	fi
 
 #$(DICT).o
 	@echo '<< generating ../lib/libBQFitter.so >>'
