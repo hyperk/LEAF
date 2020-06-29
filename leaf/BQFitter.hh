@@ -40,9 +40,9 @@
 #include "TPaletteAxis.h"
 
 // If using a WCSim version without mPMT implementation
-#define WCSIM_single_PMT_type
+//#define WCSIM_single_PMT_type
 // If using a WCSim version with bugged number of PMT implementation
-#define BUG_WCGEO
+//#define BUG_WCGEO
 
 #define VERBOSE 		0
 //#define CHECK_TO_TRUE_VTX
@@ -76,14 +76,14 @@
 #define GetLength(a)		sqrt( (a[0]*a[0]) + (a[1]*a[1]) + (a[2]*a[2]) )
 #define GetScalarProd(a,b)	a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
 
-#define N_THREAD		12
+#define N_THREAD		1//12
 
 #define CNS2CM 			21.58333
 
 // mPMT Info:
 #define mPMT_TOP_ID		19
 
-std::mutex mtx;
+extern std::mutex mtx;
 
 // Likelihood:
 void MinuitLikelihood(int& nDim, double * gout, double & NLL, double par[], int flg);
@@ -96,7 +96,7 @@ void SearchVertex_CallThread(
 			int iStart, int iIte,
 			int nhits,int tolerance,bool likelihood,double lowerLimit, double upperLimit,int directionality);
 
-bool SortOutputVector ( const std::vector<double>& v1, const std::vector<double>& v2 ) { 
+inline bool SortOutputVector ( const std::vector<double>& v1, const std::vector<double>& v2 ) { 
 	return v1[4] < v2[4]; 
 } 
 		
