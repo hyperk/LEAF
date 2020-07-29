@@ -71,7 +71,7 @@
 #define VTX_Z			2
 #define VTX_T			3
 
-#define GetPMTType(x)		x>=mPMT_ID_SHIFT?1:0
+#define GetPMTType(x)		(x>=mPMT_ID_SHIFT?1:0)
 #define GetDistance(a,b)	sqrt( (a[0]-b[0])*(a[0]-b[0]) + (a[1]-b[1])*(a[1]-b[1]) + (a[2]-b[2])*(a[2]-b[2]) )
 #define GetLength(a)		sqrt( (a[0]*a[0]) + (a[1]*a[1]) + (a[2]*a[2]) )
 #define GetScalarProd(a,b)	a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
@@ -96,7 +96,7 @@ void SearchVertex_CallThread(
 			int iStart, int iIte,
 			int nhits,int tolerance,bool likelihood,double lowerLimit, double upperLimit,int directionality);
 
-bool SortOutputVector ( const std::vector<double>& v1, const std::vector<double>& v2 ) { 
+inline bool SortOutputVector ( const std::vector<double>& v1, const std::vector<double>& v2 ) { 
 	return v1[4] < v2[4]; 
 } 
 		
