@@ -76,14 +76,14 @@
 #define GetLength(a)		sqrt( (a[0]*a[0]) + (a[1]*a[1]) + (a[2]*a[2]) )
 #define GetScalarProd(a,b)	a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
 
-#define N_THREAD		1//12
+#define N_THREAD		12
 
 #define CNS2CM 			21.58333
 
 // mPMT Info:
 #define mPMT_TOP_ID		19
 
-extern std::mutex mtx;
+std::mutex mtx;
 
 // Likelihood:
 void MinuitLikelihood(int& nDim, double * gout, double & NLL, double par[], int flg);
