@@ -13,7 +13,6 @@ double BQFitter::fSTimePDFLimitsQueueNegative = 0;
 double BQFitter::fSTimePDFLimitsQueuePositive = 0;
 BQFitter* BQFitter::myFitter=NULL;
 
-
 /************************************************************************************************************************/
 
 void MinuitLikelihood(int& /*nDim*/, double * /*gout*/, double & NLL, double par[], int /*flg*/){

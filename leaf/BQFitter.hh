@@ -40,9 +40,9 @@
 #include "TPaletteAxis.h"
 
 // If using a WCSim version without mPMT implementation
-//#define WCSIM_single_PMT_type
+#define WCSIM_single_PMT_type
 // If using a WCSim version with bugged number of PMT implementation
-//#define BUG_WCGEO
+#define BUG_WCGEO
 
 #define VERBOSE 		0
 //#define CHECK_TO_TRUE_VTX
