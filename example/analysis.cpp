@@ -25,6 +25,8 @@
 #include "WCSimEnumerations.hh"
 
 #include "BQFitter.hh"	
+#include "HKManager.hh"	
+#include "HKAstroAnalysis.hh"	
 #include "WCSimBonsai.hh"
 
 #define OLD_WCSIM // To be used if WCSim version is older than 1.8 (i.e. without multi vertex)
@@ -224,12 +226,13 @@ int main(int argc, char** argv){
 #ifdef OD_ON
 	int   nPMT_OD = fGeometry->GetODWCNumPMT();
 #endif
-	int   nMultPMT = fGeometry->GetWCNumPMT(true);
+	int   nMultPMT = 0;//fGeometry->GetWCNumPMT(true);
+	// TODO solve this issue!
 	
 	std::cout << " ID " << nPMT_ID << std::endl;
 	std::cout << " mPMT " << nMultPMT << std::endl;
 	
-	BQFitter::GetME()->SetGeometry(fGeometry,dDarkNoise * 1e3,dDarkNoiseHybrid * 1e3);
+	HKManager::GetME()->SetGeometry(fGeometry,dDarkNoise * 1e3,dDarkNoiseHybrid * 1e3);
 
 	// Initialize Bonsai
 	WCSimBonsai* fBonsai = new WCSimBonsai();
@@ -247,7 +250,7 @@ int main(int argc, char** argv){
 	for(int i=0; i < nPrimaryEvents; i++){ 
 	
 		// Reset Hit vector
-		BQFitter::GetME()->ResetHitInfo();
+		HKManager::GetME()->ResetHitInfo();
 		
 		if ( i%1000==0 ) {
 			timer.Stop();
@@ -432,6 +435,22 @@ int main(int argc, char** argv){
 			//}
 			
 			fBonsai->BonsaiFit( bsvertex, bsresult, bsgood, bsnsel, bsnhit, bsCAB, bsT, bsQ);
+			
+			// Example:
+			HKAstroAnalysis::GetME()->SetVertex(bs_vertex);
+			HKAstroAnalysis::GetME()->MakeAnalysis();
+			/*
+			
+				wall  		= HKAstroAnalysis::GetME()->ComputeDistanceFromWall();
+			  	n50 		= HKAstroAnalysis::GetME()->Getn50();
+				dirKS 		= HKAstroAnalysis::GetME()->GetdirKS();
+				dir_X		= HKAstroAnalysis::GetME()->Getdir_Simple()[0];
+				dir_Y		= HKAstroAnalysis::GetME()->Getdir_Simple()[1];
+				dir_Z		= HKAstroAnalysis::GetME()->Getdir_Simple()[2];
+				dir_Good	= HKAstroAnalysis::GetME()->Getdir_Simple()[3];
+				good		= HKAstroAnalysis::GetME()->GoodnessBonsai();
+			
+			*/
 			
 			bs_vertex[0] = bsvertex[0];
 			bs_vertex[1] = bsvertex[1];
@@ -689,7 +708,7 @@ bool AnalyseEvent(WCSimRootEvent * tEvent, int iEventType) {
 
 			//std::cout << " Add Hit with " << digithit_pmtId[iDigitHit] << " Hybrid: " << iHybrid << std::endl;
 			if ( digithit_pmtId[iDigitHit] <= 0 ) std::cout << " Weird PMT ID " << digithit_pmtId[iDigitHit] << std::endl;
-			BQFitter::GetME()->AddHit(digithit_T[iDigitHit],digithit_Q[iDigitHit],iHybrid,digithit_pmtId[iDigitHit]);
+			HKManager::GetME()->AddHit(digithit_T[iDigitHit],digithit_Q[iDigitHit],iHybrid,digithit_pmtId[iDigitHit]);
 
 			// Bonsai (do not store mPMT hits)
 			if ( iIdx_BS < 2000 && digithit_T[iDigitHit] < 4000. && digithit_T[iDigitHit] > -4000. && iHybrid == 0 ) {

@@ -13,6 +13,8 @@ double BQFitter::fSTimePDFLimitsQueueNegative = 0;
 double BQFitter::fSTimePDFLimitsQueuePositive = 0;
 BQFitter* BQFitter::myFitter=NULL;
 
+std::mutex mtx;
+
 /************************************************************************************************************************/
 
 void MinuitLikelihood(int& /*nDim*/, double * /*gout*/, double & NLL, double par[], int /*flg*/){
@@ -78,15 +80,10 @@ BQFitter::BQFitter() {
 	fThread  = N_THREAD;
 	this->Init();
 
+	myManager = HKManager::GetME();
 }
 
 BQFitter::~BQFitter() {
-
-
-	//fPMT_TubeInMPMT.clear();
-	//fPMT_Group.clear();
-	//fPMT_Info.clear();
-	fHitInfo.clear();
 	
 	fTrueVtxPosDouble.clear();
 	delete fRand;
@@ -152,6 +149,8 @@ void BQFitter::Init() {
 	
 	this->LoadSplines();
 
+	// Make position lists
+      	this->MakePositionList();
 }
 
 
@@ -213,58 +212,6 @@ void BQFitter::LoadSplines() {
 	}
 }
 
-void BQFitter::SetGeometry( WCSimRootGeom * wGeo, double dDarkRate_Normal, double dDarkRate_mPMT ) {
-
-	// Keep RootGeometry event:
-	fWCGeo = wGeo;
-	
-	// Read important variables:
-	fTankRadius = fWCGeo->GetWCCylRadius(); //Conversion from cm to m removed
-	fTankHeight = fWCGeo->GetWCCylLength(); //Conversion from cm to m removed
-	fTankHalfHeight = fTankHeight / 2.;
-	
-	fDarkRate_Normal = dDarkRate_Normal;
-	fDarkRate_mPMT   = dDarkRate_mPMT;
-
-	if ( dDarkRate_Normal == 0 ) {
-#ifdef WCSIM_single_PMT_type	
-		fDarkRate_ns[0] = 4200.  * 2e4 * /*fWCGeo->GetWCNumPMT() */ 1e-9;
-		fDarkRate_ns[1] = 0;
-#else
-		fDarkRate_ns[0] = 8400.  * 2e4 * /*fWCGeo->GetWCNumPMT(false) */ 1e-9;
-		fDarkRate_ns[1] = 100.   * 5e3 * /*fWCGeo->GetWCNumPMT(true ) */ 1e-9 * mPMT_TOP_ID;
-#endif
-	}
-	else {	
-#ifdef WCSIM_single_PMT_type	
-		fDarkRate_ns[0] = fDarkRate_Normal * fWCGeo->GetWCNumPMT() * 1e-9;
-		fDarkRate_ns[1] = 0;
-#else
-
-		int iNbr_Norm = fWCGeo->GetWCNumPMT(false);
-		int iNbr_mPMT = fWCGeo->GetWCNumPMT(true );
-#ifdef BUG_WCGEO
-		if ( iNbr_Norm > 40e3 ) {
-			iNbr_mPMT = iNbr_Norm;
-		}
-		else {
-			// Likely no mPMT (or maybe correct output)
-			iNbr_mPMT = fWCGeo->GetWCNumPMT(true);
-		}
-#endif	
-
-		fDarkRate_ns[0] = fDarkRate_Normal * iNbr_Norm * 1e-9;
-		fDarkRate_ns[1] = fDarkRate_mPMT   * iNbr_mPMT * 1e-9 * mPMT_TOP_ID;
-#endif
-	}
-	
-	this->LoadPMTInfo();
-	this->LoadDirConstant();
-	
-	// Make position lists
-      	this->MakePositionList();
-}
-
 void BQFitter::SetTrueVertexInfo(std::vector<double> vtx, double time) {
 
 	fTrueVtxPosDouble.clear();
@@ -280,267 +227,6 @@ void BQFitter::SetTrueVertexInfo(std::vector<double> vtx, double time) {
 	
 	fTrueVtxPosDouble.push_back(fTrueVtxPos);
 }
-
-/************************************************************************************************************************/
-// Geometry functions:
-
-void CrossProduct( double* a, double* b, double* c ) {
-	c[0] = a[1]*b[2]-a[2]*b[1];
-	c[1] = a[2]*b[0]-a[0]*b[2];
-	c[2] = a[0]*b[1]-a[1]*b[0];
-} 
-
-void Normalize( double* a ) {
-
-	double dL = GetLength(a);
-	
-	a[0] /= dL;
-	a[1] /= dL;
-	a[2] /= dL;
-} 
-
-double BQFitter::GroupPMTs(int pmtType, int pmt_number) {
-	if(pmtType==0) 			return 0;
-	else{
-		if(pmt_number<=12) 	return 0;
-		else if(pmt_number<=18) return 1;
-		else 			return NGROUP_PMT - 1;
-	}
-}
-
-void BQFitter::LoadPMTInfo() {
-
-	// clear
-	fPMT_TubeInMPMT.clear();
-	fPMT_Group.clear();
-	fPMT_Info.clear();
-	/*
-	for ( int iPMT=0; iPMT < MAX_PMT; iPMT++ ) {
-		fPMT_Info[iPMT][0] 	= 0;
-		fPMT_Info[iPMT][1] 	= 0;
-		fPMT_Info[iPMT][2]	= 0;
-		fPMT_Info[iPMT][3] 	= 0;
-		fPMT_Info[iPMT][4]	= 0;
-		fPMT_Info[iPMT][5]	= 0;
-		
-		fPMT_Group[iPMT]	= 0;
-		fPMT_TubeInMPMT[iPMT]   = 0;
-	}*/
-	
-#ifdef WCSIM_single_PMT_type	
-	int iNbr_Norm = fWCGeo->GetWCNumPMT();
-	int iNbr_mPMT = 0;
-#else
-	int iNbr_Norm = fWCGeo->GetWCNumPMT(false);
-	int iNbr_mPMT = fWCGeo->GetWCNumPMT(true);
-	
-	
-#ifdef BUG_WCGEO
-	if ( iNbr_mPMT == iNbr_Norm ) {
-		iNbr_mPMT = 0;
-	}
-	
-	if ( iNbr_Norm > 40e3 ) {
-		iNbr_mPMT = iNbr_Norm;
-	}
-	else {
-		// Likely no mPMT (or maybe correct output)
-	}
-	
-#endif	
-#endif
-	std::cout << " LEAF setting # PMT = " << iNbr_Norm << std::endl;
-	std::cout << " LEAF setting # mPMT = " << iNbr_mPMT << std::endl;
-	
-	fPMT_Info	.resize(MAX_PMT);
-	fPMT_Group	.assign(MAX_PMT,0);
-	fPMT_TubeInMPMT	.assign(MAX_PMT,0);
-	fPMT_RefX	.resize(MAX_PMT);
-	fPMT_RefY	.resize(MAX_PMT);
-	fPMT_RefZ	.resize(MAX_PMT);
-	fPMT_RefInMPMT	.assign(MAX_PMT,0);
-	
-	
-	WCSimRootPMT wPMT;
-	
-	// Normal PMTs
-	for ( int iPMT=0; iPMT < iNbr_Norm; iPMT++ ) {
-	
-#ifdef WCSIM_single_PMT_type	
-		wPMT = fWCGeo->GetPMT(iPMT);
-#else
-		wPMT = fWCGeo->GetPMT(iPMT,false);
-#endif
-		std::vector<double> vPMT(6,0);
-		
-		for ( int j=0; j < 3; j++ ) {
-			vPMT[j  ] = wPMT.GetPosition(j);
-			vPMT[j+3] = wPMT.GetOrientation(j);
-		}
-		
-		fPMT_TubeInMPMT[iPMT] = 0;
-		fPMT_Group     [iPMT] = 0;
-		fPMT_Info      [iPMT] = vPMT;
-		
-		fPMT_RefInMPMT [iPMT] = 0;
-	}
-	
-#ifndef WCSIM_single_PMT_type	
-	// mPMTs
-	for ( int iPMT=0; iPMT < iNbr_mPMT; iPMT++ ) {
-	
-		wPMT = fWCGeo->GetPMT(iPMT,true);
-		
-		std::vector<double> vPMT(6,0);
-		
-		for ( int j=0; j < 3; j++ ) {
-			vPMT[j  ] = wPMT.GetPosition(j);
-			vPMT[j+3] = wPMT.GetOrientation(j);
-		}
-		
-		int iNewID = iPMT+mPMT_ID_SHIFT;
-		
-		int iPMTNo = wPMT.GetmPMT_PMTNo();
-		
-		if ( iPMTNo < 0 || iPMTNo > 30 ) {
-			if ( iPMT > 0 ) {
-				std::cout << " ERROR mPMT " << iPMT << "("<< iNewID << ") is not defined (" << vPMT[0] << ", " << vPMT[1] << ", " << vPMT[2] 
-					<< ") (" << vPMT[3] << ", " << vPMT[4] << ", " << vPMT[5] << ") " << iPMTNo << std::endl;
-			}
-			iPMTNo = 0;
-			
-		}
-		
-		fPMT_TubeInMPMT[iNewID] = iPMTNo;
-		fPMT_Group     [iNewID] = this->GroupPMTs(1,iPMTNo);
-		fPMT_Info      [iNewID] = vPMT;
-		
-		fPMT_RefInMPMT [iNewID] = iNewID + ( mPMT_TOP_ID - iPMTNo );
-		
-		if ( fPMT_RefInMPMT[iNewID] >= (iNbr_mPMT+mPMT_ID_SHIFT) ) {
-			std::cout << " ERROR: Reference PMT for mPMT is outside mPMT range " << std::endl;
-		}
-	}
-	
-	// Re-loop to make PMT Referencial
-	for ( int iPMT=0; iPMT < iNbr_mPMT; iPMT++ ) {
-		int iNewID = iPMT+mPMT_ID_SHIFT;
-		this->MakeMPMTReferencial(iNewID);
-	}
-	
-#endif
-}
-
-void BQFitter::MakeMPMTReferencial(int iPMT) {
-
-	if ( !GetPMTType(iPMT) ) return;
-
-	// fPMT_RefX[iPMT] 
-	// fPMT_RefY[iPMT]
-	// fPMT_RefZ[iPMT]
-	
-	fPMT_RefX[iPMT].resize(3.,0);
-	fPMT_RefY[iPMT].resize(3.,0);
-	fPMT_RefZ[iPMT].resize(3.,0);
-	
-	double dEX[3];
-	double dEY[3];
-	double dEZ[3];
-	
-	int iTubeInMPMT = fPMT_TubeInMPMT[iPMT];
-  
-	//1. Get the PMT position
-	// -> fPMT_Info[iPMT][0]
-	// -> fPMT_Info[iPMT][1]
-	// -> fPMT_Info[iPMT][2]
-	// -> fPMT_Info[iPMT][3] = ez[0]
-	// -> fPMT_Info[iPMT][4] = ez[1]
-	// -> fPMT_Info[iPMT][5] = ez[2]
-	
-	dEZ[0] = fPMT_Info[iPMT][3];
-	dEZ[1] = fPMT_Info[iPMT][4];
-	dEZ[2] = fPMT_Info[iPMT][5];
-	
-	// Save in global
-  	fPMT_RefZ[iPMT][0] = dEZ[0];
-  	fPMT_RefZ[iPMT][1] = dEZ[1];
-  	fPMT_RefZ[iPMT][2] = dEZ[2];
-	
-	if ( VERBOSE >= 3 ) {
-		std::cout << " PMT number = " << iPMT << ", Tube number in mPMT = " << iTubeInMPMT << std::endl; 
-		std::cout << " Position of the PMT = " << fPMT_Info[iPMT][0] << ", " << fPMT_Info[iPMT][1] << ", " << fPMT_Info[iPMT][1] << std::endl;
-		std::cout << " Orientation of the PMT = " << fPMT_RefZ[iPMT][0] << ", " << fPMT_RefZ[iPMT][1] << ", " << fPMT_RefZ[iPMT][2] << std::endl;
-	}
-	
-	//2. Get the mPMT position and its direction -> Provides orgin and first axis of the referential (ez)
-	//We do not have the mPMT position, so we will take the position of the PMT on top of the mPMT: number:
-	
-	int iPMTTop = fPMT_RefInMPMT[iPMT];
-	
-	if ( VERBOSE >= 3 ) {
-		std::cout << " Top PMT number = " << iPMTTop << ", Tube number in mPMT = " << fPMT_TubeInMPMT[iPMTTop] << std::endl; 
-		std::cout << " Position of the PMT = " << fPMT_Info[iPMTTop][0] << ", " << fPMT_Info[iPMTTop][1] << ", " << fPMT_Info[iPMTTop][2] << std::endl;
-		std::cout << " Orientation of the PMT = " << fPMT_Info[iPMTTop][3] << ", " << fPMT_Info[iPMTTop][4] << ", " << fPMT_Info[iPMTTop][5] << std::endl;
-	}
-	
-
-	//3. Define the second vector of the referential in the orthogonal plane to ez and colinear to the center PMT -> Active PMT plane
-	//a. PMT position in the mPMT referencec plane
-	
-	double dPosition_Ref[3];
-	
-	dPosition_Ref[0] = fPMT_Info[iPMT][0] - fPMT_Info[iPMTTop][0];
-	dPosition_Ref[1] = fPMT_Info[iPMT][1] - fPMT_Info[iPMTTop][1];
-	dPosition_Ref[2] = fPMT_Info[iPMT][1] - fPMT_Info[iPMTTop][2];
-	
-	Normalize(dPosition_Ref);
-	
-	if ( VERBOSE >= 3 ) {
-		std::cout << " PMT position in the mPMT referential = " << dPosition_Ref[0] << ", " << dPosition_Ref[1] << ", " << dPosition_Ref[2] << std::endl;
-	}
-	
-	//b. Define ey, perpendicular to ez and the center PMT -> Active PMT vector  
-	
-	CrossProduct(dEZ,dPosition_Ref,dEY);
-	Normalize(dEY);
-	
-	// Save in global
-  	fPMT_RefY[iPMT][0] = dEY[0];
-  	fPMT_RefY[iPMT][1] = dEY[1];
-  	fPMT_RefY[iPMT][2] = dEY[2];
-  	
-	if ( VERBOSE >= 3 ) {
-		std::cout << " Scal product test = " 	<< TMath::ACos(GetScalarProd(fPMT_RefY[iPMT],fPMT_RefZ[iPMT]))*180/TMath::Pi() << ", " 
-							<< GetLength(fPMT_RefY[iPMT]) << ", " << GetLength(fPMT_RefZ[iPMT]) << std::endl;
-	}
-  	
-	//4. And then create ex which should be orthogonal to the 2 remaining vectors
-	CrossProduct(dEY,dEZ,dEX);
-	
-	// Save in global
-  	fPMT_RefX[iPMT][0] = dEX[0];
-  	fPMT_RefX[iPMT][1] = dEX[1];
-  	fPMT_RefX[iPMT][2] = dEX[2];
-  	
-	//As ez and ey should be unitary, so does ex. So, let's check as a debug
-  	
-  	double dLengthX = GetLength(fPMT_RefX[iPMT]);
-  	// dLengthX is not exactly 1 let's allow +/- 1e-6
-  	if ( dLengthX > (1 + 1e-6) || dLengthX < (1 - 1e-6) ) {
-  		std::cout << " There is a referential vector unitarity issue for PMT " << iPMT << ", length is = "<< dLengthX << std::endl;
-  		
-		std::cout << " \t Top PMT number = " << iPMTTop << ", Tube number in mPMT = " << fPMT_TubeInMPMT[iPMTTop] << std::endl; 
-		std::cout << " \t PMT position in the mPMT referential = " << dPosition_Ref[0] << ", " << dPosition_Ref[1] << ", " << dPosition_Ref[2] << std::endl;
-		std::cout << " \t Scalar product test = " 	<< TMath::ACos(GetScalarProd(fPMT_RefY[iPMT],fPMT_RefZ[iPMT]))*180/TMath::Pi() << ", Y: " 
-								<< GetLength(fPMT_RefY[iPMT]) << ", Z: " << GetLength(fPMT_RefZ[iPMT]) << std::endl;
-  	}
-  	
-  	
-	//Conclusion: we now have our referential.
-
-}
-
-
 /************************************************************************************************************************/
 // Spline Integral functions:
 double BQFitter::SplineIntegral(TSpline3 * s,double start,double end,double stepSize){
@@ -575,19 +261,20 @@ void BQFitter::VectorVertexPMT(std::vector<double> vertex, int iPMT, double* dAn
 	// Guillaume 2020/05/20:
 	// mPMT referencial is computed once for all PMT in LoadPMTInfo() and MakeMPMTReferencial(iPMT)
   	
-  	int iPMTTop = fPMT_RefInMPMT[iPMT];
+  	int iPMTTop = myManager->GetMPMT_Reference(iPMT);
+	std::vector<double> lPMTInfoTop = myManager->GetPMTInfo(iPMTTop);
   
 	//5. Now we have our referential, we should just calculate the angles of the PMT to vertex position vector in this referential.
 	//a. calculate the PMT to vertex position vector.
 	
 	double dVtx_PMTRef[3];
 	
-	dVtx_PMTRef[0] = vertex[0] - fPMT_Info[iPMTTop][0];
-	dVtx_PMTRef[1] = vertex[1] - fPMT_Info[iPMTTop][1];
-	dVtx_PMTRef[2] = vertex[2] - fPMT_Info[iPMTTop][2];
+	dVtx_PMTRef[0] = vertex[0] - lPMTInfoTop[0];
+	dVtx_PMTRef[1] = vertex[1] - lPMTInfoTop[1];
+	dVtx_PMTRef[2] = vertex[2] - lPMTInfoTop[2];
 	
 	double dLengthVtx = GetLength(dVtx_PMTRef);
-	Normalize(dVtx_PMTRef);
+	HKGeoTools::Normalize(dVtx_PMTRef);
 		
 	if( VERBOSE >= 3 ){
 		std::cout << "Vertex position = " << vertex[0] << ", " << vertex[1] << ", " << vertex[2] << std::endl;
@@ -595,18 +282,18 @@ void BQFitter::VectorVertexPMT(std::vector<double> vertex, int iPMT, double* dAn
 	}
 	
 	//b. Then extract Theta and Phi:
-	double dCosTheta= GetScalarProd(dVtx_PMTRef,fPMT_RefZ[iPMT]);
+	double dCosTheta= GetScalarProd(dVtx_PMTRef,myManager->GetMPMT_RefZ(iPMT));
 	double dTheta	= TMath::ACos(dCosTheta);
 	
 	double dPhi 	= 0.;
 	
-	if( fPMT_TubeInMPMT[iPMT] == mPMT_TOP_ID ) {
+	if( myManager->GetMPMT_TubeID(iPMT) == mPMT_TOP_ID ) {
 		//Phi is not defined in that case..
 	}
 	else {
 		//We know x=cosPhi x sinTheta and y=sinPhi x sinTheta
-		double dX 	= GetScalarProd(dVtx_PMTRef,fPMT_RefX[iPMT]);
-		double dY 	= GetScalarProd(dVtx_PMTRef,fPMT_RefY[iPMT]);
+		double dX 	= GetScalarProd(dVtx_PMTRef,myManager->GetMPMT_RefX(iPMT));
+		double dY 	= GetScalarProd(dVtx_PMTRef,myManager->GetMPMT_RefY(iPMT));
 		double dTanPhi	= dY/dX;
 		dPhi		= TMath::ATan(dTanPhi);
 		
@@ -638,15 +325,17 @@ double BQFitter::FindDirectionTheta(std::vector<double> vertex,int tubeNumber, i
 
 	//clock_t timeStart=clock();
 	
+	std::vector<double> lPMTInfo = myManager->GetPMTInfo(tubeNumber);
+	
 	double PMTpos[3];
 	double PMTdir[3];
 	
 	for(int j=0;j<3;j++){
-		PMTpos[j] = fPMT_Info[tubeNumber][j  ];
-		PMTdir[j] = fPMT_Info[tubeNumber][j+3];
+		PMTpos[j] = lPMTInfo[j  ];
+		PMTdir[j] = lPMTInfo[j+3];
 	}
 
-	int pmt_number_in_mpmt = fPMT_TubeInMPMT[tubeNumber];
+	int pmt_number_in_mpmt = myManager->GetMPMT_TubeID(tubeNumber);
 	double particleRelativePMTpos[3];
 	for(int j=0;j<3;j++) particleRelativePMTpos[j] = PMTpos[j] - vertex[j];
 	if(verbose == 3){
@@ -688,10 +377,13 @@ void BQFitter::MakeEventInfo(double lowerLimit, double upperLimit) {
 		fEventInfo[i].SignalIntegral 	= 0.;
 	}
 	
-	int iHitTotal = fHitInfo.size();
+	int iHitTotal = myManager->GetNumberOfHit();
 	
 	for(int iHit=0; iHit < iHitTotal; iHit++ ) {
-		int iPMT = fHitInfo[iHit].PMT;
+		//PMTHit lHit = fHitInfo[iHit];		
+		PMTHit lHit = myManager->GetHitInfo(iHit);
+		
+		int iPMT = lHit.PMT;
 		int iType = GetPMTType(iPMT);
 		fEventInfo[iType].hits += 1;
 	}
@@ -787,11 +479,15 @@ double BQFitter::FindNLL_Likelihood(std::vector<double> vertexPosition, int nhit
 	//double DR=;//To rescale the PDF, we should know the relative integral of signal vs DR
 	
 	for(int ihit = 0; ihit < nhits; ihit++){
-		int iPMT = fHitInfo[ihit].PMT;
-		double hitTime = fHitInfo[ihit].T;
+		//PMTHit lHit = fHitInfo[ihit];		
+		PMTHit lHit = myManager->GetHitInfo(ihit);
+		
+		int iPMT = lHit.PMT;
+		double hitTime = lHit.T;
+		std::vector<double> lPMTInfo = myManager->GetPMTInfo(iPMT);
 		
 		int pmtType = GetPMTType(iPMT);
-		double distance = GetDistance(fPMT_Info[iPMT],vertexPosition); 
+		double distance = GetDistance(lPMTInfo,vertexPosition); 
 		
 		double tof = distance / fLightSpeed;
 		double residual = hitTime - tof - vertexPosition[3];
@@ -917,16 +613,19 @@ double BQFitter::FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nh
 	//double DR=;//To rescale the PDF, we should know the relative integral of signal vs DR
 			
 	//std::cout << " Find NLL " << nhits << std::endl;
-	//std::cout << " First Hit " << fHitInfo[0].PMT << " " << vertexPosition.size() << std::endl;	
+	//std::cout << " First Hit " << myManager->GetHitInfo(0).PMT << " " << vertexPosition.size() << std::endl;	
 	for(int ihit = 0; ihit < nhits; ihit++){
+		//PMTHit lHit = fHitInfo[ihit];		
+		PMTHit lHit = myManager->GetHitInfo(ihit);
 	
-		//std::cout << " NLL Hit " << ihit << " " << fHitInfo[ihit].PMT << std::endl;
-		int iPMT = fHitInfo[ihit].PMT;		
+		//std::cout << " NLL Hit " << ihit << " " << lHit.PMT << std::endl;
+		int iPMT = lHit.PMT;		
 	
-		double hitTime = fHitInfo[ihit].T;
+		double hitTime = lHit.T;
+		std::vector<double> lPMTInfo = myManager->GetPMTInfo(iPMT);
 		
 		int pmtType = GetPMTType(iPMT);
-		double distance = GetDistance(fPMT_Info[iPMT],vertexPosition);
+		double distance = GetDistance(lPMTInfo,vertexPosition);
 		
 		double tof = distance / fLightSpeed;
 		double residual = hitTime - tof - vertexPosition[3];
@@ -939,7 +638,7 @@ double BQFitter::FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nh
 
 		bool bCondition = (residual > fHitTimeLimitsNegative && residual < fHitTimeLimitsPositive) || (pmtType == 1 && !fLimit_mPMT);
 
-      		//std::cout << " HIT " << ihit << " Has " <<   bCondition << " " << pmtType << " " << fLimit_mPMT << " " << residual << " ( " << hitTime << " - " << tof << " - " << vertexPosition[3] << " ) "  << distance << " / " << fLightSpeed << " " << fPMT_Info[iPMT][0] << " "<< fPMT_Info[iPMT][1] << " "<< fPMT_Info[iPMT][2] << " " << iPMT << std::endl;
+      		//std::cout << " HIT " << ihit << " Has " <<   bCondition << " " << pmtType << " " << fLimit_mPMT << " " << residual << " ( " << hitTime << " - " << tof << " - " << vertexPosition[3] << " ) "  << distance << " / " << fLightSpeed << " " << lPMTInfo[0] << " "<< lPMTInfo[1] << " "<< lPMTInfo[2] << " " << iPMT << std::endl;
       
 		if( bCondition ){
 			NLL++;//= fSplineTimePDFQueue[pmtType]->Eval(residual);
@@ -992,11 +691,15 @@ double BQFitter::FindNLL(std::vector<double> vertexPosition, int nhits, bool lik
 	timer.Start();
 	
 	for(int ihit = 0; ihit < nhits; ihit++){
-		int iPMT = fHitInfo[ihit].PMT;
-		double hitTime = fHitInfo[ihit].T;
+		//PMTHit lHit = fHitInfo[ihit];		
+		PMTHit lHit = myManager->GetHitInfo(ihit);
+		
+		int iPMT = lHit.PMT;
+		double hitTime = lHit.T;
+		std::vector<double> lPMTInfo = myManager->GetPMTInfo(iPMT);
 		
 		int pmtType = GetPMTType(iPMT);
-		double distance = GetDistance(fPMT_Info[iPMT],vertexPosition);
+		double distance = GetDistance(lPMTInfo,vertexPosition);
 		
 		double tof = distance / fLightSpeed;
 		double residual = hitTime - tof - vertexPosition[3];
@@ -1144,15 +847,21 @@ double BQFitter::FindNLLDirectionality(std::vector<double> vVtxPos, int nhits, i
 	
 		
 	for(int ihit = 0; ihit < nhits; ihit++){
-		int iPMT = fHitInfo[ihit].PMT;
-		//double hitTime = fHitInfo[ihit].T;
-		int pmtType = GetPMTType(iPMT);
+		//PMTHit lHit = fHitInfo[ihit];		
+		PMTHit lHit = myManager->GetHitInfo(ihit);
+		
+		int iPMT = lHit.PMT;
 		int tubeNumber = iPMT;
-		//int pmt_number_in_mpmt=fPMT_TubeInMPMT[iPMT];
+		
+		std::vector<double> lPMTInfo = myManager->GetPMTInfo(iPMT);
+		int pmtType = GetPMTType(iPMT);
+		
+		//double hitTime = lHit.T;
+		//int pmt_number_in_mpmt=myManager->GetMPMT_TubeID(iPMT);
 
 		if(pmtType==0) continue;
 		    
-		//double distance = GetDistance(fPMT_Info[iPMT],vVtxPos);
+		//double distance = GetDistance(lPMTInfo,vVtxPos);
 		//double tof = distance / fLightSpeed;
 		//double residual = hitTime - tof - vVtxPos[3];
 		bool condition = true;
@@ -1174,7 +883,7 @@ double BQFitter::FindNLLDirectionality(std::vector<double> vVtxPos, int nhits, i
 			double dTheta = vPMTVtx[1];
 			double dDist  = vPMTVtx[2];
 			
-			int pmtGroup = fPMT_Group[tubeNumber];
+			int pmtGroup = myManager->GetMPMT_Group(tubeNumber);
 			
 			double proba = 0;
 			//proba = hPMTDirectionality_1D[pmtType][pmtGroup]->GetBinContent(hPMTDirectionality_1D[pmtType][pmtGroup]->FindBin(theta));
@@ -1938,559 +1647,17 @@ void BQFitter::MinimizeVertex_thread(
 	mtx.unlock();
 }
 
-
-void BQFitter::ComputeInTimeHit(int iType) {
-	// Get n hit in a given time window (after tof correction)
-	
-	int iNbr = fHitInfo.size();
-	fHitExtInfo.clear();
-	
-	bool bCond = (iType != AllPMT);
-	
-	// Compute time of flight and some geometric information
-	for ( int iHit=0; iHit < iNbr; iHit++ ) {
-		int    iPMT    = fHitInfo[iHit].PMT;
-		
-		
-		// Skip Hybrid PMT is the option is set
-		if ( bCond ) {
-			if ( GetPMTType(iPMT) != iType ) continue; 
-		}
-		PMTHitExt tNewHit;
-		
-		tNewHit.PMT  = iPMT;
-		tNewHit.T    = fHitInfo[iHit].T;
-		tNewHit.Q    = fHitInfo[iHit].Q;
-		
-		tNewHit.Dist  = GetDistance( fPMT_Info[iPMT], fRecoVtxPosFinal[0] );
-		tNewHit.ToF   = tNewHit.T - (tNewHit.Dist / CNS2CM);
-		
-		tNewHit.NormX = (fPMT_Info[iPMT][0] - fRecoVtxPosFinal[0][0])/tNewHit.Dist;
-		tNewHit.NormY = (fPMT_Info[iPMT][1] - fRecoVtxPosFinal[0][1])/tNewHit.Dist;
-		tNewHit.NormZ = (fPMT_Info[iPMT][2] - fRecoVtxPosFinal[0][2])/tNewHit.Dist;
-		
-		// Not needed
-		tNewHit.theta = 0.;
-		tNewHit.phi   = 0.;
-		
-		// Store hit
-		fHitExtInfo.push_back(tNewHit);
-	}
-	
-	iNbr = fHitExtInfo.size();
-	
-	//std::cout << " InTime computation " << iNbr << " type " << iType << std::endl;
-	
-	// Clear in time Hit list 
-	fInTime20.clear();
-	fInTime30.clear();
-	fInTime50.clear();
-
-	// Make tmp in time hit list
-	std::vector< PMTHitExt > tInTime20;
-	std::vector< PMTHitExt > tInTime30;
-	std::vector< PMTHitExt > tInTime50;
-	
-	std::sort(fHitExtInfo.begin(),fHitExtInfo.end(),SortingToF());
-	
-	for ( int iHit=0; iHit < iNbr; iHit++ ) {
-	
-		PMTHitExt hHit = fHitExtInfo[iHit];
-			
-		double dTime = hHit.ToF;
-		
-		tInTime20 .push_back(hHit);
-		tInTime30 .push_back(hHit);
-		tInTime50 .push_back(hHit);
-		
-		while ( (dTime - tInTime20 [0].ToF) > 20. ) {
-			tInTime20 .erase(tInTime20 .begin());
-		}
-		while ( (dTime - tInTime30 [0].ToF) > 30. ) {
-			tInTime30 .erase(tInTime30 .begin());
-		}
-		while ( (dTime - tInTime50 [0].ToF) > 50. ) {
-			tInTime50 .erase(tInTime50 .begin());
-		}
-		
-		if ( tInTime20 .size() > fInTime20 .size() )
-			fInTime20  = tInTime20;
-			
-		if ( tInTime30 .size() > fInTime30 .size() )
-			fInTime30  = tInTime30;
-			
-		if ( tInTime50 .size() > fInTime50 .size() )
-			fInTime50  = tInTime50;
-	}
-	
-	//std::cout << " InTime computation " << fInTime20.size() << " " << fInTime30.size() << " " << fInTime50.size() << std::endl;
-}
-
-void BQFitter::ComputeDistanceFromWall() {
-	
-	double dR = fTankRadius - fRecoVtx_R;
-	double dZ = fTankHalfHeight - abs(fRecoVtx_Z);
-	
-	fRecoVtx_Wall = std::min(dR,dZ);
-}
-
-double BQFitter::GetPMTAngleEfficiency(double dCosPM) {
-	// From sklib/coseffsk.F
-
-	if ( dCosPM > 1. ) {
-		std::cout << "WARNING: Abnormal dCosPM " << dCosPM << std::endl;
-		dCosPM = 1.;	
-	}
-	if ( dCosPM < 0. ) {
-		dCosPM = 0.;	
-	}
-	
-	//double sk1_a[4] = { 0.3542135, 0.5104711, 0.1160429, 0.0118482 }; // SK-I
-	double sk2_a[4] = { 0.205349 , 0.523981 , 0.389951 ,-0.131959  }; // SK-II, SK-III, SK-IV, SK-V
-	
-	double * data = sk2_a;
-	
-	return (  data[0] 
-		+ data[1] * dCosPM
-		+ data[2] * dCosPM * dCosPM
-		+ data[2] * dCosPM * dCosPM * dCosPM );
-}
-
-std::vector<double> BQFitter::TransformInVector(std::vector<double> lDir, double dPhi, double dCosTheta ) {
-
-	std::vector<double> lOut(3,0.);
-	
-	double dSinTheta = sqrt( 1. - (dCosTheta*dCosTheta) );
-	
-	double dX = dSinTheta * cos(dPhi);
-	double dY = dSinTheta * sin(dPhi);
-	double dZ = dCosTheta;
-	
-	if ( !(abs(lDir[0]) < 1e-2 && abs(lDir[1]) < 1e-2) ) {
-	
-		double dRDir = sqrt(  	lDir[0] * lDir[0] + 
-					lDir[1] * lDir[1] + 
-					lDir[2] * lDir[2] );
-					
-		double dCosA = lDir[2] / dRDir;
-		double dSinA = sqrt( 1. - (dCosTheta*dCosTheta) );
-		
-		double dCosB = lDir[0] / dRDir / dSinA;
-		double dSinB = lDir[1] / dRDir / dSinA;
-		
-		double dXp =  dX * dCosA + dZ * dSinA;
-		double dYp =  dY;
-		double dZp = -dX * dSinA + dZ * dCosA;
-		
-		lOut[0] = dXp * dCosB - dYp * dSinB;
-		lOut[1] = dXp * dSinB + dYp * dCosB;
-		lOut[2] = dZp;
-		
-		return lOut;
-	}
-	
-	if ( lDir[2] >= 0 ) {
-		lOut[0] = dX;
-		lOut[1] = dY;
-		lOut[2] = dZ;
-	}
-	else {
-		lOut[0] = -dX;
-		lOut[1] = -dY;
-		lOut[2] = -dZ;
-	}
-	
-	return lOut;
-}
-
-
-void BQFitter::LoadDirConstant() {
-
-	// From lowe/sklowe/dirlkflf.F
-	fEP10[ 0] =  959.1;
-	fEP10[ 1] = 1077.29;
-	fEP10[ 2] = 1186.07;
-	fEP10[ 3] = 1305.84;
-	fEP10[ 4] = 1437.70;
-	fEP10[ 5] = 1582.88;
-	fEP10[ 6] = 1742.72;
-	fEP10[ 7] = 2000.  ;
-	fEP10[ 8] = 1846.76;
-	fEP10[ 9] = 1709.92;
-	fEP10[10] = 1584.08;
-	fEP10[11] = 1469.25;
-	fEP10[12] = 1365.42;
-	fEP10[13] = 1272.60;
-	fEP10[14] = 1190.78;
-	fEP10[15] = 1119.97;
-	fEP10[16] = 1060.17;
-	fEP10[17] = 1011.37;
-	fEP10[18] =  973.57;
-	fEP10[19] =  946.78;
-	fEP10[20] =  931.  ;
-		
-	// From lowe/sklowe/lfneweff_sk3_final.F
-	fEffHitLambda[ 0] =  7000.;
-	fEffHitLambda[ 1] =  8000.;
-	fEffHitLambda[ 2] =  9000.;
-	fEffHitLambda[ 3] = 10000.;
-	fEffHitLambda[ 4] = 11000.;
-	fEffHitLambda[ 5] = 12000.;
-	fEffHitLambda[ 6] = 13000.;
-	fEffHitLambda[ 7] = 14000.;
-	fEffHitLambda[ 8] = 15000.;
-	fEffHitLambda[ 9] = 16000.;
-	fEffHitLambda[10] = 17000.;
-	fEffHitLambda[11] = 18000.;
-	
-	
-	// From lowe/sklowe/lfoccor_3.F
-	// Occupancy correction table
-	// Likely need to be modified to include mPMT later
-	int iFullOccupancy  	= 3;
-	fNearPMT		= 10;
-	for ( int i=0; i < fNearPMT; i++ ) {
-		for ( int j=0; j < fNearPMT; j++ ) {
-		
-			double d1 = (double) i;
-			double d2 = (double) j;
-			if ( i == j )		
-				fOccupancyTable[i][j] = (double) iFullOccupancy;
-			else if ( j > i || i == 0 || j == 0 ) 
-				fOccupancyTable[i][j] = 0;
-			else
-				fOccupancyTable[i][j] = - d1 * log(1.0 - d2 / d1) / d2;
-				// value: - N/m * log(1 - m/N)
-				// 		N: number of total alive PMT
-				//		m: number of hit PMT
-		}
-	}
-	
-	
-}
-
-double BQFitter::GetDirKS(std::vector<double> lDir) {
-
-	double dCosTh = lDir[2];
-	//double dSinTh = sqrt( (1. - dCosTh) * (1. * dCosTh) );
-	double dNorm  = sqrt( lDir[0] * lDir[0] + lDir[1] * lDir[1] );
-	double dCosPh = lDir[0] / dNorm;
-	double dSinPh = lDir[1] / dNorm;
-	
-	int n50 = fInTime50.size();
-	
-	std::vector<double> dPhi;
-	
-	for ( int iHit=0; iHit < n50; iHit++ ) {
-	
-		double dXX = dSinPh * fInTime50[iHit].NormX - dCosPh * fInTime50[iHit].NormY;
-		double dYY = 	  dCosTh * dCosPh * fInTime50[iHit].NormX
-				+ dCosTh * dSinPh * fInTime50[iHit].NormY
-				-          dSinPh * fInTime50[iHit].NormZ;
-				
-		dPhi.push_back( atan2( dYY, dXX ) * 180. / 3.1416 + 180. );
-	}
-	
-	std::sort(dPhi.begin(),dPhi.end());
-	
-	double dNormDeg =  360. / (double) n50;
-	double dKSMax   = -360.;
-	double dKSMin   =  360.;
-	
-	for ( int iHit=0; iHit < n50; iHit++ ) {
-	
-		double dKS = dPhi[iHit] - dNormDeg * (iHit+1);
-		
-		if ( dKS >= dKSMax ) dKSMax = dKS;
-		if ( dKS <= dKSMin ) dKSMin = dKS;
-	}
-	
-	double dDirKS = (dKSMax-dKSMin) / 360.;
-	
-	return dDirKS;
-}
-
-double BQFitter::GetDir_lkflf(double dCos, int iE, bool bSimple) {
-
-	double dOutput = 0.;
-	
-	if ( bSimple ) {
-		// From lowe/sklowe/dirlkflf.F
-		
-		if ( dCos < -1 || dCos > 1. ) {
-			std::cout << "WARNING: dCos out of range in GetDir_lkflf simple " << dCos << std::endl;
-			dCos = dCos < 0. ? -1. : 1.; 
-		}
-		
-		if ( dCos <= 0.2 ) {
-			dOutput = exp( 5.61 + 1.36 * dCos ) / 2000.;
-		}
-		else if ( dCos <= 0.6 ) {
-			dOutput = exp( 5.42 + 2.41 * dCos ) / 2000.;
-		}
-		else {
-			int    iCos  = (int) ( dCos * 50. ) - 30;
-			double dFrac = ( dCos * 50. - 30. ) - (double) iCos;
-			
-			
-			if ( iCos == 20 ) 
-				dOutput = fEP10[20];
-			else 
-				dOutput = fEP10[iCos] + dFrac * ( fEP10[iCos+1] - fEP10[iCos] );
-				
-			dOutput /= 2000.;
-		}
-		
-		return dOutput;
-	}
-	
-	// From low/sklowe/dirlkflf_ene_sk4.F
-	int iCos = (int) ( ( dCos + 1.0 ) * 50 );
-	return fHitPat[iE][iCos-1];
-}
-
-std::vector<double> BQFitter::GetDirection(double dEnergy, std::vector<PMTHitExt> tInTime, bool bSimple, double dCutOff) {
-	// Compute direction and direction prob
-	//  Input needed (for dir4): energy, n20, false, 0.2
-	//  Input needed (for dir2): energy, n30, true,  0.01
-	 
-	std::vector<double> tOutput(4,0);
-	int nHit = tInTime.size();
-	
-	int iE = 0;
-	
-	// Get vector index for GetDir_lkflf
-	if ( !bSimple ) {
-		if      ( dEnergy <  3.5 ) iE =  0;
-		else if ( dEnergy <  4.5 ) iE =  1;
-		else if ( dEnergy <  5.5 ) iE =  2;
-		else if ( dEnergy <  6.5 ) iE =  3;
-		else if ( dEnergy <  7.5 ) iE =  4;
-		else if ( dEnergy <  8.5 ) iE =  5;
-		else if ( dEnergy <  9.5 ) iE =  6;
-		else if ( dEnergy < 10.5 ) iE =  7;
-		else if ( dEnergy < 11.5 ) iE =  8;
-		else if ( dEnergy < 12.5 ) iE =  9;
-		else if ( dEnergy < 13.5 ) iE = 10;
-		else if ( dEnergy < 14.5 ) iE = 11;
-		else if ( dEnergy < 15.5 ) iE = 12;
-		else if ( dEnergy < 16.5 ) iE = 13;
-		else if ( dEnergy < 19.0 ) iE = 14;
-		else if ( dEnergy < 21.0 ) iE = 15;
-		else if ( dEnergy < 23.0 ) iE = 16;
-		else if ( dEnergy < 25.0 ) iE = 17;
-		else if ( dEnergy < 27.0 ) iE = 18;
-		else if ( dEnergy < 40.0 ) iE = 19;
-		else if ( dEnergy < 60.0 ) iE = 20;
-		else			   iE = 21;
-	}
-	
-	
-	if ( nHit > 1 ) {
-	
-		// Variables:		
-		double dDeltaXsum = 0;
-		double dDeltaYsum = 0;
-		double dDeltaZsum = 0;
-	
-		for ( int iHit=0; iHit < nHit; iHit++ ) {			
-			dDeltaXsum += tInTime[iHit].NormX;
-			dDeltaYsum += tInTime[iHit].NormY;
-			dDeltaZsum += tInTime[iHit].NormZ;
-		}
-		
-		double dDist = sqrt( 	  dDeltaXsum * dDeltaXsum 
-					+ dDeltaYsum * dDeltaYsum 
-					+ dDeltaZsum * dDeltaZsum );
-					
-		tOutput[0] = dDeltaXsum / dDist;
-		tOutput[1] = dDeltaYsum / dDist;
-		tOutput[2] = dDeltaZsum / dDist;
-	
-		double dProb = 0;
-		
-		for ( int iHit=0; iHit < nHit; iHit++ ) {
-			int iPMT = tInTime[iHit].PMT;
-			
-			double dCosTh =   tOutput[0] * tInTime[iHit].NormX 
-					+ tOutput[1] * tInTime[iHit].NormY 
-					+ tOutput[2] * tInTime[iHit].NormZ;
-			// 20080718 tentative fix by y.takeuchi  (is this ok??)
-			if ( dCosTh > 1. && dCosTh < 1.0001 ) {
-				dCosTh = 1.;
-			}
-			// end
-			
-			double dTmp = GetDir_lkflf(dCosTh,iE,bSimple);
-			if ( dTmp <= dCutOff ) dTmp = dCutOff;
-			
-			
-			double dCosPM = - fPMT_Info[iPMT][3] * tInTime[iHit].NormX
-					- fPMT_Info[iPMT][4] * tInTime[iHit].NormY
-					- fPMT_Info[iPMT][5] * tInTime[iHit].NormZ;
-					
-			//double dRR    = GetDistance(fPMT_Info[iPMT],fRecoVtxPosFinal[0]);
-			
-			// 20080718 tentative fix by y.takeuchi  (is this ok??)
-			if ( dCosPM > 1. && dCosPM < 1.0001 ) {
-				dCosPM = 1.;
-			}
-			// end
-			
-			double dCorEff = dCosPM / GetPMTAngleEfficiency(dCosPM) * tInTime[iHit].Q;
-			
-			dProb += (log10(dTmp) * dCorEff);
-		}
-		// Save prob
-		tOutput[3] = dProb;
-		
-		double dTheta[4] = 	{
-						20. *3.1416/180.,
-						 9. *3.1416/180.,
-						 4. *3.1416/180.,
-						 1.6*3.1416/180.,
-					};
-					
-		for ( int iStep = 0; iStep < 4; iStep++ ) {
-			
-			double dCosTheta = cos(dTheta[iStep]);
-			
-			int iTry  = 0;
-			int iMove = 1;
-			
-			while ( iTry < 9 && iMove == 1 ) {
-				iMove  = 0;
-				iTry  += 1;
-				
-				for ( int iPhi=0; iPhi < 6; iPhi++ ) {
-					
-					double dPhi = float(iPhi) / 6. * 2. * 3.1416;
-					
-					std::vector<double> lWDir = TransformInVector(tOutput,dPhi,dCosTheta);
-					
-					double dProb2 = 0.;
-					
-					for ( int iHit=0; iHit < nHit; iHit++ ) {
-						int iPMT = tInTime[iHit].PMT;
-						
-						double dCosTh =   lWDir[0] * tInTime[iHit].NormX
-								+ lWDir[1] * tInTime[iHit].NormY 
-								+ lWDir[2] * tInTime[iHit].NormZ;
-								
-						// 20080718 tentative fix by y.takeuchi  (is this ok??)
-						if ( dCosTh > 1. && dCosTh < 1.0001 ) {
-							dCosTh = 1.;
-						}
-						// end
-						
-						double dTmp = GetDir_lkflf(dCosTh,iE,bSimple);
-						if ( dTmp <= dCutOff ) dTmp = dCutOff;
-												
-						double dCosPM = - fPMT_Info[iPMT][3] * tInTime[iHit].NormX
-								- fPMT_Info[iPMT][4] * tInTime[iHit].NormY
-								- fPMT_Info[iPMT][5] * tInTime[iHit].NormZ;
-								
-						//double dRR    = GetDistance(fPMT_Info[iPMT],fRecoVtxPosFinal[0]);
-						
-						// 20080718 tentative fix by y.takeuchi  (is this ok??)
-						if ( dCosPM > 1. && dCosPM < 1.0001 ) {
-							dCosPM = 1.;
-						}
-						// end			
-						
-						double dCorEff = dCosPM / GetPMTAngleEfficiency(dCosPM) * tInTime[iHit].Q;
-						
-						dProb2 += (log10(dTmp) * dCorEff);
-					}
-					
-					if ( dProb2 > dProb ) {
-						dProb   = dProb2;
-						iMove   = 1;
-						tOutput = lWDir;
-						tOutput.push_back( dProb );
-					}	
-				} // for iPhi
-			} // while
-		} // for iStep
-	}
-	
-	return tOutput;
-}
-
-double BQFitter::GoodnessBonsai() {
-	// From timefit.cc (bonsai code)
-	// fRecoVtxPosFinal
-	
-	double g, count;
-	
-	g     = 0.;
-	count = 0.;
-	
-	for ( unsigned int i=0; i < fHitExtInfo.size(); i++ ) {
-		double dDeltaT = fHitExtInfo[i].ToF - fRecoVtxPosFinal[0][3];
-		
-		double dt      = dDeltaT * dDeltaT * 0.04;
-		double w       = dt * 0.0035;
-		
-		//std::cout << " Hit " << i << " ToF - VtxTime " << dDeltaT << " " << w << " " << dt << std::endl;
-		if ( w > 18. ) continue;
-		
-		w = exp(-w);
-		count += w;
-		dt *= 0.5;
-		
-		if ( dt <= 50 ) 
-			g += w * exp(-dt);
-	}
-	
-	//std::cout << " g/count " << g << " / " << count << " = " << g/count << std::endl;
-	if ( count == 0 ) {
-		return 0;
-	}
-	
-	return g/count;
-}
-
-void BQFitter::MakeAnalysis(int iType) {
-
-	// Compute In time hit (n50, n30, ...)
-	this->ComputeInTimeHit(iType);
-			
-	fVtxReco_dirKS = 2.;
-			
-	fVtxReco_dirKS 		= 0.;
-	fRecoVtx_E_Simple	= 0.;
-	fRecoVtx_E		= 0.;
-	fVtxReco_dir.clear();
-	fVtxReco_dirSimple.clear();
-	
-			
-	if ( fRecoVtx_Wall > 0. && fInTime50.size() > 0 ) {
-			
-		// Compute simple direction
-		// original: 
-		//	call lfdir2(bsvertex, bsdir_lfdir2, bsdirks)
-		// qmin = .2, qmax = 25., cutoff = .01, twindow = 30.
-		fVtxReco_dirSimple = this->GetDirection(0., fInTime30, true, 0.01);
-	
-		// Compute dirKS from Simple direction
-		if ( fVtxReco_dirSimple[3] != -1 ) {
-			// Check goodness of direction
-			// original:
-			//	call lfdirks(bsvertex, bsdir, bsdirks)
-			fVtxReco_dirKS = this->GetDirKS(fVtxReco_dirSimple);			
-		}				
-	}
-	else {
-		fVtxReco_dirSimple.assign(4,0.);
-	}
-}
-
 struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 
 	// Get Hits total
 
-	int iHitsTotal = fHitInfo.size();
+	//int iHitsTotal = fHitInfo.size();
+	int iHitsTotal = myManager->GetNumberOfHit();
+	
+	if ( fPositionList.size() == 0 ) {
+		// Make position lists
+      		this->MakePositionList();
+	}
 	
 #ifdef OUTPUT_TREE					
 	int iPMTConfiguration = 0; // Normal PMT
@@ -2520,32 +1687,19 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 	
 	fLastLowerLimit       = 0.;
 	fLastUpperLimit       = 0.;
-	
-	
-	fRecoVtx_X = 0; 
-	fRecoVtx_Y = 0;  
-	fRecoVtx_Z = 0;  
-	fRecoVtx_T = 0;  
-	fRecoVtx_R2 = 0; 
-	fRecoVtx_R = 0;
-	
-	fRecoVtx_Wall = 0;
-	
-	fInTime20.clear();
-	fInTime30.clear();
-	fInTime50.clear();
-			
+		
 	/*
 	std::cout << " nMult PMT = " << fWCGeo->GetWCNumPMT(true) << std::endl;
 	for(int a=0;a<iHitsTotal;a++) {
+		std::vector<double> lPMTInfo = myManager->GetPMTInfo(fHitInfo[a].PMT);
 		std::cout<<"Hit [ " << a << " ] PMT = " <<fHitInfo[a].PMT  << " T = " << fHitInfo[a].T  << " Q = " << fHitInfo[a].Q << std::endl;
 		std::cout<< " PMT: (" 
-					<< fPMT_Info[fHitInfo[a].PMT][0] << " , " 
-					<< fPMT_Info[fHitInfo[a].PMT][1] << " , " 
-					<< fPMT_Info[fHitInfo[a].PMT][2] << " )( " 
-					<< fPMT_Info[fHitInfo[a].PMT][3] << " , " 
-					<< fPMT_Info[fHitInfo[a].PMT][4] << " , " 
-					<< fPMT_Info[fHitInfo[a].PMT][5] << " ) " 
+					<< lPMTInfo[0] << " , " 
+					<< lPMTInfo[1] << " , " 
+					<< lPMTInfo[2] << " )( " 
+					<< lPMTInfo[3] << " , " 
+					<< lPMTInfo[4] << " , " 
+					<< lPMTInfo[5] << " ) " 
 					<< std::endl;
 	}
 	  */    	
@@ -2843,9 +1997,14 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 			int iInTime = 0;
 			
 			for(int ihit = 0; ihit < iHitsTotal; ihit++){
-				int iPMT = fHitInfo[ihit].PMT;
-				double hitTime = fHitInfo[ihit].T;
-				double distance = GetDistance(fPMT_Info[iPMT],fRecoVtxPosFinal[0]);
+				//PMTHit lHit = fHitInfo[ihit];
+				PMTHit lHit = myManager->GetHitInfo(ihit);
+				
+				int iPMT = lHit.PMT;
+				std::vector<double> lPMTInfo = myManager->GetPMTInfo(iPMT);
+				
+				double hitTime = lHit.T;
+				double distance = GetDistance(lPMTInfo,fRecoVtxPosFinal[0]);
 				double tof = distance / fLightSpeed;
 				double residual = hitTime - tof - fRecoVtxPosFinal[0][3];
 				if(residual > fSTimePDFLimitsQueueNegative && residual < fSTimePDFLimitsQueuePositive){
@@ -2853,57 +2012,50 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 				}
 			}
 			
-			// Fill variables for additionnal analysis
-			fRecoVtx_X	= fRecoVtxPosFinal[0][0]; 
-			fRecoVtx_Y	= fRecoVtxPosFinal[0][1];  
-			fRecoVtx_Z	= fRecoVtxPosFinal[0][2];  
-			fRecoVtx_T	= fRecoVtxPosFinal[0][3];  
-			fRecoVtx_R2	= fRecoVtx_X * fRecoVtx_X + fRecoVtx_Y * fRecoVtx_Y; 
-			fRecoVtx_R	= sqrt(fRecoVtx_R2);
-			fRecoVtx_Good	= fRecoVtxPosFinal[0][4];  
-			
 			// Fill Output
-			fOutput.Vtx[0] 	= fRecoVtx_X;
-			fOutput.Vtx[1] 	= fRecoVtx_Y;
-			fOutput.Vtx[2] 	= fRecoVtx_Z;
-			fOutput.Time   	= fRecoVtx_T;
+			fOutput.Vtx[0] 	= fRecoVtxPosFinal[0][0];
+			fOutput.Vtx[1] 	= fRecoVtxPosFinal[0][1];
+			fOutput.Vtx[2] 	= fRecoVtxPosFinal[0][2];
+			fOutput.Time   	= fRecoVtxPosFinal[0][3];
 			fOutput.InTime 	= iInTime;
-			fOutput.Good 	= fRecoVtx_Good;
+			fOutput.Good 		= fRecoVtxPosFinal[0][4];  
 			
 			
 			//std::cout << " Final vertex " << fOutput.Vtx[0] << " " << fOutput.Vtx[1] << " " << fOutput.Vtx[2] << " Time " << fOutput.Time << std::endl;
 			
-			this->ComputeDistanceFromWall();
-			fOutput.Wall  = fRecoVtx_Wall;
+			myAna = HKAstroAnalysis::GetME();
+			myAna->SetVertex(fRecoVtxPosFinal[0]);
 			
-			this->MakeAnalysis(NormalPMT);
+			fOutput.Wall  = myAna->ComputeDistanceFromWall();
 			
-			fOutput.n50 	    [NormalPMT]    = fInTime50.size();
-			fOutput.dirKS 	    [NormalPMT]    = fVtxReco_dirKS;
-			fOutput.dir 	    [NormalPMT][0] = fVtxReco_dirSimple[0];
-			fOutput.dir 	    [NormalPMT][1] = fVtxReco_dirSimple[1];
-			fOutput.dir 	    [NormalPMT][2] = fVtxReco_dirSimple[2];
-			fOutput.dir_goodness[NormalPMT]    = fVtxReco_dirSimple[3];
+			myAna->MakeAnalysis(NormalPMT);
 			
-			this->MakeAnalysis(MiniPMT);
+			fOutput.n50 	    [NormalPMT]   	= myAna->Getn50();
+			fOutput.dirKS 	    [NormalPMT]   	= myAna->GetdirKS();
+			fOutput.dir 	    [NormalPMT][0]	= myAna->Getdir_Simple()[0];
+			fOutput.dir 	    [NormalPMT][1]	= myAna->Getdir_Simple()[1];
+			fOutput.dir 	    [NormalPMT][2]	= myAna->Getdir_Simple()[2];
+			fOutput.dir_goodness[NormalPMT]	= myAna->Getdir_Simple()[3];
 			
-			fOutput.n50 	    [MiniPMT  ]    = fInTime50.size();
-			fOutput.dirKS 	    [MiniPMT  ]    = fVtxReco_dirKS;
-			fOutput.dir 	    [MiniPMT  ][0] = fVtxReco_dirSimple[0];
-			fOutput.dir 	    [MiniPMT  ][1] = fVtxReco_dirSimple[1];
-			fOutput.dir 	    [MiniPMT  ][2] = fVtxReco_dirSimple[2];
-			fOutput.dir_goodness[MiniPMT  ]    = fVtxReco_dirSimple[3];
+			myAna->MakeAnalysis(MiniPMT);
 			
-			this->MakeAnalysis(AllPMT);
+			fOutput.n50 	    [MiniPMT]   	= myAna->Getn50();
+			fOutput.dirKS 	    [MiniPMT]   	= myAna->GetdirKS();
+			fOutput.dir 	    [MiniPMT][0]	= myAna->Getdir_Simple()[0];
+			fOutput.dir 	    [MiniPMT][1]	= myAna->Getdir_Simple()[1];
+			fOutput.dir 	    [MiniPMT][2]	= myAna->Getdir_Simple()[2];
+			fOutput.dir_goodness[MiniPMT]		= myAna->Getdir_Simple()[3];
 			
-			fOutput.n50 	    [AllPMT   ]    = fInTime50.size();
-			fOutput.dirKS 	    [AllPMT   ]    = fVtxReco_dirKS;
-			fOutput.dir 	    [AllPMT   ][0] = fVtxReco_dirSimple[0];
-			fOutput.dir 	    [AllPMT   ][1] = fVtxReco_dirSimple[1];
-			fOutput.dir 	    [AllPMT   ][2] = fVtxReco_dirSimple[2];
-			fOutput.dir_goodness[AllPMT   ]    = fVtxReco_dirSimple[3];
+			myAna->MakeAnalysis(AllPMT);
 			
-			fOutput.Good 	= this->GoodnessBonsai();
+			fOutput.n50 	    [AllPMT]   	= myAna->Getn50();
+			fOutput.dirKS 	    [AllPMT]   	= myAna->GetdirKS();
+			fOutput.dir 	    [AllPMT][0]	= myAna->Getdir_Simple()[0];
+			fOutput.dir 	    [AllPMT][1]	= myAna->Getdir_Simple()[1];
+			fOutput.dir 	    [AllPMT][2]	= myAna->Getdir_Simple()[2];
+			fOutput.dir_goodness[AllPMT]		= myAna->Getdir_Simple()[3];
+		
+			fOutput.Good 	= myAna->GoodnessBonsai();
 			
 #ifdef OUTPUT_TREE								
 			bstree->Fill();

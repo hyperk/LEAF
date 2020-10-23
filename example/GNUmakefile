@@ -16,7 +16,7 @@ INCFLAGS += -I$(LEAFDIR)/leaf
 LIBS += ${WCSIMDIR}/libWCSimRoot.so 
 LIBS += $(shell root-config --libs) -lMinuit 
 LIBS_BONSAI += -L${BONSAIDIR} -lWCSimBonsai
-LIBS_BQFIT += -L${LEAFDIR}/lib -lBQFitter
+LIBS_BQFIT += -L${LEAFDIR}/lib -lHKManager -lHKAstroAnalysis -lBQFitter 
 
 
 OBJECT = analysis

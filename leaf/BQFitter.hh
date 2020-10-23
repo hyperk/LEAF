@@ -24,6 +24,8 @@
 
 //WCSim Headers
 #include "WCSimRootGeom.hh"
+#include "HKManager.hh"
+#include "HKAstroAnalysis.hh"
 
 //ROOT Headers
 #include "TFile.h"
@@ -38,12 +40,12 @@
 #include "TRandom3.h"
 #include "TSpline.h"
 #include "TPaletteAxis.h"
-
+/*
 // If using a WCSim version without mPMT implementation
 #define WCSIM_single_PMT_type
 // If using a WCSim version with bugged number of PMT implementation
 #define BUG_WCGEO
-
+*/
 #define VERBOSE 		0
 //#define CHECK_TO_TRUE_VTX
 //#define VERBOSE_NLL
@@ -52,17 +54,18 @@
 // Verbose level in functions:
 #undef VERBOSE_VTX // In SearchVertex
 #undef VERBOSE_NLL
-
+/*
 #define NPMT_CONFIGURATION 	2
 //Different PMT config in an mPMT. I assumed here a rotational symetry of the mPMT, so PMT 1 to 12 are the same, 13 to 18 are the same and 19 is separated
 #define NGROUP_PMT 		3
-
+*/
+/*
 #define NormalPMT		0
 #define MiniPMT			1
 #define AllPMT			2
-
-#define mPMT_ID_SHIFT 		 1000000
-#define MAX_PMT 		10000000
+*/
+//#define mPMT_ID_SHIFT 	 1000000
+//#define MAX_PMT 		10000000
 
 #define MAX_POS 		100000
 
@@ -70,20 +73,17 @@
 #define VTX_Y			1
 #define VTX_Z			2
 #define VTX_T			3
-
-#define GetPMTType(x)		(x>=mPMT_ID_SHIFT?1:0)
+/*
+#define GetPMTType(x)		x>=mPMT_ID_SHIFT?1:0
 #define GetDistance(a,b)	sqrt( (a[0]-b[0])*(a[0]-b[0]) + (a[1]-b[1])*(a[1]-b[1]) + (a[2]-b[2])*(a[2]-b[2]) )
 #define GetLength(a)		sqrt( (a[0]*a[0]) + (a[1]*a[1]) + (a[2]*a[2]) )
 #define GetScalarProd(a,b)	a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
-
+*/
 #define N_THREAD		12
 
-#define CNS2CM 			21.58333
-
 // mPMT Info:
-#define mPMT_TOP_ID		19
+//#define mPMT_TOP_ID		19
 
-std::mutex mtx;
 
 // Likelihood:
 void MinuitLikelihood(int& nDim, double * gout, double & NLL, double par[], int flg);
@@ -96,7 +96,7 @@ void SearchVertex_CallThread(
 			int iStart, int iIte,
 			int nhits,int tolerance,bool likelihood,double lowerLimit, double upperLimit,int directionality);
 
-inline bool SortOutputVector ( const std::vector<double>& v1, const std::vector<double>& v2 ) { 
+bool SortOutputVector ( const std::vector<double>& v1, const std::vector<double>& v2 ) { 
 	return v1[4] < v2[4]; 
 } 
 		
@@ -141,6 +141,7 @@ class BQFitter/* : public TObject */{
 						bool killEdges=false, bool scaleDR=false, int directionality=false);
 						
 		// Manage hit info
+		/*
 		void ResetHitInfo() { fHitInfo.clear(); }
 		void AddHit(double time, double charge, int pmtType, int tubeNumber) {
 		
@@ -172,7 +173,7 @@ class BQFitter/* : public TObject */{
 			
 			fHitInfo.push_back(hHit);
 		}
-		
+		*/
 		//void FillHitInfo(std::vector< struct PMTHit > tHitInfo) { fHitInfo = tHitInfo; }
 		
 		void SearchVertex_thread(	int iStart, int iIte,	
@@ -251,35 +252,13 @@ class BQFitter/* : public TObject */{
 				return a.NLL < b.NLL;
 			}
 		};
-		
-		
+		/*
 		struct PMTHit {
 			double T;
 			double Q;
 			int PMT;
 		};
-		
-		struct PMTHitExt {
-			double T;
-			double Q;
-			int PMT;
-			
-			double Dist;
-			double ToF;
-			
-			double NormX;
-			double NormY;
-			double NormZ;
-			
-			double theta;
-			double phi;
-		};
-		
-		struct SortingToF { 
-			bool operator()(PMTHitExt const &a, PMTHitExt const &b) const { 
-				return a.ToF < b.ToF;
-			}
-		};
+		*/
 		
 		struct EventInfo {
 			int hits;
@@ -289,6 +268,8 @@ class BQFitter/* : public TObject */{
 		};
 		
 		static BQFitter* myFitter;
+		HKManager* myManager;
+		HKAstroAnalysis* myAna;
 
 		// Spline
 		TSpline3 *	fSplineTimePDFQueue[NPMT_CONFIGURATION];
@@ -341,66 +322,19 @@ class BQFitter/* : public TObject */{
 		double fDarkRate_mPMT;
 
 		// Input/Output
-		std::vector< PMTHit > fHitInfo;
+		//std::vector< PMTHit > fHitInfo;
 		//double fTrueVtxPos[5];
 		std::vector<double> fTrueVtxPos;
 		std::vector< std::vector<double> > fTrueVtxPosDouble;
 		double fPDFNorm_fullTimeWindow;
 		std::vector< std::vector<double> > fRecoVtxPosFinal;
 		
-		double fRecoVtx_X; 
-		double fRecoVtx_Y; 
-		double fRecoVtx_Z; 
-		double fRecoVtx_T; 
-		double fRecoVtx_R2; 
-		double fRecoVtx_R;
-		double fRecoVtx_Good;
 		
-		// Analysis:
-		// Wall
-		double fRecoVtx_Wall;
-		
-		// Directions
-		std::vector<double> fVtxReco_dirSimple;
-		std::vector<double> fVtxReco_dir;
-		
-		// Energy
-		double fRecoVtx_E;
-		double fRecoVtx_E_Simple;
-		
-		// DirKS
-		double fVtxReco_dirKS;
-			
-		// InTime hits
-		std::vector< PMTHitExt > fInTime20;
-		std::vector< PMTHitExt > fInTime30;
-		std::vector< PMTHitExt > fInTime50;
-		std::vector< PMTHitExt > fHitExtInfo;
 		
 		// Random generator
 		TRandom3 * fRand;
 		//TRandom3 * fRand2;
-				
-		// PMT informations
-		// Load every thing at the beginning to speed up fitting
-		// mPMT tube ID start with 9000000
-		std::vector< std::vector<double> > 	fPMT_Info; 
-		// 0 -> PMT X
-		// 1 -> PMT Y
-		// 2 -> PMT Z
-		// 3 -> PMT DIR X
-		// 4 -> PMT DIR Y
-		// 5 -> PMT DIR Z
-		std::vector<int> 			fPMT_Group; 
-		std::vector<int> 			fPMT_TubeInMPMT; 
-		
-		// mPMT Referencial
-		std::vector<int> 			fPMT_RefInMPMT; 
-		std::vector< std::vector<double> > 	fPMT_RefX;
-		std::vector< std::vector<double> > 	fPMT_RefY;
-		std::vector< std::vector<double> > 	fPMT_RefZ;
-		
-		
+					
 		
 		double fLastLowerLimit;
 		double fLastUpperLimit;
@@ -413,51 +347,7 @@ class BQFitter/* : public TObject */{
 		
 		std::vector< std::vector<double> > fThreadOutput;
 		
-		// Constant for direction fit
-		double fEP10[21];
-		std::vector< std::vector<double> > fHitPat;
 		
-		// Constant for EffHit computation
-		double fEffHitLambda[12];
-		int fNearPMT;
-		double fOccupancyTable[10][10];
-		
-	private:
-		// Analysis function
-	
-		// Load some constants needed to compute the direction
-		void LoadDirConstant();						
-
-		// Geometric function
-		double GroupPMTs(int pmtType, int pmt_number);
-		
-		// Get number of in time hits in twindow from tof subtracted t-distribution 
-		void ComputeInTimeHit(int iType=NormalPMT);
-		
-		// Get distance between final vertex and wall:
-		void ComputeDistanceFromWall();
-		
-		// Return the detection efficiency for a given incident angle
-		double GetPMTAngleEfficiency(double dCosPM);
-		
-		// Return a vector from the direction and the angles
-		std::vector<double> TransformInVector(std::vector<double> lDir, double dPhi, double dCosTheta );
-		
-		// Return dirKS
-		double GetDirKS(std::vector<double> lDir);
-		
-		// Return ?
-		double GetDir_lkflf(double dCos, int iE, bool bSimple);
-		
-		// Return the direction
-		// if Simple = false, energy is ignored
-		// if Simple = true, energy is needed
-		std::vector<double> GetDirection(double dEnergy, std::vector<PMTHitExt> tInTime, bool bSimple, double dCutOff);
-		
-		// Return Bonsai-like goodness of fit
-		double GoodnessBonsai();
-		
-		void MakeAnalysis(int iType);
 
 	//ClassDef(BQFitter,1)  
 };

@@ -22,24 +22,36 @@ INCFLAGS += -I$(WCSIMDIR)/include
 LIBS += ${WCSIMDIR}/libWCSimRoot.so 
 LIBS += $(shell root-config --libs) -lMinuit 
 
+LIB_MANAGER = ../lib/libHKManager.so
+LIB_ANALYSIS = ../lib/libHKAstroAnalysis.so
+LIB_FITTER = ../lib/libBQFitter.so
+
+LIBS_OBJECTS = ../lib/libHKManager.so ../lib/libHKAstroAnalysis.so ../lib/libBQFitter.so
+
 #all: .depend $(DICT).cc libBQFitter.so $(OBJECT)
-all: .depend ../lib/libBQFitter.so
+all: .depend $(LIBS_OBJECTS)
 
 # library
 ../lib/libBQFitter.so: BQFitter.o 
 	@if [ ! -d ../lib ]; then \
 		mkdir ../lib; \
 	fi
-
-#$(DICT).o
 	@echo '<< generating ../lib/libBQFitter.so >>'
-#	@$(SOMAKER) $(SOFLAGS) -o ../lib/libBQFitter.so  BQFitter.o $(DICT).o $(LIBS) 
-	@$(SOMAKER) $(SOFLAGS) -o ../lib/libBQFitter.so  BQFitter.o $(LIBS) 
+	@$(SOMAKER) $(SOFLAGS) -o ../lib/libBQFitter.so  BQFitter.o $(LIBS) $(LIB_MANAGER) $(LIB_ANALYSIS)
 	
-# root class dictionary
-#$(DICT).cc:  LinkDef.h
-#	@echo '<< generating CINT >>'
-#	@rootcint -f $(DICT).cc -c $(INCFLAGS) $(HEADERS) LinkDef.h
+../lib/libHKManager.so: HKManager.o 
+	@echo '<< generating ../lib/libHKManager.so >>'
+	@if [ ! -d ../lib ]; then \
+		mkdir ../lib; \
+	fi
+	@$(SOMAKER) $(SOFLAGS) -o ../lib/libHKManager.so  HKManager.o $(LIBS) 
+	
+../lib/libHKAstroAnalysis.so: HKAstroAnalysis.o 
+	@echo '<< generating ../lib/libHKManager.so >>'
+	@if [ ! -d ../lib ]; then \
+		mkdir ../lib; \
+	fi
+	@$(SOMAKER) $(SOFLAGS) -o ../lib/libHKAstroAnalysis.so  HKAstroAnalysis.o $(LIBS) $(LIB_MANAGER)
 
 	
 # default rules
