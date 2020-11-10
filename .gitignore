@@ -4,3 +4,4 @@ app/FitVertexLE
 *.o
 .depend
 lib/
+app/analysis

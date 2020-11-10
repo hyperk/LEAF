@@ -13,6 +13,8 @@ double BQFitter::fSTimePDFLimitsQueueNegative = 0;
 double BQFitter::fSTimePDFLimitsQueuePositive = 0;
 BQFitter* BQFitter::myFitter=NULL;
 
+std::mutex mtx;
+
 /************************************************************************************************************************/
 
 void MinuitLikelihood(int& /*nDim*/, double * /*gout*/, double & NLL, double par[], int /*flg*/){
@@ -2912,4 +2914,108 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 	}
 	
 	return fOutput;
+}
+
+void BQFitter::OverwriteLeafVertex(std::vector<double> vtx, double time) {
+    fRecoVtxPosFinal[0][0] = vtx[0]; 
+    fRecoVtxPosFinal[0][1] = vtx[1];  
+    fRecoVtxPosFinal[0][2] = vtx[2];  
+    fRecoVtxPosFinal[0][3] = time;  
+
+    return;
+	
+}
+
+struct BQFitter::FitterOutput BQFitter::CalculateFitterOutput() {
+
+    // Get Hits total
+
+    int iHitsTotal = fHitInfo.size();
+
+    //Proceed to the fit.
+    double * tLimits = new double[4];
+
+    struct FitterOutput fOutput;
+
+    fOutput.Vtx[0]      = 0.;
+    fOutput.Vtx[1]      = 0.;
+    fOutput.Vtx[2] 	    = 0.;
+    fOutput.Time        = 0.;
+    fOutput.Good        = 0.;
+
+    fOutput.InTime      = 0;
+
+    fOutput.True_NLLDiff  = 0;
+    fOutput.True_TimeDiff = 0;
+    fOutput.True_TistDiff = 0;
+
+
+    int iInTime = 0;
+
+    const std::vector<double> fVtxRec {fRecoVtx_X, fRecoVtx_Y, fRecoVtx_Z};
+
+    for(int ihit = 0; ihit < iHitsTotal; ihit++){
+        int iPMT = fHitInfo[ihit].PMT;
+        double hitTime = fHitInfo[ihit].T;
+        double distance = GetDistance(fPMT_Info[iPMT],fVtxRec);
+        double tof = distance / fLightSpeed;
+        double residual = hitTime - tof - fRecoVtx_T;
+        if(residual > fSTimePDFLimitsQueueNegative && residual < fSTimePDFLimitsQueuePositive){
+            iInTime++;
+        }
+    }
+
+    // Fill variables for additionnal analysis
+    fRecoVtx_X	= fRecoVtxPosFinal[0][0]; 
+    fRecoVtx_Y	= fRecoVtxPosFinal[0][1];  
+    fRecoVtx_Z	= fRecoVtxPosFinal[0][2];  
+    fRecoVtx_T	= fRecoVtxPosFinal[0][3];  
+    fRecoVtx_R2	= fRecoVtx_X * fRecoVtx_X + fRecoVtx_Y * fRecoVtx_Y; 
+    fRecoVtx_R	= sqrt(fRecoVtx_R2);
+    fRecoVtx_Good	= fRecoVtxPosFinal[0][4];  
+
+    // Fill Output
+    fOutput.Vtx[0] 	= fRecoVtx_X;
+    fOutput.Vtx[1] 	= fRecoVtx_Y;
+    fOutput.Vtx[2] 	= fRecoVtx_Z;
+    fOutput.Time   	= fRecoVtx_T;
+    fOutput.InTime 	= iInTime;
+    fOutput.Good 	= fRecoVtx_Good;
+
+
+    //std::cout << " Final vertex " << fOutput.Vtx[0] << " " << fOutput.Vtx[1] << " " << fOutput.Vtx[2] << " Time " << fOutput.Time << std::endl;
+
+    this->ComputeDistanceFromWall();
+    fOutput.Wall  = fRecoVtx_Wall;
+
+    this->MakeAnalysis(NormalPMT);
+
+    fOutput.n50 	    [NormalPMT]    = fInTime50.size();
+    fOutput.dirKS 	    [NormalPMT]    = fVtxReco_dirKS;
+    fOutput.dir 	    [NormalPMT][0] = fVtxReco_dirSimple[0];
+    fOutput.dir 	    [NormalPMT][1] = fVtxReco_dirSimple[1];
+    fOutput.dir 	    [NormalPMT][2] = fVtxReco_dirSimple[2];
+    fOutput.dir_goodness[NormalPMT]    = fVtxReco_dirSimple[3];
+
+    this->MakeAnalysis(MiniPMT);
+
+    fOutput.n50 	    [MiniPMT  ]    = fInTime50.size();
+    fOutput.dirKS 	    [MiniPMT  ]    = fVtxReco_dirKS;
+    fOutput.dir 	    [MiniPMT  ][0] = fVtxReco_dirSimple[0];
+    fOutput.dir 	    [MiniPMT  ][1] = fVtxReco_dirSimple[1];
+    fOutput.dir 	    [MiniPMT  ][2] = fVtxReco_dirSimple[2];
+    fOutput.dir_goodness[MiniPMT  ]    = fVtxReco_dirSimple[3];
+
+    this->MakeAnalysis(AllPMT);
+
+    fOutput.n50 	    [AllPMT   ]    = fInTime50.size();
+    fOutput.dirKS 	    [AllPMT   ]    = fVtxReco_dirKS;
+    fOutput.dir 	    [AllPMT   ][0] = fVtxReco_dirSimple[0];
+    fOutput.dir 	    [AllPMT   ][1] = fVtxReco_dirSimple[1];
+    fOutput.dir 	    [AllPMT   ][2] = fVtxReco_dirSimple[2];
+    fOutput.dir_goodness[AllPMT   ]    = fVtxReco_dirSimple[3];
+
+    fOutput.Good 	= this->GoodnessBonsai();
+
+    return fOutput;
 }

@@ -83,7 +83,7 @@
 // mPMT Info:
 #define mPMT_TOP_ID		19
 
-std::mutex mtx;
+//std::mutex mtx;
 
 // Likelihood:
 void MinuitLikelihood(int& nDim, double * gout, double & NLL, double par[], int flg);
@@ -185,6 +185,10 @@ class BQFitter/* : public TObject */{
 						std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits,
 						int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false,
 						double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true);
+        
+        // Move vertex and re-calculate
+		void OverwriteLeafVertex(std::vector<double> vtx, double time); // This overwrites fRecoVtxPosFinal[0][*] inorder to re-calculate variables (e.g. goodness).
+		struct FitterOutput CalculateFitterOutput();
 		
 	private:
 		
