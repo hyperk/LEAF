@@ -28,3 +28,9 @@ In order to use the class in your code look at example/
 4. One example of how to run the code is set in example: test_example.sh
 5. inputs PDF, input from WCSim can be downloaded on sukap cluster. Please untar them in the LEAF repository.
 6. You can use shell scripts in shell/ in order to run the fitter or launch on batch.
+
+# Other scripts in macros:
+1. Produce PDF for LEAF: first runt AnalyzeWSHierarchy, then run ProducePDF on AnalyzeWSHierarchy output.
+2. AnalyzeWSHierarchy: readout WCSim output and fill generci plots.
+3. ProducePDF: produce time PDF (and angular PDF).
+4. LEAFOutputAnalysisHybrid_leafclass: read LEAF output to produce generic plots. If one uses the master branch for LEAF, please use LEAFOutputAnalysisHybrid_master
