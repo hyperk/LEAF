@@ -7,7 +7,7 @@ ROOTGLIBS    	:= $(shell root-config --glibs)
 CXXFLAGS	+= $(ROOTCFLAGS)
 
 #LIB = /home/bquilain/CC0pi_XS/MC/ingmc_IngridRevReWeightFinal/lib_New
-LIB = lib_New_r34
+#LIB = lib_New_r34
 #lib
 #export WCSIMDIR=/disk01/usr5/bquilain/WCSim_hybridPMT_official
 LIBS 		= $(ROOTGLIBS) $(WCSIMDIR)/libWCSimRoot.so -lMinuit
@@ -18,11 +18,11 @@ SRC= $(WCSIMDIR)/src
 
 CXXFLAGS += -I$(LIB) -I$(SRC) -I$(INC) 
 
-TARGET= FitVertexLE
+TARGET= FitVertexLE AnalyzeWSHierarchy
 
 all: $(TARGET)
 FitVertexLE: FitVertexLE.o
-
+AnalyzeWSHierarchy: AnalyzeWSHierarchy.o
 
 %: %.o
 	@echo "Now make $@"
