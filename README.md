@@ -21,6 +21,11 @@ In order to use the class in your code look at example/
 2. ROOT v5r34 or superior (not tested for older versions, but might work).
 3. HKAstroAnalysis class is private and can be downloaded by SK collaborators on sukap cluster.
 
+# Compatibility tested so far:
+1. WCSim-hybrid version: for geometries "HyperK", "HyperK_mPMT", "HyperK_HybridmPMT", "HyperK_HybridmPMT10PC"
+2. In general, with all WCSim-hybrid geometries using whether BoxandLine20inchHQE or PMT3inchR14374 PMTs.
+3. With official HK WCSim: Ask G. Pronost.
+
 # How to:
 1. Source RunAtStart.sh after you updated your ROOT directory.
 2. Enter the leaf/ repository and make clean;make
