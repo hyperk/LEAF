@@ -7,6 +7,26 @@
 /**     + Add Low-E functions from Super-K					**/
 /*********************************************************************************/
 
+/**********************************************************************************************/
+// This class contains a vertex finder for Low-E WCSim-based detectors through different methods
+// The vertex finder relies on a likelihood of timing residual for each PMT hit.
+// Time residuals are defined as:
+// time - time-of-flight-assuming-straight-line-from-vertex-to PMT - time-of-vertex
+/**********************************************************************************************/
+/**********************************************************************************************/
+// The standard method relies on two parts which are runned successively:
+//
+// 1. SearchVertex: A coarse grid search in the tank, where steps in space/time can be set by users
+// In default mode, this class does not use the full likelihood but just number of hits in time to be faster
+//
+// 2. MinimizeVertex: A MINUIT-based search within a 4D sphere around a specific position and time
+// Note that in default mode, the sphere radius should be set to be the same or similar to the step size in SearchVertex.
+// In default mode, the best candidates from SearchVertex are fed to MinimizeVertex. The number of best candidates can be selected.
+// Both MinimizeVertex and SearchVertex provides an output containing the best fits vertices, ordered from lower to higher NLL. 
+//
+// Most of default parameters of method 1 and 2 can be set in BQFitter.cc Init() method
+/**********************************************************************************************/
+
 
 #ifndef BQFitter_hh
 #define BQFitter_hh
@@ -131,12 +151,16 @@ class BQFitter/* : public TObject */{
 			double True_TistDiff;
 		};
 		
-		
+
+                // Fitter Main Method. Process the whole fit. 
 		struct FitterOutput MakeFit(bool bHybrid=true);
 		
 		// NLL
+                // Calculate likelihood function based on input PDF. For now, the function is based on time residuals.
 		double FindNLL_Likelihood(std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality);
+                // Calculate likelihood without using PDF, but just using hits within a given timing window (hits "in-time").
 		double FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality);
+                // Contain the two functions above in one function, where usage of PDF or not can be set through the flag: likelihood = true/false
 		double FindNLL(			std::vector<double> vertexPosition,int nhits, bool likelihood, int verbose, double lowerLimit, double upperLimit, 
 						bool killEdges=false, bool scaleDR=false, int directionality=false);
 						
