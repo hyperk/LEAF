@@ -17,7 +17,7 @@ CXXFLAGS += $(shell root-config --cflags)
 CXXFLAGS += '-fPIC' -std=c++11
 
 INCFLAGS = -I.
-INCFLAGS += -I$(WCSIMDIR)/include
+INCFLAGS += -I$(WCSIMSRCDIR)/include
 
 LIBS += ${WCSIMDIR}/libWCSimRoot.so 
 LIBS += $(shell root-config --libs) -lMinuit 
