@@ -9,11 +9,11 @@ This algorithm is an alternative and simple LE fitter than can be used for Hyper
 New compilation method:
 
 	source RunAtStart.sh
+	./SetupDataModel.sh
 	cd leaf/
 	make clean; make
 	
 In order to use the class in your code look at example/
-
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Pre-requisite to use the code:
@@ -28,6 +28,7 @@ In order to use the class in your code look at example/
 
 # How to:
 1. Source RunAtStart.sh after you updated your ROOT directory.
+2. Use the script ./SetupDataModel.sh to define the DataModel (if you have hk-AstroAnalysis, you should setup the global variable)
 2. Enter the leaf/ repository and make clean;make
 3. Enter the example repository and make clean;make
 4. One example of how to run the code is set in example: test_example.sh
