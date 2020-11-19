@@ -1,10 +1,10 @@
-/*********************************************************************************/
-/**	BQFitter.cc								**/
-/**	Author: Guillaume Pronost (pronost@km.icrr.u-tokyo.ac.jp)		**/
-/**	Original author: Benjamin Quilain					**/
-/**	Date: December 18th 2019						**/
-/**	Desc: Low-E Fitter for Hyper-K						**/
-/*********************************************************************************/
+/*****************************************************************************************************/
+/**	BQFitter.cc											**/
+/**	Author: Guillaume Pronost (pronost@km.icrr.u-tokyo.ac.jp)					**/
+/**	Original author: Benjamin Quilain								**/
+/**	Date: December 18th 2019									**/
+/**	Desc: Low-E Fitter for Hyper-K								**/
+/*****************************************************************************************************/
 
 #include "BQFitter.hh"
 #include "TStopwatch.h"
@@ -15,7 +15,7 @@ BQFitter* BQFitter::myFitter=NULL;
 
 std::mutex mtx;
 
-/************************************************************************************************************************/
+/*****************************************************************************************************/
 
 void MinuitLikelihood(int& /*nDim*/, double * /*gout*/, double & NLL, double par[], int /*flg*/){
 	//TStopwatch timer;
@@ -72,15 +72,12 @@ void SearchVertex_CallThread(
 		nhits, tolerance, likelihood, lowerLimit, upperLimit, directionality);
 			
 }
-/************************************************************************************************************************/
+/*****************************************************************************************************/
 
 BQFitter::BQFitter() {
 
 	myFitter = this;
 	fThread  = N_THREAD;
-	this->Init();
-
-	myManager = HKManager::GetME();
 }
 
 BQFitter::~BQFitter() {
@@ -98,7 +95,26 @@ BQFitter* BQFitter::GetME() {
 	return myFitter;
 }
 
-/************************************************************************************************************************/
+/*****************************************************************************************************/
+void BQFitter::Initialize(const Geometry* lGeometry) {
+	
+	fGeometry = lGeometry;
+	
+	// Get ID PMT info list
+	fPMTList = fGeometry->GetPMTList();
+	
+	// Set DarkNoise:
+	fDarkRate_ns[NormalPMT] 	= fGeometry->pmt_dark_rate[HKAA::kIDPMT_BnL];
+	fDarkRate_ns[MiniPMT]		= fGeometry->pmt_dark_rate[HKAA::kIDPMT_3inch];
+	
+	// Set Tank size:
+	fTankRadius 			= fGeometry->detector_radius;
+	fTankHeight			= fGeometry->detector_length;
+	fTankHalfHeight		= fTankHeight / 2.;
+	
+	this->Init();
+}
+/*****************************************************************************************************/
 
 void BQFitter::Init() {
 
@@ -119,18 +135,18 @@ void BQFitter::Init() {
 	fTimeWindowSizeFull 				= 1500;
 	fAveraging 					= 20;//Number of points we used to average the vertex on.
 	
-	fMinimizeLimitsNegative				= -700;
-	fMinimizeLimitsPositive				= 1000;
+	fMinimizeLimitsNegative			= -700;
+	fMinimizeLimitsPositive			= 1000;
 	
 	fSearchVtxStep					= 300;//in cm, the step size for coarse grid search
 	fSearchVtxTolerance 				= 60;//Number of candidate vertex that are kept after coarse grid search	
 	fHitTimeLimitsNegative				= -5;//-10;//-5;//-5
 	fHitTimeLimitsPositive				= 7;//15;//7;//7
 	
-	fIntegrationTimeWindow 				= 50;//in ns
+	fIntegrationTimeWindow 			= 50;//in ns
 	
 	// Compute light speed:
-	float fCVacuum 					= 3e8*1e2 / 1e9;//speed of light, in centimeter per ns.
+	float fCVacuum 				= 3e8*1e2 / 1e9;//speed of light, in centimeter per ns.
 	float fNIndex 					= 1.373;//1.385;//1.373;//refraction index of water
 	fLightSpeed 					= fCVacuum/fNIndex;
 	
@@ -141,11 +157,10 @@ void BQFitter::Init() {
 	
 	fPDFNorm_fullTimeWindow 			= 0.;
 	
-	//fPositionSize					= 0;
+	//fPositionSize				= 0;
 			
 	// Get random generator
-	fRand  						= new TRandom3();
-	//fRand2 					= new TRandom3();
+	fRand  					= new TRandom3();
 	
 	this->LoadSplines();
 
@@ -184,7 +199,7 @@ void BQFitter::LoadSplines() {
 		if(fSTimePDFLimitsQueuePositive > fSTimePDFLimitsQueuePositive_fullTimeWindow) fSTimePDFLimitsQueuePositive = fSplineTimePDFQueue[pmtType]->GetXmax();//same here.
 
 		//Load 3D directionality histograms.
-		for(int pmtGroup=0;pmtGroup<NGROUP_PMT;pmtGroup++){
+		for(int pmtGroup=0;pmtGroup<HKAA::kmPMT_Groups;pmtGroup++){
 			//hPMTDirectionality_1D[pmtType][pmtGroup] = (TH1D*) fSplines2->Get(Form("hPMTDirectionality_1D_%d_%d_%d",0,pmtType,pmtGroup));
 			//hPMTDirectionality_2D[pmtType][pmtGroup] = (TH2D*) fSplines2->Get(Form("hPMTDirectionality_2D_%d_%d_%d",0,pmtType,pmtGroup));
 			gPMTDirectionality_2D[pmtType][pmtGroup] = (TGraph2D*) fSplines2->Get(Form("gPMTDirectionality_2D_%d_%d_%d",0,pmtType,pmtGroup));
@@ -227,7 +242,7 @@ void BQFitter::SetTrueVertexInfo(std::vector<double> vtx, double time) {
 	
 	fTrueVtxPosDouble.push_back(fTrueVtxPos);
 }
-/************************************************************************************************************************/
+/*****************************************************************************************************/
 // Spline Integral functions:
 double BQFitter::SplineIntegral(TSpline3 * s,double start,double end,double stepSize){
 	double integral=0;
@@ -252,7 +267,7 @@ double BQFitter::SplineIntegralExpo(TSpline3 * s,double start,double end,double 
 	return integral;
 }
 
-/************************************************************************************************************************/
+/*****************************************************************************************************/
 
 void BQFitter::VectorVertexPMT(std::vector<double> vertex, int iPMT, double* dAngles) {
 	
@@ -261,20 +276,21 @@ void BQFitter::VectorVertexPMT(std::vector<double> vertex, int iPMT, double* dAn
 	// Guillaume 2020/05/20:
 	// mPMT referencial is computed once for all PMT in LoadPMTInfo() and MakeMPMTReferencial(iPMT)
   	
-  	int iPMTTop = myManager->GetMPMT_Reference(iPMT);
-	std::vector<double> lPMTInfoTop = myManager->GetPMTInfo(iPMTTop);
+	PMTInfo lPMTInfo = (*fPMTList)[iPMT];
+  	int iPMTTop = lPMTInfo.mPMT_RefTube;
+	PMTInfo lPMTInfoTop = (*fPMTList)[iPMTTop];
   
 	//5. Now we have our referential, we should just calculate the angles of the PMT to vertex position vector in this referential.
 	//a. calculate the PMT to vertex position vector.
 	
 	double dVtx_PMTRef[3];
 	
-	dVtx_PMTRef[0] = vertex[0] - lPMTInfoTop[0];
-	dVtx_PMTRef[1] = vertex[1] - lPMTInfoTop[1];
-	dVtx_PMTRef[2] = vertex[2] - lPMTInfoTop[2];
+	dVtx_PMTRef[0] = vertex[0] - lPMTInfoTop.Position[0];
+	dVtx_PMTRef[1] = vertex[1] - lPMTInfoTop.Position[1];
+	dVtx_PMTRef[2] = vertex[2] - lPMTInfoTop.Position[2];
 	
 	double dLengthVtx = GetLength(dVtx_PMTRef);
-	HKGeoTools::Normalize(dVtx_PMTRef);
+	GeoTools::Normalize(dVtx_PMTRef);
 		
 	if( VERBOSE >= 3 ){
 		std::cout << "Vertex position = " << vertex[0] << ", " << vertex[1] << ", " << vertex[2] << std::endl;
@@ -282,18 +298,18 @@ void BQFitter::VectorVertexPMT(std::vector<double> vertex, int iPMT, double* dAn
 	}
 	
 	//b. Then extract Theta and Phi:
-	double dCosTheta= GetScalarProd(dVtx_PMTRef,myManager->GetMPMT_RefZ(iPMT));
+	double dCosTheta= GetScalarProd(dVtx_PMTRef,lPMTInfo.mPMT_RefZ);
 	double dTheta	= TMath::ACos(dCosTheta);
 	
 	double dPhi 	= 0.;
 	
-	if( myManager->GetMPMT_TubeID(iPMT) == mPMT_TOP_ID ) {
+	if( (*fPMTList)[iPMT].mPMT_TubeNum == HKAA::kmPMT_TopID ) {
 		//Phi is not defined in that case..
 	}
 	else {
 		//We know x=cosPhi x sinTheta and y=sinPhi x sinTheta
-		double dX 	= GetScalarProd(dVtx_PMTRef,myManager->GetMPMT_RefX(iPMT));
-		double dY 	= GetScalarProd(dVtx_PMTRef,myManager->GetMPMT_RefY(iPMT));
+		double dX 	= GetScalarProd(dVtx_PMTRef,lPMTInfo.mPMT_RefX);
+		double dY 	= GetScalarProd(dVtx_PMTRef,lPMTInfo.mPMT_RefY);
 		double dTanPhi	= dY/dX;
 		dPhi		= TMath::ATan(dTanPhi);
 		
@@ -325,28 +341,20 @@ double BQFitter::FindDirectionTheta(std::vector<double> vertex,int tubeNumber, i
 
 	//clock_t timeStart=clock();
 	
-	std::vector<double> lPMTInfo = myManager->GetPMTInfo(tubeNumber);
+	PMTInfo lPMTInfo = (*fPMTList)[tubeNumber];
 	
-	double PMTpos[3];
-	double PMTdir[3];
-	
-	for(int j=0;j<3;j++){
-		PMTpos[j] = lPMTInfo[j  ];
-		PMTdir[j] = lPMTInfo[j+3];
-	}
-
-	int pmt_number_in_mpmt = myManager->GetMPMT_TubeID(tubeNumber);
+	int pmt_number_in_mpmt = lPMTInfo.mPMT_TubeNum;
 	double particleRelativePMTpos[3];
-	for(int j=0;j<3;j++) particleRelativePMTpos[j] = PMTpos[j] - vertex[j];
+	for(int j=0;j<3;j++) particleRelativePMTpos[j] = lPMTInfo.Position[j] - vertex[j];
 	if(verbose == 3){
 		std::cout<<"Original PMT number = "<<pmt_number_in_mpmt<<std::endl;  
-		std::cout<<"Direction = "<<PMTdir[0]<<", "<<PMTdir[1]<<", "<<PMTdir[2]<<std::endl;
+		std::cout<<"Direction = "<<lPMTInfo.Orientation[0]<<", "<<lPMTInfo.Orientation[1]<<", "<<lPMTInfo.Orientation[2]<<std::endl;
 	}
 
 	double norm=0;
 	double ps=0;
 	for(int j =0;j<3;j++){
-		ps   += (-particleRelativePMTpos[j])*PMTdir[j];
+		ps   += (-particleRelativePMTpos[j]) * lPMTInfo.Orientation[j];
 		norm += (particleRelativePMTpos[j] * particleRelativePMTpos[j]);
 	}
 	double cosTheta=ps/TMath::Sqrt(norm);
@@ -372,16 +380,16 @@ void BQFitter::MakeEventInfo(double lowerLimit, double upperLimit) {
 	
 	for(int i=0; i < NPMT_CONFIGURATION; i++) {
 		fEventInfo[i].hits 		= 0;
-		fEventInfo[i].SignaloverNoise 	= 0.;
-		fEventInfo[i].NoiseIntegral   	= 0.;
+		fEventInfo[i].SignaloverNoise	= 0.;
+		fEventInfo[i].NoiseIntegral	= 0.;
 		fEventInfo[i].SignalIntegral 	= 0.;
 	}
 	
-	int iHitTotal = myManager->GetNumberOfHit();
+	int iHitTotal = fHitCollection->Size();
 	
 	for(int iHit=0; iHit < iHitTotal; iHit++ ) {
-		//PMTHit lHit = fHitInfo[iHit];		
-		PMTHit lHit = myManager->GetHitInfo(iHit);
+		//Hit lHit = fHitInfo[iHit];		
+		Hit lHit = fHitCollection->At(iHit);
 		
 		int iPMT = lHit.PMT;
 		int iType = GetPMTType(iPMT);
@@ -452,7 +460,7 @@ void BQFitter::MakePositionList() {
 	
 }
 
-/************************************************************************************************************************/
+/*****************************************************************************************************/
 
 double BQFitter::FindNLL_Likelihood(std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality){
 	
@@ -479,15 +487,15 @@ double BQFitter::FindNLL_Likelihood(std::vector<double> vertexPosition, int nhit
 	//double DR=;//To rescale the PDF, we should know the relative integral of signal vs DR
 	
 	for(int ihit = 0; ihit < nhits; ihit++){
-		//PMTHit lHit = fHitInfo[ihit];		
-		PMTHit lHit = myManager->GetHitInfo(ihit);
+		//Hit lHit = fHitInfo[ihit];		
+		Hit lHit = fHitCollection->At(ihit);
 		
 		int iPMT = lHit.PMT;
 		double hitTime = lHit.T;
-		std::vector<double> lPMTInfo = myManager->GetPMTInfo(iPMT);
+		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		
 		int pmtType = GetPMTType(iPMT);
-		double distance = GetDistance(lPMTInfo,vertexPosition); 
+		double distance = GetDistance(lPMTInfo.Position,vertexPosition); 
 		
 		double tof = distance / fLightSpeed;
 		double residual = hitTime - tof - vertexPosition[3];
@@ -613,19 +621,19 @@ double BQFitter::FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nh
 	//double DR=;//To rescale the PDF, we should know the relative integral of signal vs DR
 			
 	//std::cout << " Find NLL " << nhits << std::endl;
-	//std::cout << " First Hit " << myManager->GetHitInfo(0).PMT << " " << vertexPosition.size() << std::endl;	
+	//std::cout << " First Hit " << fHitCollection->At(0).PMT << " " << vertexPosition.size() << std::endl;	
 	for(int ihit = 0; ihit < nhits; ihit++){
-		//PMTHit lHit = fHitInfo[ihit];		
-		PMTHit lHit = myManager->GetHitInfo(ihit);
+		//Hit lHit = fHitInfo[ihit];		
+		Hit lHit = fHitCollection->At(ihit);
 	
 		//std::cout << " NLL Hit " << ihit << " " << lHit.PMT << std::endl;
 		int iPMT = lHit.PMT;		
 	
 		double hitTime = lHit.T;
-		std::vector<double> lPMTInfo = myManager->GetPMTInfo(iPMT);
+		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		
 		int pmtType = GetPMTType(iPMT);
-		double distance = GetDistance(lPMTInfo,vertexPosition);
+		double distance = GetDistance(lPMTInfo.Position,vertexPosition);
 		
 		double tof = distance / fLightSpeed;
 		double residual = hitTime - tof - vertexPosition[3];
@@ -638,7 +646,7 @@ double BQFitter::FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nh
 
 		bool bCondition = (residual > fHitTimeLimitsNegative && residual < fHitTimeLimitsPositive) || (pmtType == 1 && !fLimit_mPMT);
 
-      		//std::cout << " HIT " << ihit << " Has " <<   bCondition << " " << pmtType << " " << fLimit_mPMT << " " << residual << " ( " << hitTime << " - " << tof << " - " << vertexPosition[3] << " ) "  << distance << " / " << fLightSpeed << " " << lPMTInfo[0] << " "<< lPMTInfo[1] << " "<< lPMTInfo[2] << " " << iPMT << std::endl;
+      		//std::cout << " HIT " << ihit << " Has " <<   bCondition << " " << pmtType << " " << fLimit_mPMT << " " << residual << " ( " << hitTime << " - " << tof << " - " << vertexPosition[3] << " ) "  << distance << " / " << fLightSpeed << " " << lPMTInfo.Position[0] << " "<< lPMTInfo.Position[1] << " "<< lPMTInfo.Position[2] << " " << iPMT << std::endl;
       
 		if( bCondition ){
 			NLL++;//= fSplineTimePDFQueue[pmtType]->Eval(residual);
@@ -691,15 +699,15 @@ double BQFitter::FindNLL(std::vector<double> vertexPosition, int nhits, bool lik
 	timer.Start();
 	
 	for(int ihit = 0; ihit < nhits; ihit++){
-		//PMTHit lHit = fHitInfo[ihit];		
-		PMTHit lHit = myManager->GetHitInfo(ihit);
+		//Hit lHit = fHitInfo[ihit];		
+		Hit lHit = fHitCollection->At(ihit);
 		
 		int iPMT = lHit.PMT;
 		double hitTime = lHit.T;
-		std::vector<double> lPMTInfo = myManager->GetPMTInfo(iPMT);
+		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		
 		int pmtType = GetPMTType(iPMT);
-		double distance = GetDistance(lPMTInfo,vertexPosition);
+		double distance = GetDistance(lPMTInfo.Position,vertexPosition);
 		
 		double tof = distance / fLightSpeed;
 		double residual = hitTime - tof - vertexPosition[3];
@@ -847,21 +855,20 @@ double BQFitter::FindNLLDirectionality(std::vector<double> vVtxPos, int nhits, i
 	
 		
 	for(int ihit = 0; ihit < nhits; ihit++){
-		//PMTHit lHit = fHitInfo[ihit];		
-		PMTHit lHit = myManager->GetHitInfo(ihit);
+		//Hit lHit = fHitInfo[ihit];		
+		Hit lHit = fHitCollection->At(ihit);
 		
 		int iPMT = lHit.PMT;
-		int tubeNumber = iPMT;
 		
-		std::vector<double> lPMTInfo = myManager->GetPMTInfo(iPMT);
+		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		int pmtType = GetPMTType(iPMT);
 		
 		//double hitTime = lHit.T;
-		//int pmt_number_in_mpmt=myManager->GetMPMT_TubeID(iPMT);
+		//int pmt_number_in_mpmt=lPMTInfo.mPMT_TubeNum;
 
 		if(pmtType==0) continue;
 		    
-		//double distance = GetDistance(lPMTInfo,vVtxPos);
+		//double distance = GetDistance(lPMTInfo.Position,vVtxPos);
 		//double tof = distance / fLightSpeed;
 		//double residual = hitTime - tof - vVtxPos[3];
 		bool condition = true;
@@ -872,10 +879,10 @@ double BQFitter::FindNLLDirectionality(std::vector<double> vVtxPos, int nhits, i
 		
 		if(condition){
 			//if(1/*residual > lowerLimit && residual < upperLimit*/){//Do not use it as fluctuating the number of hits used in one event does allow a fair comparison with this likelihood. If we want to restrict the likelihood, use the "DirectionalNLLBayes".
-			//vectorVertexPMT(vPos,tubeNumber,pmtType,vDirection,pmt_number_in_mpmt,verbose);
+			//vectorVertexPMT(vPos,iPMT,pmtType,vDirection,pmt_number_in_mpmt,verbose);
 			//proba = hPMTDirectionality_1D[pmtType][pmtGroup]->GetBinContent(hPMTDirectionality_1D[pmtType][pmtGroup]->FindBin(vDirection[1]));
 			
-			//double theta = this->FindDirectionTheta(vVtxPos,tubeNumber,verbose);
+			//double theta = this->FindDirectionTheta(vVtxPos,iPMT,verbose);
 			double vPMTVtx[4];
 			this->VectorVertexPMT(vVtxPos,iPMT,vPMTVtx);
 			
@@ -883,7 +890,7 @@ double BQFitter::FindNLLDirectionality(std::vector<double> vVtxPos, int nhits, i
 			double dTheta = vPMTVtx[1];
 			double dDist  = vPMTVtx[2];
 			
-			int pmtGroup = myManager->GetMPMT_Group(tubeNumber);
+			int pmtGroup = lPMTInfo.mPMT_Group;
 			
 			double proba = 0;
 			//proba = hPMTDirectionality_1D[pmtType][pmtGroup]->GetBinContent(hPMTDirectionality_1D[pmtType][pmtGroup]->FindBin(theta));
@@ -923,7 +930,7 @@ double BQFitter::FindNLLDirectionality(std::vector<double> vVtxPos, int nhits, i
 	if(VERBOSE>=2) std::cout<<"NLL directionnel="<<NLL<<std::endl;
 	return NLL;
 }
-/************************************************************************************************************************/
+/*****************************************************************************************************/
 
 //Coarse search of the vertex. It will search in a cylinder having the radius = tankRadius and a height tankHeight.
 //The step between each grid points is given by stepSize (in centimeters).
@@ -934,7 +941,7 @@ std::vector< std::vector<double> > BQFitter::SearchVertex(int nhits,int toleranc
 	//2. How to set the search?
 	//double stepSize = 0.5;//in m
 	
-	std::vector<double> 			tBestReconstructedVertexPosition;
+	std::vector<double> tBestReconstructedVertexPosition;
 	
 	//double ** reconstructedVertexPosition = new double[4];
 		
@@ -1647,12 +1654,14 @@ void BQFitter::MinimizeVertex_thread(
 	mtx.unlock();
 }
 
-struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
+struct BQFitter::FitterOutput BQFitter::MakeFit(const HitCollection* lHitCol, bool bHybrid) {
+
+	fHitCollection = lHitCol; 
 
 	// Get Hits total
 
 	//int iHitsTotal = fHitInfo.size();
-	int iHitsTotal = myManager->GetNumberOfHit();
+	int iHitsTotal = fHitCollection->Size();
 	
 	if ( fPositionList.size() == 0 ) {
 		// Make position lists
@@ -1661,11 +1670,9 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 	
 #ifdef OUTPUT_TREE					
 	int iPMTConfiguration = 0; // Normal PMT
-#ifndef WCSIM_single_PMT_type
 	if ( bHybrid ) {
 		iPMTConfiguration = 1; // Hybrid configuration
 	}
-#endif
 #endif
 	
 	//Proceed to the fit.
@@ -1673,17 +1680,17 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 	
 	struct FitterOutput fOutput;
 	
-	fOutput.Vtx[0]      = 0.;
-	fOutput.Vtx[1]      = 0.;
-	fOutput.Vtx[2] 	    = 0.;
-	fOutput.Time        = 0.;
-	fOutput.Good        = 0.;
+	fOutput.Vtx[0]		= 0.;
+	fOutput.Vtx[1]		= 0.;
+	fOutput.Vtx[2]		= 0.;
+	fOutput.Vtx[3]		= 0.;
+	fOutput.NLL		= 0.;
 	
-	fOutput.InTime      = 0;
+	fOutput.InTime		= 0;
 	
-	fOutput.True_NLLDiff  = 0;
-	fOutput.True_TimeDiff = 0;
-	fOutput.True_TistDiff = 0;
+	fOutput.True_NLLDiff	= 0;
+	fOutput.True_TimeDiff	= 0;
+	fOutput.True_TistDiff	= 0;
 	
 	fLastLowerLimit       = 0.;
 	fLastUpperLimit       = 0.;
@@ -1691,15 +1698,15 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 	/*
 	std::cout << " nMult PMT = " << fWCGeo->GetWCNumPMT(true) << std::endl;
 	for(int a=0;a<iHitsTotal;a++) {
-		std::vector<double> lPMTInfo = myManager->GetPMTInfo(fHitInfo[a].PMT);
+		PMTInfo lPMTInfo = (*fPMTList)[fHitInfo[a].PMT];
 		std::cout<<"Hit [ " << a << " ] PMT = " <<fHitInfo[a].PMT  << " T = " << fHitInfo[a].T  << " Q = " << fHitInfo[a].Q << std::endl;
 		std::cout<< " PMT: (" 
-					<< lPMTInfo[0] << " , " 
-					<< lPMTInfo[1] << " , " 
-					<< lPMTInfo[2] << " )( " 
-					<< lPMTInfo[3] << " , " 
-					<< lPMTInfo[4] << " , " 
-					<< lPMTInfo[5] << " ) " 
+					<< lPMTInfo.Position[0] << " , " 
+					<< lPMTInfo.Position[1] << " , " 
+					<< lPMTInfo.Position[2] << " )( " 
+					<< lPMTInfo.Orientation[0] << " , " 
+					<< lPMTInfo.Orientation[1] << " , " 
+					<< lPMTInfo.Orientation[2] << " ) " 
 					<< std::endl;
 	}
 	  */    	
@@ -1993,18 +2000,26 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 			std::cout<<"True Vtx (x,y,z,t) " << fTrueVtxPos[0] << ", " << fTrueVtxPos[1] << ", " << fTrueVtxPos[2] << ", " << fTrueVtxPos[3] << std::endl;
 */			
 
-						
+					
+			
+			// Fill Output
+			fOutput.Vtx[0] 	= fRecoVtxPosFinal[0][0];
+			fOutput.Vtx[1] 	= fRecoVtxPosFinal[0][1];
+			fOutput.Vtx[2] 	= fRecoVtxPosFinal[0][2];
+			fOutput.Vtx[3]   	= fRecoVtxPosFinal[0][3];
+			fOutput.NLL 		= fRecoVtxPosFinal[0][4];  
+			
 			int iInTime = 0;
 			
 			for(int ihit = 0; ihit < iHitsTotal; ihit++){
-				//PMTHit lHit = fHitInfo[ihit];
-				PMTHit lHit = myManager->GetHitInfo(ihit);
+				//Hit lHit = fHitInfo[ihit];
+				Hit lHit = fHitCollection->At(ihit);
 				
 				int iPMT = lHit.PMT;
-				std::vector<double> lPMTInfo = myManager->GetPMTInfo(iPMT);
+				PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 				
 				double hitTime = lHit.T;
-				double distance = GetDistance(lPMTInfo,fRecoVtxPosFinal[0]);
+				double distance = GetDistance(lPMTInfo.Position,fRecoVtxPosFinal[0]);
 				double tof = distance / fLightSpeed;
 				double residual = hitTime - tof - fRecoVtxPosFinal[0][3];
 				if(residual > fSTimePDFLimitsQueueNegative && residual < fSTimePDFLimitsQueuePositive){
@@ -2012,17 +2027,13 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 				}
 			}
 			
-			// Fill Output
-			fOutput.Vtx[0] 	= fRecoVtxPosFinal[0][0];
-			fOutput.Vtx[1] 	= fRecoVtxPosFinal[0][1];
-			fOutput.Vtx[2] 	= fRecoVtxPosFinal[0][2];
-			fOutput.Time   	= fRecoVtxPosFinal[0][3];
 			fOutput.InTime 	= iInTime;
-			fOutput.Good 		= fRecoVtxPosFinal[0][4];  
 			
 			
-			//std::cout << " Final vertex " << fOutput.Vtx[0] << " " << fOutput.Vtx[1] << " " << fOutput.Vtx[2] << " Time " << fOutput.Time << std::endl;
 			
+			//std::cout << " Final vertex " << fOutput.Vtx[0] << " " << fOutput.Vtx[1] << " " << fOutput.Vtx[2] << " Time " << fOutput.Vtx[3] << std::endl;
+			/*
+				
 			myAna = HKAstroAnalysis::GetME();
 			myAna->SetVertex(fRecoVtxPosFinal[0]);
 			
@@ -2056,6 +2067,7 @@ struct BQFitter::FitterOutput BQFitter::MakeFit(bool bHybrid) {
 			fOutput.dir_goodness[AllPMT]		= myAna->Getdir_Simple()[3];
 		
 			fOutput.Good 	= myAna->GoodnessBonsai();
+			*/
 			
 #ifdef OUTPUT_TREE								
 			bstree->Fill();

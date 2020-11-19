@@ -2,15 +2,12 @@
 OSNAME          = $(shell uname -s)
 HOST            = $(shell uname -n)
 OSNAMEMODE      = $(OSNAME)
-DICT  		= BenjaminFitterCint
-
-#SOURCES 	= $(wildcard *.cc)
-#HEADERS 	= $(wildcard *.hh)
 
 SOURCES 	= BQFitter.cc
 HEADERS 	= BQFitter.hh
 
 include ../Makefile/Makefile.${OSNAME}
+
 
 # set compiler options for ROOT
 CXXFLAGS += $(shell root-config --cflags)
@@ -18,42 +15,72 @@ CXXFLAGS += '-fPIC' -std=c++11
 
 INCFLAGS = -I.
 INCFLAGS += -I$(WCSIMDIR)/include
+INCFLAGS += -I./DataModel
 
 LIBS += ${WCSIMDIR}/libWCSimRoot.so 
 LIBS += $(shell root-config --libs) -lMinuit 
 
+LIB_DATAMODEL = ../lib/libDataModel.so
 LIB_MANAGER = ../lib/libHKManager.so
-LIB_ANALYSIS = ../lib/libHKAstroAnalysis.so
 LIB_FITTER = ../lib/libBQFitter.so
+LIB_ASTROANALYSIS = ../lib/libHKAstroAnalysis.so
 
-LIBS_OBJECTS = ../lib/libHKManager.so ../lib/libHKAstroAnalysis.so ../lib/libBQFitter.so
+LIBS_OBJECTS = $(LIB_DATAMODEL) $(LIB_MANAGER) $(LIB_FITTER) #$(LIB_ASTROANALYSIS)
+DATAMODEL_OBJECTS = GeoTools.o TimeDelta.o HitInfo.o PMTInfo.o Geometry.o 
 
-#all: .depend $(DICT).cc libBQFitter.so $(OBJECT)
+
 all: .depend $(LIBS_OBJECTS)
 
-# library
-../lib/libBQFitter.so: BQFitter.o 
-	@if [ ! -d ../lib ]; then \
-		mkdir ../lib; \
-	fi
-	@echo '<< generating ../lib/libBQFitter.so >>'
-	@$(SOMAKER) $(SOFLAGS) -o ../lib/libBQFitter.so  BQFitter.o $(LIBS) $(LIB_MANAGER) $(LIB_ANALYSIS)
-	
-../lib/libHKManager.so: HKManager.o 
-	@echo '<< generating ../lib/libHKManager.so >>'
-	@if [ ! -d ../lib ]; then \
-		mkdir ../lib; \
-	fi
-	@$(SOMAKER) $(SOFLAGS) -o ../lib/libHKManager.so  HKManager.o $(LIBS) 
-	
-../lib/libHKAstroAnalysis.so: HKAstroAnalysis.o 
-	@echo '<< generating ../lib/libHKManager.so >>'
-	@if [ ! -d ../lib ]; then \
-		mkdir ../lib; \
-	fi
-	@$(SOMAKER) $(SOFLAGS) -o ../lib/libHKAstroAnalysis.so  HKAstroAnalysis.o $(LIBS) $(LIB_MANAGER)
 
+
+# library
+$(LIB_FITTER): BQFitter.o 
+	@if [ ! -d ../lib ]; then \
+		mkdir ../lib; \
+	fi
+	@echo '<< generating ' $@ ' >>'
+	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS)
 	
+$(LIB_MANAGER): HKManager.o 
+	@echo '<< generating ' $@ ' >>'
+	@if [ ! -d ../lib ]; then \
+		mkdir ../lib; \
+	fi
+	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS) 
+	
+$(LIB_ASTROANALYSIS): HKAstroAnalysis.o 
+	@echo '<< generating ' $@ ' >>'
+	@if [ ! -d ../lib ]; then \
+		mkdir ../lib; \
+	fi
+	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS) 
+	
+$(LIB_DATAMODEL): $(DATAMODEL_OBJECTS)
+	@echo '<< generating ' $@ ' >>'
+	@$(SOMAKER) $(SOFLAGS) -o $@  $(DATAMODEL_OBJECTS)  $(LIBS)
+	
+
+# DataModel objects
+GeoTools.o: DataModel/GeoTools.cpp DataModel/GeoTools.h
+	@echo '<< compiling DataModel object: ' $@ ' >>'
+	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
+	
+TimeDelta.o: DataModel/TimeDelta.cpp DataModel/TimeDelta.h
+	@echo '<< compiling DataModel object: ' $@ ' >>'
+	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
+	
+HitInfo.o: DataModel/HitInfo.cpp DataModel/HitInfo.h
+	@echo '<< compiling DataModel object: ' $@ ' >>'
+	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
+	
+PMTInfo.o: DataModel/PMTInfo.cpp DataModel/PMTInfo.h
+	@echo '<< compiling DataModel object: ' $@ ' >>'
+	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
+	
+Geometry.o: DataModel/Geometry.cpp DataModel/Geometry.h
+	@echo '<< compiling DataModel object: ' $@ ' >>'
+	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
+
 # default rules
 .cc.o: 
 	@echo '<< compiling' $< '>>'
@@ -87,5 +114,4 @@ clean:
 	@echo '<< cleaning >>'
 	@rm -f ./*.o
 	@rm -f ./../lib*.so
-	@rm -f ./$(DICT)*
 	

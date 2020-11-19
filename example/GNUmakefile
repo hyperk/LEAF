@@ -4,6 +4,7 @@ OSNAME          = $(shell uname -s)
 
 include ../Makefile/Makefile.${OSNAME}
 
+
 # set compiler options for ROOT
 CXXFLAGS += $(shell root-config --cflags)
 CXXFLAGS += '-fPIC' -std=c++11
@@ -12,11 +13,12 @@ INCFLAGS = -I.
 INCFLAGS += -I$(WCSIMDIR)/include
 INCFLAGS += -I$(BONSAIDIR)/bonsai
 INCFLAGS += -I$(LEAFDIR)/leaf
+INCFLAGS += -I$(LEAFDIR)/leaf/DataModel
 
 LIBS += ${WCSIMDIR}/libWCSimRoot.so 
 LIBS += $(shell root-config --libs) -lMinuit 
 LIBS_BONSAI += -L${BONSAIDIR} -lWCSimBonsai
-LIBS_BQFIT += -L${LEAFDIR}/lib -lHKManager -lHKAstroAnalysis -lBQFitter 
+LIBS_BQFIT += -L${LEAFDIR}/lib -lDataModel -lHKManager -lBQFitter #-lHKAstroAnalysis 
 
 
 OBJECT = analysis

@@ -26,34 +26,45 @@
 
 #include "BQFitter.hh"	
 #include "HKManager.hh"	
-#include "HKAstroAnalysis.hh"	
 #include "WCSimBonsai.hh"
 
 #define OLD_WCSIM // To be used if WCSim version is older than 1.8 (i.e. without multi vertex)
 #define mPMT // To be used if you are using mPMT
+
+// HK_ASTROANALYSIS is an analysis class computing some informations like n50, or the bonsai-like goodness
+// Ask G. Pronost to have access to this class (you need to be a member of SK or HK collaboration)
+//#define WITH_HK_ASTROANALYSIS
+
+#ifdef WITH_HK_ASTROANALYSIS
+#include "HKAstroAnalysis.hh"
+#endif
+
 
 #define ID_EVENT 	1
 #define OD_EVENT	2
 #define mPMT_EVENT	3
 #define UNDEFINED_EVENT	0
 
+
+
 //-----------------------------------------------------------------------------------------//
 
 	int   eventId;					// event Id	
 	int   triggerId;				// trigger Id (with event Id)
 
-	struct Hit {
-		int pmtId;
-		float T;
-		float Q;
-		bool dark;
-		int Type;
+
+	
+	
+	struct FitterAnalysis {
+		double Wall;
+		double Good;
+		int n50[3];
+		double dir[3][3];
+		double dir_goodness[3];
+		
+		double dirKS[3];
 	};
-	struct SortingT { 
-		bool operator()(Hit const &a, Hit const &b) const { 
-			return a.T < b.T;
-		}
-	};
+		
 
 	//True information
 	std::vector<int>   true_particleId; 		// True particle Id (PDGId)
@@ -99,6 +110,8 @@
 	float fBQTime;
 
 	BQFitter::FitterOutput leaf_output;
+	FitterAnalysis	leaf_output_ana;
+	FitterAnalysis	bs_output_ana;
 	
 	int Hit_ID;
 	int Hit_ID_50;
@@ -185,14 +198,14 @@ int main(int argc, char** argv){
 		
 	WCSimRootEvent * fIDevent  = new WCSimRootEvent();
 	// Set Branche
-	fInputTree->SetBranchAddress("wcsimrootevent"   ,&fIDevent );
+	fInputTree->SetBranchAddress("wcsimrootevent" ,&fIDevent );
 	// Set autodelete to avoid memory leak
 	fInputTree->GetBranch("wcsimrootevent"   )->SetAutoDelete(kTRUE);
 	
 	WCSimRootEvent * fHybridevent  = new WCSimRootEvent();
 #ifdef mPMT
 	// Set Branche
-	fInputTree->SetBranchAddress("wcsimrootevent2"   ,&fHybridevent );
+	fInputTree->SetBranchAddress("wcsimrootevent2" ,&fHybridevent );
 	// Set autodelete to avoid memory leak
 	fInputTree->GetBranch("wcsimrootevent2"   )->SetAutoDelete(kTRUE);
 #endif
@@ -226,13 +239,22 @@ int main(int argc, char** argv){
 #ifdef OD_ON
 	int   nPMT_OD = fGeometry->GetODWCNumPMT();
 #endif
-	int   nMultPMT = 0;//fGeometry->GetWCNumPMT(true);
+	int   nMultPMT = fGeometry->GetWCNumPMT(true);
 	// TODO solve this issue!
 	
 	std::cout << " ID " << nPMT_ID << std::endl;
 	std::cout << " mPMT " << nMultPMT << std::endl;
 	
 	HKManager::GetME()->SetGeometry(fGeometry,dDarkNoise * 1e3,dDarkNoiseHybrid * 1e3);
+	
+	// Initialize LEAF
+	BQFitter::GetME()->Initialize(HKManager::GetME()->GetGeometry());
+	BQFitter::GetME()->SetNThread(); // Set number of Threads, default in the class is 12
+	
+	// Initialize HKAstroAnalysis
+#ifdef WITH_HK_ASTROANALYSIS
+	HKAstroAnalysis::GetME()->Initialize(HKManager::GetME()->GetGeometry());
+#endif	
 
 	// Initialize Bonsai
 	WCSimBonsai* fBonsai = new WCSimBonsai();
@@ -252,14 +274,14 @@ int main(int argc, char** argv){
 		// Reset Hit vector
 		HKManager::GetME()->ResetHitInfo();
 		
-		if ( i%1000==0 ) {
+		//if ( i%1000==0 ) {
 			timer.Stop();
 			std::cout << "Event # = " << i << " / " << nPrimaryEvents << " ( " << timer.RealTime() << " )\n";
 			timer.Reset();
 			timer.Start();
-		}
+		//}
 	
-		fInputTree->GetEvent(i); 
+		fInputTree->GetEntry(i); 
 		
 		// Initialize output variables
 		eventId   		  = iWrite;
@@ -319,19 +341,18 @@ int main(int argc, char** argv){
 		leaf_output.Vtx[0]	= 0.;
 		leaf_output.Vtx[1]	= 0.;
 		leaf_output.Vtx[2]	= 0.;
-		leaf_output.Time	= 0.;
-		leaf_output.Good	= -9999.;
-	
+		leaf_output.Vtx[3]	= 0.;
+		leaf_output.NLL	= -9999.;
 		leaf_output.InTime	= 0;
-		leaf_output.Wall	= 0;
 		
+		leaf_output_ana.Wall	= 0;
 		for ( int iType = 0; iType < 3; iType++ ) {
-			leaf_output.n50		[iType]		= 0;
-			leaf_output.dir		[iType][0]	= 0;
-			leaf_output.dir		[iType][1]	= 0;
-			leaf_output.dir		[iType][2]	= 0;
-			leaf_output.dir_goodness[iType]		= 0;
-			leaf_output.dirKS	[iType]		= 0;
+			leaf_output_ana.n50		[iType]		= 0;
+			leaf_output_ana.dir		[iType][0]	= 0;
+			leaf_output_ana.dir		[iType][1]	= 0;
+			leaf_output_ana.dir		[iType][2]	= 0;
+			leaf_output_ana.dir_goodness	[iType]	= 0;
+			leaf_output_ana.dirKS		[iType]	= 0;
 		}
 
 		fLastRawHit = 0;
@@ -403,13 +424,49 @@ int main(int argc, char** argv){
 		timerBQ.Start();
 		
 		// 
-		leaf_output = BQFitter::GetME()->MakeFit();
+		leaf_output = BQFitter::GetME()->MakeFit(HKManager::GetME()->GetHitCollection());
+		
+#ifdef WITH_HK_ASTROANALYSIS
+		HKAstroAnalysis::GetME()->SetVertex(leaf_output.Vtx);
+		
+		leaf_output_ana.Wall 		= HKAstroAnalysis::GetME()->ComputeDistanceFromWall();
+			
+		HKAstroAnalysis::GetME()->MakeAnalysis(HKManager::GetME()->GetHitCollection(),NormalPMT);
+			
+		leaf_output_ana.n50		[NormalPMT] 		= HKAstroAnalysis::GetME()->Getn50();
+		leaf_output_ana.dirKS 		[NormalPMT]		= HKAstroAnalysis::GetME()->GetdirKS();
+		leaf_output_ana.dir 		[NormalPMT][0]		= HKAstroAnalysis::GetME()->Getdir_Simple()[0];
+		leaf_output_ana.dir 		[NormalPMT][1]		= HKAstroAnalysis::GetME()->Getdir_Simple()[1];
+		leaf_output_ana.dir 		[NormalPMT][2]		= HKAstroAnalysis::GetME()->Getdir_Simple()[2];
+		leaf_output_ana.dir_goodness	[NormalPMT]		= HKAstroAnalysis::GetME()->Getdir_Simple()[3];
+			
+		HKAstroAnalysis::GetME()->MakeAnalysis(HKManager::GetME()->GetHitCollection(),MiniPMT);
+			
+		leaf_output_ana.n50		[MiniPMT] 		= HKAstroAnalysis::GetME()->Getn50();
+		leaf_output_ana.dirKS 		[MiniPMT]		= HKAstroAnalysis::GetME()->GetdirKS();
+		leaf_output_ana.dir 		[MiniPMT][0]		= HKAstroAnalysis::GetME()->Getdir_Simple()[0];
+		leaf_output_ana.dir 		[MiniPMT][1]		= HKAstroAnalysis::GetME()->Getdir_Simple()[1];
+		leaf_output_ana.dir 		[MiniPMT][2]		= HKAstroAnalysis::GetME()->Getdir_Simple()[2];
+		leaf_output_ana.dir_goodness	[MiniPMT]		= HKAstroAnalysis::GetME()->Getdir_Simple()[3];
+			
+		HKAstroAnalysis::GetME()->MakeAnalysis(HKManager::GetME()->GetHitCollection(),AllPMT);
+			
+		leaf_output_ana.n50		[AllPMT] 		= HKAstroAnalysis::GetME()->Getn50();
+		leaf_output_ana.dirKS 		[AllPMT]		= HKAstroAnalysis::GetME()->GetdirKS();
+		leaf_output_ana.dir 		[AllPMT][0]		= HKAstroAnalysis::GetME()->Getdir_Simple()[0];
+		leaf_output_ana.dir 		[AllPMT][1]		= HKAstroAnalysis::GetME()->Getdir_Simple()[1];
+		leaf_output_ana.dir 		[AllPMT][2]		= HKAstroAnalysis::GetME()->Getdir_Simple()[2];
+		leaf_output_ana.dir_goodness	[AllPMT]		= HKAstroAnalysis::GetME()->Getdir_Simple()[3];
+		
+		leaf_output_ana.Good		= HKAstroAnalysis::GetME()->GoodnessBonsai();
+		
+#endif	
 		
 		timerBQ.Stop();
 		
 		fBQTime = timerBQ.RealTime();
 		
-		//std::cout << " n50 " << leaf_output.n50[0] << " " << leaf_output.n50[1] << " " << leaf_output.n50[2] << std::endl;
+		//std::cout << " n50 " << leaf_output_ana.n50[0] << " " << leaf_output_ana.n50[1] << " " << leaf_output_ana.n50[2] << std::endl;
 		//std::cout << " BQ took: " << timerBQ.RealTime() << std::endl;
 
 		/****************************************************************************************/
@@ -436,21 +493,22 @@ int main(int argc, char** argv){
 			
 			fBonsai->BonsaiFit( bsvertex, bsresult, bsgood, bsnsel, bsnhit, bsCAB, bsT, bsQ);
 			
-			// Example:
+#ifdef WITH_HK_ASTROANALYSIS
 			HKAstroAnalysis::GetME()->SetVertex(bs_vertex);
-			HKAstroAnalysis::GetME()->MakeAnalysis();
-			/*
-			
-				wall  		= HKAstroAnalysis::GetME()->ComputeDistanceFromWall();
-			  	n50 		= HKAstroAnalysis::GetME()->Getn50();
-				dirKS 		= HKAstroAnalysis::GetME()->GetdirKS();
-				dir_X		= HKAstroAnalysis::GetME()->Getdir_Simple()[0];
-				dir_Y		= HKAstroAnalysis::GetME()->Getdir_Simple()[1];
-				dir_Z		= HKAstroAnalysis::GetME()->Getdir_Simple()[2];
-				dir_Good	= HKAstroAnalysis::GetME()->Getdir_Simple()[3];
-				good		= HKAstroAnalysis::GetME()->GoodnessBonsai();
-			
-			*/
+				
+			bs_output_ana.Wall 		= HKAstroAnalysis::GetME()->ComputeDistanceFromWall();
+				
+			HKAstroAnalysis::GetME()->MakeAnalysis(HKManager::GetME()->GetHitCollection());
+				
+			bs_output_ana.n50		[NormalPMT] 		= HKAstroAnalysis::GetME()->Getn50();
+			bs_output_ana.dirKS 		[NormalPMT]		= HKAstroAnalysis::GetME()->GetdirKS();
+			bs_output_ana.dir 		[NormalPMT][0]		= HKAstroAnalysis::GetME()->Getdir_Simple()[0];
+			bs_output_ana.dir 		[NormalPMT][1]		= HKAstroAnalysis::GetME()->Getdir_Simple()[1];
+			bs_output_ana.dir 		[NormalPMT][2]		= HKAstroAnalysis::GetME()->Getdir_Simple()[2];
+			bs_output_ana.dir_goodness	[NormalPMT]		= HKAstroAnalysis::GetME()->Getdir_Simple()[3];
+				
+			bs_output_ana.Good		= HKAstroAnalysis::GetME()->GoodnessBonsai();
+#endif			
 			
 			bs_vertex[0] = bsvertex[0];
 			bs_vertex[1] = bsvertex[1];
@@ -520,15 +578,15 @@ void SetCustomBranch(TTree* fPrimaryTree) {
 	fPrimaryTree->Branch("bs_good", 		bs_good,		"bs_good[3]/F");	
 	fPrimaryTree->Branch("bs_ctime", 		&fBSTime,		"bs_ctime/F"); // Computation time
 	
-	fPrimaryTree->Branch("lf_vertex", 		&leaf_output.Vtx,		"lf_vertex[3]/D");
-	fPrimaryTree->Branch("lf_time", 		&leaf_output.Time,		"lf_time/D");
+	fPrimaryTree->Branch("lf_vertex", 		&leaf_output.Vtx,		"lf_vertex[4]/D");
+	fPrimaryTree->Branch("lf_NLL", 		&leaf_output.NLL,		"lf_NLL/D");
 	fPrimaryTree->Branch("lf_intime", 		&leaf_output.InTime,		"lf_intime/I");
-	fPrimaryTree->Branch("lf_good", 		&leaf_output.Good,		"lf_good/D");
-	fPrimaryTree->Branch("lf_wall", 		&leaf_output.Wall,		"lf_wall/D");
-	fPrimaryTree->Branch("lf_n50", 			&leaf_output.n50,		"lf_n50[3]/I");
-	fPrimaryTree->Branch("lf_dir", 			&leaf_output.dir,		"lf_dir[3][3]/D");
-	fPrimaryTree->Branch("lf_dir_goodness", 	&leaf_output.dir_goodness,	"lf_dir_goodness[3]/D");
-	fPrimaryTree->Branch("lf_dirKS", 		&leaf_output.dirKS,		"lf_dirKS[3]/D");
+	fPrimaryTree->Branch("lf_good", 		&leaf_output_ana.Good,		"lf_good/D");
+	fPrimaryTree->Branch("lf_wall", 		&leaf_output_ana.Wall,		"lf_wall/D");
+	fPrimaryTree->Branch("lf_n50", 		&leaf_output_ana.n50,		"lf_n50[3]/I");
+	fPrimaryTree->Branch("lf_dir", 		&leaf_output_ana.dir,		"lf_dir[3][3]/D");
+	fPrimaryTree->Branch("lf_dir_goodness", 	&leaf_output_ana.dir_goodness,"lf_dir_goodness[3]/D");
+	fPrimaryTree->Branch("lf_dirKS", 		&leaf_output_ana.dirKS,	"lf_dirKS[3]/D");
 	fPrimaryTree->Branch("lf_ctime", 		&fBQTime,			"lf_ctime/F"); // Computation time
 
 }
@@ -546,39 +604,41 @@ bool AnalyseEvent(WCSimRootEvent * tEvent, int iEventType) {
 	
 	int   nVertex			= 0; // Number of Vertex in event
 	int   nTrack			= 0; // Number of Track in event
-	int   nRawCherenkovHits		= 0; // Number of Raw Cherenkov hits
+	int   nRawCherenkovHits	= 0; // Number of Raw Cherenkov hits
 	int   nDigitizedCherenkovHits	= 0; // Number of Digitized Cherenkov hits
-	double 	fTriggerTime		= 0.;
+	double 	fTriggerTime	= 0.;
 
 	// Declare some useful variables
 	WCSimRootTrigger * 	fRootTrigger;
 	//TClonesArray *		fTimeArray;
 	
 	// Currently only one Trigger is used (to be check)
-	int iTrig = 0;
-	//for(int iTrig = 0; iTrig < tEvent->GetNumberOfEvents(); iTrig++){
+	//int iTrig = 0;
+	for(int iTrig = 0; iTrig < tEvent->GetNumberOfEvents(); iTrig++){
 
 		triggerId    = iTrig;
 		fRootTrigger = tEvent->GetTrigger(iTrig);
-				
+		
 		// Grab the big arrays of times and parent IDs
 		//fTimeArray   = fRootTrigger->GetCherenkovHitTimes();
 			
 		// Get number of vertex and tracks
 #ifdef OLD_WCSIM
-		nVertex                 = 1;
+		nVertex		= 1;
 #else
-		nVertex                 = fRootTrigger->GetNvtxs();
+		nVertex		= fRootTrigger->GetNvtxs();
 #endif
-		nTrack                  = fRootTrigger->GetNtrack();
-			
-		if ( nTrack == 0 ) {
+
+		nTrack			= fRootTrigger->GetNtrack();			
+		nRawCherenkovHits	= fRootTrigger->GetNumTubesHit();
+		
+		if ( nTrack == 0 || nRawCherenkovHits ==  0 ) {
 			// No track, no hit, nothing to do
 			return false;
 		}
 			
 		// Get number of hits
-		nRawCherenkovHits	= fRootTrigger->GetNumTubesHit();
+		
 		nDigitizedCherenkovHits = fRootTrigger->GetNcherenkovdigihits();	
 		fTriggerTime            = fRootTrigger->GetTriggerInfo()[2] - fRootTrigger->GetTriggerInfo()[1];
 			
@@ -616,67 +676,12 @@ bool AnalyseEvent(WCSimRootEvent * tEvent, int iEventType) {
 			
 		BQFitter::GetME()->SetTrueVertexInfo(vVtxTrue,0);
 		
-		/*
-		std::vector<Hit> RawHit;
-		// Loop on Raw Hits	
-		for(int iHit = 0; iHit < nRawCherenkovHits; iHit++){
-			
-			TObject *Hit = (fRootTrigger->GetCherenkovHits())->At(iHit);
-			
-			WCSimRootCherenkovHit *wcHit = dynamic_cast<WCSimRootCherenkovHit*>(Hit);
-
-			int pmtId      = wcHit->GetTubeID();
-				
-			int HitTimeIdx = wcHit->GetTotalPe(0);
-			int HitPE      = wcHit->GetTotalPe(1);
-				
-			for (int iHitTime = HitTimeIdx; iHitTime < (HitTimeIdx + HitPE); iHitTime++) {
-				// Look for all Hits on one PMT
-				WCSimRootCherenkovHitTime * wcHitTime = dynamic_cast<WCSimRootCherenkovHitTime*>(fTimeArray->At(iHitTime));
-				// How can we use wcHitTime->GetParentID() ?
-				
-				struct Hit hHit;
-					
-				hHit.pmtId = pmtId;
-				hHit.T     = (float) wcHitTime->GetTruetime();
-				hHit.Q     = 1.;
-				hHit.dark  = false;
-				hHit.Type  = iEventType;
-					
-				RawHit.push_back(hHit);
-			}
-				
-			fHit += 1;
-		} 
-		*/
 		if ( nRawCherenkovHits < 1 ) return false;
 		
-		/*		
-		// Sort by time
-		std::sort(RawHit.begin(), RawHit.end(), SortingT());
-		
-		// Get first hit for normalization
-		float fFirstHitTime = RawHit[0].T;
-		fLastRawHit = RawHit.size();
-		*/
-
 		std::vector<float> times;
 		
 		// Get number of hit
 		rawhit_num = nRawCherenkovHits;
-		/*	
-		for (int iHit = 0; iHit < rawhit_num; iHit++ ) {
-			
-			Hit hHit = RawHit[iHit];	
-							
-			//hHit.T -= fFirstHitTime;
-						
-			rawhit_pmtId.push_back(hHit.pmtId);  		
-			rawhit_T    .push_back(hHit.T    );  		
-			rawhit_Q    .push_back(hHit.Q    );  		
-			rawhit_dark .push_back(hHit.dark );  
-		}
-		*/
 			
 		// Loop on Digitized Hits
 		for(int iDigitHit = 0; iDigitHit < nDigitizedCherenkovHits; iDigitHit++){
@@ -756,7 +761,7 @@ bool AnalyseEvent(WCSimRootEvent * tEvent, int iEventType) {
 			if ( (unsigned int) fHit_400 < Hit_time_400.size() ) fHit_400 = Hit_time_400.size();
 		}
 	
-	//}	
+	}	
 
 
 	return true;
