@@ -1,5 +1,5 @@
 /*****************************************************************************************************/
-/**	WCSimLEAF.hh											**/
+/**	LEAF.hh											**/
 /**	Author: Guillaume Pronost (pronost@km.icrr.u-tokyo.ac.jp)					**/
 /**	Original author: Benjamin Quilain								**/
 /**	Date: December 18th 2019									**/
@@ -27,12 +27,12 @@
 // SearchVertex provides an output containing the best fits vertices, ordered from lower to higher 
 // NLL. 
 //
-// Most of default parameters of method 1 and 2 can be set in WCSimLEAF.cc Init() method
+// Most of default parameters of method 1 and 2 can be set in LEAF.cc Init() method
 /*****************************************************************************************************/
 
 
-#ifndef WCSimLEAF_hh
-#define WCSimLEAF_hh
+#ifndef LEAF_hh
+#define LEAF_hh
 
 #include <algorithm>
 #include <iostream>
@@ -98,12 +98,12 @@ bool SortOutputVector ( const std::vector<double>& v1, const std::vector<double>
 	return v1[4] < v2[4]; 
 } 
 		
-class WCSimLEAF {
+class LEAF {
 
 	public:
-		WCSimLEAF();
-		~WCSimLEAF();
-		static WCSimLEAF*		GetME();
+		LEAF();
+		~LEAF();
+		static LEAF*		GetME();
 		
 		void Initialize(const Geometry* lGeometry);
 		
@@ -218,7 +218,7 @@ class WCSimLEAF {
 			double SignalIntegral;
 		};
 		
-		static WCSimLEAF* myFitter;
+		static LEAF* myFitter;
 
 		// Spline
 		TSpline3 *	fSplineTimePDFQueue[NPMT_CONFIGURATION];

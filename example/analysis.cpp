@@ -24,7 +24,7 @@
 #include "WCSimRootGeom.hh"
 #include "WCSimEnumerations.hh"
 
-#include "WCSimLEAF.hh"	
+#include "LEAF.hh"	
 #include "HKManager.hh"	
 #include "WCSimBonsai.hh"
 
@@ -109,7 +109,7 @@
 	float fBSTime;
 	float fLFTime;
 
-	WCSimLEAF::FitterOutput leaf_output;
+	LEAF::FitterOutput leaf_output;
 	FitterAnalysis	leaf_output_ana;
 	FitterAnalysis	bs_output_ana;
 	
@@ -248,8 +248,8 @@ int main(int argc, char** argv){
 	HKManager::GetME()->SetGeometry(fGeometry,dDarkNoise * 1e3,dDarkNoiseHybrid * 1e3);
 	
 	// Initialize LEAF
-	WCSimLEAF::GetME()->Initialize(HKManager::GetME()->GetGeometry());
-	WCSimLEAF::GetME()->SetNThread(); // Set number of Threads, default in the class is 12
+	LEAF::GetME()->Initialize(HKManager::GetME()->GetGeometry());
+	LEAF::GetME()->SetNThread(); // Set number of Threads, default in the class is 12
 	
 	// Initialize HKAstroAnalysis
 #ifdef WITH_HK_ASTROANALYSIS
@@ -424,7 +424,7 @@ int main(int argc, char** argv){
 		timerLF.Start();
 		
 		// 
-		leaf_output = WCSimLEAF::GetME()->MakeFit(HKManager::GetME()->GetHitCollection());
+		leaf_output = LEAF::GetME()->MakeFit(HKManager::GetME()->GetHitCollection());
 		
 #ifdef WITH_HK_ASTROANALYSIS
 		HKAstroAnalysis::GetME()->SetVertex(leaf_output.Vtx);
@@ -674,7 +674,7 @@ bool AnalyseEvent(WCSimRootEvent * tEvent, int iEventType) {
 		vVtxTrue[1] = true_origin_Y[0];
 		vVtxTrue[2] = true_origin_Z[0];
 			
-		//WCSimLEAF::GetME()->SetTrueVertexInfo(vVtxTrue,0);
+		//LEAF::GetME()->SetTrueVertexInfo(vVtxTrue,0);
 		
 		if ( nRawCherenkovHits < 1 ) return false;
 		
