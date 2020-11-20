@@ -1,17 +1,17 @@
 /*****************************************************************************************************/
-/**	WCSimLEAF.cc											**/
+/**	LEAF.cc											**/
 /**	Author: Guillaume Pronost (pronost@km.icrr.u-tokyo.ac.jp)					**/
 /**	Original author: Benjamin Quilain								**/
 /**	Date: December 18th 2019									**/
 /**	Desc: Low-E Fitter for Hyper-K								**/
 /*****************************************************************************************************/
 
-#include "WCSimLEAF.hh"
+#include "LEAF.hh"
 #include "TStopwatch.h"
 
-double WCSimLEAF::fSTimePDFLimitsQueueNegative = 0;
-double WCSimLEAF::fSTimePDFLimitsQueuePositive = 0;
-WCSimLEAF* WCSimLEAF::myFitter=NULL;
+double LEAF::fSTimePDFLimitsQueueNegative = 0;
+double LEAF::fSTimePDFLimitsQueuePositive = 0;
+LEAF* LEAF::myFitter=NULL;
 
 std::mutex mtx;
 
@@ -31,7 +31,7 @@ void MinuitLikelihood(int& /*nDim*/, double * /*gout*/, double & NLL, double par
 	//double expoSigma=par[8];
 	double directionality=par[9];
 	
-	NLL=WCSimLEAF::GetME()->FindNLL_Likelihood(vertexPosition,nhits,lowerLimit,upperLimit,true,false,directionality);	
+	NLL=LEAF::GetME()->FindNLL_Likelihood(vertexPosition,nhits,lowerLimit,upperLimit,true,false,directionality);	
 	
 	//timer.Stop();7
 	//std::cout << " Likelihood: " << timer.RealTime() << std::endl;
@@ -44,7 +44,7 @@ void MinimizeVertex_CallThread(
 		std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits,
 		int nCandidates, int tolerance, int verbose,bool likelihood,bool average,double lowerLimit, double upperLimit, int directionality){
 	
-	WCSimLEAF::GetME()->MinimizeVertex_thread(iStart, iIte,	
+	LEAF::GetME()->MinimizeVertex_thread(iStart, iIte,	
 		initialVertex, limits, stepSize, nhits,
 		nCandidates, tolerance, verbose, likelihood, average, lowerLimit,  upperLimit, directionality);
 	
@@ -54,35 +54,35 @@ void SearchVertex_CallThread(
 			int iStart, int iIte,
 			int nhits,int tolerance,bool likelihood,double lowerLimit, double upperLimit,int directionality){
 			
-	WCSimLEAF::GetME()->SearchVertex_thread(iStart, iIte,	
+	LEAF::GetME()->SearchVertex_thread(iStart, iIte,	
 		nhits, tolerance, likelihood, lowerLimit, upperLimit, directionality);
 			
 }
 /*****************************************************************************************************/
 
-WCSimLEAF::WCSimLEAF() {
+LEAF::LEAF() {
 
 	myFitter = this;
 	fThread  = N_THREAD;
 }
 
-WCSimLEAF::~WCSimLEAF() {
+LEAF::~LEAF() {
 	
 	//fTrueVtxPosDouble.clear();
 	delete fRand;
 	
 }
 
-WCSimLEAF* WCSimLEAF::GetME() {
+LEAF* LEAF::GetME() {
 
 	if ( myFitter ) return myFitter;
 
-	myFitter = new WCSimLEAF();
+	myFitter = new LEAF();
 	return myFitter;
 }
 
 /*****************************************************************************************************/
-void WCSimLEAF::Initialize(const Geometry* lGeometry) {
+void LEAF::Initialize(const Geometry* lGeometry) {
 	
 	fGeometry = lGeometry;
 	
@@ -102,7 +102,7 @@ void WCSimLEAF::Initialize(const Geometry* lGeometry) {
 }
 /*****************************************************************************************************/
 
-void WCSimLEAF::Init() {
+void LEAF::Init() {
 
 	// Parameters
 	fStepByStep 					= false; // Step by step mode was not test and is not supported by multithreading
@@ -158,7 +158,7 @@ void WCSimLEAF::Init() {
 
 
 
-void WCSimLEAF::LoadSplines() {
+void LEAF::LoadSplines() {
 
 	TFile *fSplines, *fSplines2;
 	if(fHighEnergy){
@@ -194,7 +194,7 @@ void WCSimLEAF::LoadSplines() {
 }
 
 /*
-void WCSimLEAF::SetTrueVertexInfo(std::vector<double> vtx, double time) {
+void LEAF::SetTrueVertexInfo(std::vector<double> vtx, double time) {
 
 	fTrueVtxPosDouble.clear();
 	fTrueVtxPos.clear();
@@ -211,14 +211,14 @@ void WCSimLEAF::SetTrueVertexInfo(std::vector<double> vtx, double time) {
 }*/
 /*****************************************************************************************************/
 // Spline Integral functions:
-double WCSimLEAF::SplineIntegral(TSpline3 * s,double start,double end,double stepSize){
+double LEAF::SplineIntegral(TSpline3 * s,double start,double end,double stepSize){
 	double integral=0;
 	for(double i=start;i<end;i+=stepSize){
 		integral+=stepSize*s->Eval(i+stepSize/2);
 	}
 	return integral;
 }
-double WCSimLEAF::SplineIntegralAndSubstract(TSpline3 * s0,TSpline3 * s1,double start,double end,double stepSize){
+double LEAF::SplineIntegralAndSubstract(TSpline3 * s0,TSpline3 * s1,double start,double end,double stepSize){
 	double integral=0;
 	for(double i=start;i<end;i+=stepSize){
 		integral+=stepSize*(s0->Eval(i+stepSize/2)-s1->Eval(i+stepSize/2));
@@ -226,7 +226,7 @@ double WCSimLEAF::SplineIntegralAndSubstract(TSpline3 * s0,TSpline3 * s1,double 
 	return integral;
 }
 
-double WCSimLEAF::SplineIntegralExpo(TSpline3 * s,double start,double end,double sigma,double stepSize){
+double LEAF::SplineIntegralExpo(TSpline3 * s,double start,double end,double sigma,double stepSize){
 	double integral=0;
 	for(double i=start;i<end;i+=stepSize){
 		integral+=stepSize*s->Eval(i+stepSize/2)*TMath::Gaus(i+stepSize/2,0,sigma);
@@ -236,7 +236,7 @@ double WCSimLEAF::SplineIntegralExpo(TSpline3 * s,double start,double end,double
 
 /*****************************************************************************************************/
 
-void WCSimLEAF::VectorVertexPMT(std::vector<double> vertex, int iPMT, double* dAngles) {
+void LEAF::VectorVertexPMT(std::vector<double> vertex, int iPMT, double* dAngles) {
 		
 	// Guillaume 2020/05/20:
 	// mPMT referencial is computed once for all PMT in LoadPMTInfo() and MakeMPMTReferencial(iPMT)
@@ -304,7 +304,7 @@ void WCSimLEAF::VectorVertexPMT(std::vector<double> vertex, int iPMT, double* dA
 	}
 	
 }
-double WCSimLEAF::FindDirectionTheta(std::vector<double> vertex,int tubeNumber, int verbose) {
+double LEAF::FindDirectionTheta(std::vector<double> vertex,int tubeNumber, int verbose) {
 
 	//clock_t timeStart=clock();
 	
@@ -338,7 +338,7 @@ double WCSimLEAF::FindDirectionTheta(std::vector<double> vertex,int tubeNumber, 
   
 }
 
-void WCSimLEAF::MakeEventInfo(double lowerLimit, double upperLimit) {
+void LEAF::MakeEventInfo(double lowerLimit, double upperLimit) {
 
 	if ( fLastLowerLimit == lowerLimit && fLastUpperLimit == upperLimit ) return;
 
@@ -393,7 +393,7 @@ void WCSimLEAF::MakeEventInfo(double lowerLimit, double upperLimit) {
 
 }
 
-void WCSimLEAF::MakePositionList() {
+void LEAF::MakePositionList() {
 	// Make position list for a given step size
 
 	double dStep = fSearchVtxStep;
@@ -429,7 +429,7 @@ void WCSimLEAF::MakePositionList() {
 
 /*****************************************************************************************************/
 
-double WCSimLEAF::FindNLL_Likelihood(std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality){
+double LEAF::FindNLL_Likelihood(std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality){
 	
 	//TStopwatch timer;
 	//timer.Reset();
@@ -547,7 +547,7 @@ double WCSimLEAF::FindNLL_Likelihood(std::vector<double> vertexPosition, int nhi
 }
 
 
-double WCSimLEAF::FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nhits, double /*lowerLimit*/, double /*upperLimit*/, bool /*killEdges*/, bool /*scaleDR*/, int /*directionality*/){
+double LEAF::FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nhits, double /*lowerLimit*/, double /*upperLimit*/, bool /*killEdges*/, bool /*scaleDR*/, int /*directionality*/){
 	double NLL = 0;
 				
 	//std::cout << " Find NLL " << nhits << std::endl;
@@ -605,7 +605,7 @@ double WCSimLEAF::FindNLL_NoLikelihood(std::vector<double> vertexPosition, int n
 }
 
 
-double WCSimLEAF::FindNLL(std::vector<double> vertexPosition, int nhits, bool likelihood, int verbose, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality){
+double LEAF::FindNLL(std::vector<double> vertexPosition, int nhits, bool likelihood, int verbose, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality){
 	double NLL = 0;
 	
 	TStopwatch timer;
@@ -740,7 +740,7 @@ double WCSimLEAF::FindNLL(std::vector<double> vertexPosition, int nhits, bool li
 	return NLL;
 }
 
-double WCSimLEAF::FindNLLDirectionality(std::vector<double> vVtxPos, int nhits, int verbose, double /*lowerLimit*/, double /*upperLimit*/) {
+double LEAF::FindNLLDirectionality(std::vector<double> vVtxPos, int nhits, int verbose, double /*lowerLimit*/, double /*upperLimit*/) {
 
 	double NLL = 0;
 	std::vector<double> vDirection(2,0.);//Return phi and theta.
@@ -810,7 +810,7 @@ double WCSimLEAF::FindNLLDirectionality(std::vector<double> vVtxPos, int nhits, 
 //We give the list of hit information through the 2D array fHitInfo to make the code faster, instead of using the whole code information
 //The code provide as an output not only one vertex, but a list of vertices whose likelihood is higher (Negative Log Likelihood is lower). 
 //The number of output vertices can be chosen using "tolerance".
-std::vector< std::vector<double> > WCSimLEAF::SearchVertex(int nhits,int tolerance,bool likelihood,double lowerLimit, double upperLimit,int directionality){
+std::vector< std::vector<double> > LEAF::SearchVertex(int nhits,int tolerance,bool likelihood,double lowerLimit, double upperLimit,int directionality){
 	//2. How to set the search?
 	//double stepSize = 0.5;//in m
 	
@@ -881,7 +881,7 @@ std::vector< std::vector<double> > WCSimLEAF::SearchVertex(int nhits,int toleran
 	//return tBestReconstructedVertexPosition;
 }
 
-std::vector< std::vector<double> > WCSimLEAF::SearchVertex_Main(	
+std::vector< std::vector<double> > LEAF::SearchVertex_Main(	
 			int nhits,int tolerance,bool likelihood,double lowerLimit, double upperLimit,int directionality){
 		
 		
@@ -931,7 +931,7 @@ std::vector< std::vector<double> > WCSimLEAF::SearchVertex_Main(
 //We give the list of hit information through the 2D array fHitInfo to make the code faster, instead of using the whole code information
 //The code provide as an output not only one vertex, but a list of vertices whose likelihood is higher (Negative Log Likelihood is lower). 
 //The number of output vertices can be chosen using "tolerance".
-void WCSimLEAF::SearchVertex_thread(
+void LEAF::SearchVertex_thread(
 			int iStart, int iIte,
 			int nhits,int tolerance,bool likelihood,double lowerLimit, double upperLimit,int directionality){
 	//2. How to set the search?
@@ -990,7 +990,7 @@ void WCSimLEAF::SearchVertex_thread(
 //The box size is 2 x limits in each direction, centered on the initial vertex provided.
 //nCandidate provide the size of the list of inital vertices, while tolerance provide the size of the output list.
 //Other informations are the same as searchVertex.
-std::vector< std::vector<double> > WCSimLEAF::SearchVertexFine(std::vector< std::vector<double> > initialVertex,double * limits, double stepSize,int nhits,int nCandidates,int tolerance,int verbose,bool likelihood,bool average,double lowerLimit, double upperLimit, int directionality){
+std::vector< std::vector<double> > LEAF::SearchVertexFine(std::vector< std::vector<double> > initialVertex,double * limits, double stepSize,int nhits,int nCandidates,int tolerance,int verbose,bool likelihood,bool average,double lowerLimit, double upperLimit, int directionality){
 	
 	if(verbose) std::cout<<"Start fine search, use directionality? "<<directionality<<std::endl;
 	//2. How to set the search?
@@ -1090,7 +1090,7 @@ std::vector< std::vector<double> > WCSimLEAF::SearchVertexFine(std::vector< std:
 
 
 //here is the function where minimization gonna take place. The loop is inside this function
-std::vector< std::vector<double> > WCSimLEAF::MinimizeVertex(std::vector< std::vector<double> > initialVertex,double * limits, double stepSize,int nhits,int nCandidates,int tolerance,int verbose,bool /*likelihood*/,bool /*average*/,double lowerLimit, double upperLimit, int directionality){
+std::vector< std::vector<double> > LEAF::MinimizeVertex(std::vector< std::vector<double> > initialVertex,double * limits, double stepSize,int nhits,int nCandidates,int tolerance,int verbose,bool /*likelihood*/,bool /*average*/,double lowerLimit, double upperLimit, int directionality){
 	if(VERBOSE>=2) std::cout<<"Minimizer"<<std::endl;
 	//2. How to set the search?
 	//double stepSize = 0.5;//in m
@@ -1238,7 +1238,7 @@ std::vector< std::vector<double> > WCSimLEAF::MinimizeVertex(std::vector< std::v
 }
 
 
-std::vector< std::vector<double> > WCSimLEAF::MinimizeVertex_Main(	
+std::vector< std::vector<double> > LEAF::MinimizeVertex_Main(	
 		std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits,
 		int nCandidates, int tolerance, int verbose,bool likelihood,bool average,double lowerLimit, double upperLimit, int directionality){
 		
@@ -1284,7 +1284,7 @@ std::vector< std::vector<double> > WCSimLEAF::MinimizeVertex_Main(
 }
 		
 //here is the function where minimization gonna take place. The loop is inside this function
-void WCSimLEAF::MinimizeVertex_thread(	
+void LEAF::MinimizeVertex_thread(	
 		int iStart, int iIte,	
 		std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits,
 		int nCandidates, int tolerance, int verbose,bool /*likelihood*/,bool /*average*/,double lowerLimit, double upperLimit, int directionality){
@@ -1403,7 +1403,7 @@ void WCSimLEAF::MinimizeVertex_thread(
 	mtx.unlock();
 }
 
-struct WCSimLEAF::FitterOutput WCSimLEAF::MakeFit(const HitCollection* lHitCol, bool bHybrid) {
+struct LEAF::FitterOutput LEAF::MakeFit(const HitCollection* lHitCol, bool bHybrid) {
 
 	fHitCollection = lHitCol; 
 

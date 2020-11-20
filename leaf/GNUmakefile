@@ -3,8 +3,8 @@ OSNAME          = $(shell uname -s)
 HOST            = $(shell uname -n)
 OSNAMEMODE      = $(OSNAME)
 
-SOURCES 	= WCSimLEAF.cc
-HEADERS 	= WCSimLEAF.hh
+SOURCES 	= LEAF.cc
+HEADERS 	= LEAF.hh
 
 include ../Makefile/Makefile.${OSNAME}
 
@@ -22,7 +22,7 @@ LIBS += $(shell root-config --libs) -lMinuit
 
 LIB_DATAMODEL = ../lib/libDataModel.so
 LIB_MANAGER = ../lib/libHKManager.so
-LIB_FITTER = ../lib/libWCSimLEAF.so
+LIB_FITTER = ../lib/libLEAF.so
 LIB_ASTROANALYSIS = ../lib/libHKAstroAnalysis.so
 
 LIBS_OBJECTS = $(LIB_DATAMODEL) $(LIB_MANAGER) $(LIB_FITTER) #$(LIB_ASTROANALYSIS)
@@ -34,7 +34,7 @@ all: .depend $(LIBS_OBJECTS)
 
 
 # library
-$(LIB_FITTER): WCSimLEAF.o 
+$(LIB_FITTER): LEAF.o 
 	@if [ ! -d ../lib ]; then \
 		mkdir ../lib; \
 	fi

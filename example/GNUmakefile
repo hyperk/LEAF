@@ -18,7 +18,7 @@ INCFLAGS += -I$(LEAFDIR)/leaf/DataModel
 LIBS += ${WCSIMDIR}/libWCSimRoot.so 
 LIBS += $(shell root-config --libs) -lMinuit 
 LIBS_BONSAI += -L${BONSAIDIR} -lWCSimBonsai
-LIBS_LEAF += -L${LEAFDIR}/lib -lDataModel -lHKManager -lWCSimLEAF #-lHKAstroAnalysis 
+LIBS_LEAF += -L${LEAFDIR}/lib -lDataModel -lHKManager -lLEAF #-lHKAstroAnalysis 
 
 
 OBJECT = analysis
