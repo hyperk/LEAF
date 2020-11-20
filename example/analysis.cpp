@@ -24,7 +24,7 @@
 #include "WCSimRootGeom.hh"
 #include "WCSimEnumerations.hh"
 
-#include "BQFitter.hh"	
+#include "WCSimLEAF.hh"	
 #include "HKManager.hh"	
 #include "WCSimBonsai.hh"
 
@@ -107,9 +107,9 @@
 	float bs_energy;
 	
 	float fBSTime;
-	float fBQTime;
+	float fLFTime;
 
-	BQFitter::FitterOutput leaf_output;
+	WCSimLEAF::FitterOutput leaf_output;
 	FitterAnalysis	leaf_output_ana;
 	FitterAnalysis	bs_output_ana;
 	
@@ -248,8 +248,8 @@ int main(int argc, char** argv){
 	HKManager::GetME()->SetGeometry(fGeometry,dDarkNoise * 1e3,dDarkNoiseHybrid * 1e3);
 	
 	// Initialize LEAF
-	BQFitter::GetME()->Initialize(HKManager::GetME()->GetGeometry());
-	BQFitter::GetME()->SetNThread(); // Set number of Threads, default in the class is 12
+	WCSimLEAF::GetME()->Initialize(HKManager::GetME()->GetGeometry());
+	WCSimLEAF::GetME()->SetNThread(); // Set number of Threads, default in the class is 12
 	
 	// Initialize HKAstroAnalysis
 #ifdef WITH_HK_ASTROANALYSIS
@@ -312,7 +312,7 @@ int main(int argc, char** argv){
 		bs_good		      [2] = -9999.;
 		
 		fBSTime      = -9999;
-		fBQTime      = -9999;
+		fLFTime      = -9999;
 				
 		Hit_ID       = 0;
 		Hit_ID_50    = 0;
@@ -418,13 +418,13 @@ int main(int argc, char** argv){
 		/* Benjamin Fitter									*/
 		/****************************************************************************************/
 
-		//std::cout << " Start BQ " << std::endl;
-		TStopwatch timerBQ;
-		timerBQ.Reset();
-		timerBQ.Start();
+		//std::cout << " Start LEAF " << std::endl;
+		TStopwatch timerLF;
+		timerLF.Reset();
+		timerLF.Start();
 		
 		// 
-		leaf_output = BQFitter::GetME()->MakeFit(HKManager::GetME()->GetHitCollection());
+		leaf_output = WCSimLEAF::GetME()->MakeFit(HKManager::GetME()->GetHitCollection());
 		
 #ifdef WITH_HK_ASTROANALYSIS
 		HKAstroAnalysis::GetME()->SetVertex(leaf_output.Vtx);
@@ -462,12 +462,12 @@ int main(int argc, char** argv){
 		
 #endif	
 		
-		timerBQ.Stop();
+		timerLF.Stop();
 		
-		fBQTime = timerBQ.RealTime();
+		fLFTime = timerLF.RealTime();
 		
 		//std::cout << " n50 " << leaf_output_ana.n50[0] << " " << leaf_output_ana.n50[1] << " " << leaf_output_ana.n50[2] << std::endl;
-		//std::cout << " BQ took: " << timerBQ.RealTime() << std::endl;
+		//std::cout << " LEAF took: " << timerLF.RealTime() << std::endl;
 
 		/****************************************************************************************/
 		/* Bonsai										*/
@@ -587,7 +587,7 @@ void SetCustomBranch(TTree* fPrimaryTree) {
 	fPrimaryTree->Branch("lf_dir", 		&leaf_output_ana.dir,		"lf_dir[3][3]/D");
 	fPrimaryTree->Branch("lf_dir_goodness", 	&leaf_output_ana.dir_goodness,"lf_dir_goodness[3]/D");
 	fPrimaryTree->Branch("lf_dirKS", 		&leaf_output_ana.dirKS,	"lf_dirKS[3]/D");
-	fPrimaryTree->Branch("lf_ctime", 		&fBQTime,			"lf_ctime/F"); // Computation time
+	fPrimaryTree->Branch("lf_ctime", 		&fLFTime,			"lf_ctime/F"); // Computation time
 
 }
 
@@ -674,7 +674,7 @@ bool AnalyseEvent(WCSimRootEvent * tEvent, int iEventType) {
 		vVtxTrue[1] = true_origin_Y[0];
 		vVtxTrue[2] = true_origin_Z[0];
 			
-		BQFitter::GetME()->SetTrueVertexInfo(vVtxTrue,0);
+		//WCSimLEAF::GetME()->SetTrueVertexInfo(vVtxTrue,0);
 		
 		if ( nRawCherenkovHits < 1 ) return false;
 		

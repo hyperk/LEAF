@@ -18,7 +18,7 @@ INCFLAGS += -I$(LEAFDIR)/leaf/DataModel
 LIBS += ${WCSIMDIR}/libWCSimRoot.so 
 LIBS += $(shell root-config --libs) -lMinuit 
 LIBS_BONSAI += -L${BONSAIDIR} -lWCSimBonsai
-LIBS_BQFIT += -L${LEAFDIR}/lib -lDataModel -lHKManager -lBQFitter #-lHKAstroAnalysis 
+LIBS_LEAF += -L${LEAFDIR}/lib -lDataModel -lHKManager -lWCSimLEAF #-lHKAstroAnalysis 
 
 
 OBJECT = analysis
@@ -27,7 +27,7 @@ all: $(OBJECT)
 	
 analysis: analysis.o 
 	@echo '<< compiling bin analysis >>'
-	@$(CXX) -g $(CXXFLAGS) -o $@ $^ $(LIBS) $(LIBS_BONSAI) $(LIBS_BQFIT)
+	@$(CXX) -g $(CXXFLAGS) -o $@ $^ $(LIBS) $(LIBS_BONSAI) $(LIBS_LEAF)
 	
 	
 # default rules
