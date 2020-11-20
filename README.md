@@ -11,7 +11,7 @@ New compilation method:
 	source RunAtStart.sh
 	./SetupDataModel.sh
 	cd leaf/
-	make clean && make
+	make clean; make
 	
 In order to use the class in your code look at example/
 ~~~~~~~~~~~~~~~~~~~~~~~~~
