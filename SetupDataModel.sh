@@ -6,7 +6,7 @@ if [ "$HK_ASTROANALYSIS_DIR" == "" ] || [ -z $HK_ASTROANALYSIS_DIR ]; then
 	ln -s ${PWD}/leaf/DataModel-lite ./leaf/DataModel
 else 
 	echo "HK_ASTROANALYSIS_DIR was found to be: $HK_ASTROANALYSIS_DIR its DataModel will be used"
-	ln -sn $HK_ASTROANALYSIS_DIR/DataModel ./leaf/DataModel
+	ln -s $HK_ASTROANALYSIS_DIR/DataModel ./leaf/DataModel
 fi
 
 
