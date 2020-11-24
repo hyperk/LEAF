@@ -81,6 +81,12 @@ LEAF* LEAF::GetME() {
 	return myFitter;
 }
 
+void LEAF::DeleteME() {
+
+	if ( myFitter ) delete myFitter;
+	
+}
+
 /*****************************************************************************************************/
 void LEAF::Initialize(const Geometry* lGeometry) {
 	
@@ -1403,7 +1409,7 @@ void LEAF::MinimizeVertex_thread(
 	mtx.unlock();
 }
 
-struct LEAF::FitterOutput LEAF::MakeFit(const HitCollection* lHitCol, bool bHybrid) {
+struct LEAF::FitterOutput LEAF::MakeFit(const HitCollection* lHitCol, bool bMultiPMT) {
 
 	fHitCollection = lHitCol; 
 
@@ -1417,12 +1423,10 @@ struct LEAF::FitterOutput LEAF::MakeFit(const HitCollection* lHitCol, bool bHybr
       		this->MakePositionList();
 	}
 	
-#ifdef OUTPUT_TREE					
-	int iPMTConfiguration = 0; // Normal PMT
-	if ( bHybrid ) {
-		iPMTConfiguration = 1; // Hybrid configuration
+	bool bDirectionnality = false;
+	if ( bMultiPMT ) {
+		bDirectionnality = fUseDirectionality;
 	}
-#endif
 	
 	//Proceed to the fit.
 	double * tLimits = new double[4];
@@ -1454,8 +1458,8 @@ struct LEAF::FitterOutput LEAF::MakeFit(const HitCollection* lHitCol, bool bHybr
 				
 			//2.a. Coarse vertex search from scratch
 			double dStepSize=fSearchVtxStep;//in centimeters
-			//std::vector< std::vector<double> > tRecoVtxPos = this->SearchVertex(iHitsTotal,fSearchVtxTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false/*fUseDirectionality*/);
-			std::vector< std::vector<double> > tRecoVtxPos = this->SearchVertex_Main(iHitsTotal,fSearchVtxTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false/*fUseDirectionality*/);
+			//std::vector< std::vector<double> > tRecoVtxPos = this->SearchVertex(iHitsTotal,fSearchVtxTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false);
+			std::vector< std::vector<double> > tRecoVtxPos = this->SearchVertex_Main(iHitsTotal,fSearchVtxTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false);
 			
 						
 			if(VERBOSE>=2){
@@ -1478,21 +1482,21 @@ struct LEAF::FitterOutput LEAF::MakeFit(const HitCollection* lHitCol, bool bHybr
 				double dStepSizeFine2=100;
 				int iToleranceFine2=20;
 				for(int i=0;i<4;i++) tLimits[i] = dStepSize;//particleStart[i]*1e-2;//onversion to meter
-				std::vector< std::vector<double> > tRecoVtxPosFine2 = this->SearchVertexFine(tRecoVtxPos,tLimits,dStepSizeFine2,iHitsTotal,fSearchVtxTolerance,iToleranceFine2,VERBOSE,true,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,fUseDirectionality);
+				std::vector< std::vector<double> > tRecoVtxPosFine2 = this->SearchVertexFine(tRecoVtxPos,tLimits,dStepSizeFine2,iHitsTotal,fSearchVtxTolerance,iToleranceFine2,VERBOSE,true,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,bDirectionnality);
 				//////////////////////////////////////////
 		    
 				//2.d. Final refined vertex search around candidate found previously
 				double dStepSizeFine3=20;
 				int iToleranceFine3=1;
 				for(int i=0;i<4;i++) tLimits[i] = dStepSizeFine2;//particleStart[i]*1e-2;//onversion to meter
-				std::vector< std::vector<double> > tRecoVtxPosFine3 = this->SearchVertexFine(tRecoVtxPosFine2,tLimits,dStepSizeFine3,iHitsTotal,iToleranceFine2,iToleranceFine3,VERBOSE,true,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,fUseDirectionality);
+				std::vector< std::vector<double> > tRecoVtxPosFine3 = this->SearchVertexFine(tRecoVtxPosFine2,tLimits,dStepSizeFine3,iHitsTotal,iToleranceFine2,iToleranceFine3,VERBOSE,true,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,bDirectionnality);
 				if(VERBOSE == 1){
 					for(int a=0; a<iToleranceFine3; a++) std::cout<<"Final candidate vertex time = "<<tRecoVtxPosFine3[a][0]<<", x = "<<tRecoVtxPosFine3[a][1]<<", y = "<<tRecoVtxPosFine3[a][2]<<", z="<<tRecoVtxPosFine3[a][3]<<std::endl;
 				}
 				//////////////////////////////////////////	
 				
 				for(int i=0;i<4;i++) tLimits[i] = 100;//dStepSizeFine2;//particleStart[i]*1e-2;//onversion to meter
-				fRecoVtxPosFinal = this->MinimizeVertex(tRecoVtxPosFine3,tLimits,dStepSizeFinal,iHitsTotal,iToleranceFine3,iToleranceFinal,VERBOSE,true,false,fMinimizeLimitsNegative,fMinimizeLimitsPositive,fUseDirectionality);
+				fRecoVtxPosFinal = this->MinimizeVertex(tRecoVtxPosFine3,tLimits,dStepSizeFinal,iHitsTotal,iToleranceFine3,iToleranceFinal,VERBOSE,true,false,fMinimizeLimitsNegative,fMinimizeLimitsPositive,bDirectionnality);
 				if(VERBOSE >= 1){
 					for(int a=0;a<iToleranceFinal;a++){
 						std::cout<<"Final candidate vertex time = "<<fRecoVtxPosFinal[a][0]<<", x = "<<fRecoVtxPosFinal[a][1]<<", y = "<<fRecoVtxPosFinal[a][2]<<", z="<<fRecoVtxPosFinal[a][3]<<std::endl;
@@ -1506,8 +1510,8 @@ struct LEAF::FitterOutput LEAF::MakeFit(const HitCollection* lHitCol, bool bHybr
 				
 				for(int i=0;i<4;i++) tLimits[i] = 2*dStepSize;
 				
-				//fRecoVtxPosFinal = this->MinimizeVertex(tRecoVtxPos,tLimits,dStepSizeFinal,iHitsTotal,fSearchVtxTolerance,iToleranceFinal,VERBOSE,true,false,fMinimizeLimitsNegative,fMinimizeLimitsPositive,fUseDirectionality);
-				fRecoVtxPosFinal = this->MinimizeVertex_Main(tRecoVtxPos,tLimits,dStepSizeFinal,iHitsTotal,fSearchVtxTolerance,iToleranceFinal,VERBOSE,true,false,fMinimizeLimitsNegative,fMinimizeLimitsPositive,fUseDirectionality);
+				//fRecoVtxPosFinal = this->MinimizeVertex(tRecoVtxPos,tLimits,dStepSizeFinal,iHitsTotal,fSearchVtxTolerance,iToleranceFinal,VERBOSE,true,false,fMinimizeLimitsNegative,fMinimizeLimitsPositive,bDirectionnality);
+				fRecoVtxPosFinal = this->MinimizeVertex_Main(tRecoVtxPos,tLimits,dStepSizeFinal,iHitsTotal,fSearchVtxTolerance,iToleranceFinal,VERBOSE,true,false,fMinimizeLimitsNegative,fMinimizeLimitsPositive,bDirectionnality);
 				
 				timer.Stop();
 				//std::cout << "Minimizer took: " << timer.RealTime() << std::endl;

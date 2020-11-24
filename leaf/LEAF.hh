@@ -94,16 +94,15 @@ void MinimizeVertex_CallThread(	int iStart, int iIte,
 void SearchVertex_CallThread(	int iStart, int iIte,
 				int nhits,int tolerance,bool likelihood,double lowerLimit, double upperLimit,int directionality);
 
-bool SortOutputVector ( const std::vector<double>& v1, const std::vector<double>& v2 ) { 
+inline bool SortOutputVector ( const std::vector<double>& v1, const std::vector<double>& v2 ) { 
 	return v1[4] < v2[4]; 
 } 
 		
 class LEAF {
 
 	public:
-		LEAF();
-		~LEAF();
 		static LEAF*		GetME();
+		void			DeleteME();
 		
 		void Initialize(const Geometry* lGeometry);
 		
@@ -122,7 +121,7 @@ class LEAF {
 		
 
                 // Fitter Main Method. Process the whole fit. 
-		struct FitterOutput MakeFit(const HitCollection* lHitCol, bool bHybrid=true);
+		struct FitterOutput MakeFit(const HitCollection* lHitCol, bool bMultiPMT=true);
 		
 		// NLL
                 // Calculate likelihood function based on input PDF. For now, the function is based on time residuals.
@@ -145,6 +144,9 @@ class LEAF {
 						double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true);
 		
 	private:
+	
+		LEAF();
+		~LEAF();
 		
 		void Init();
 		void LoadSplines();
