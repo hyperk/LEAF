@@ -53,8 +53,8 @@ void WCSimReader::SetGeometry( WCSimRootGeom * wGeo, double dDarkRate_Normal, do
 	// Fill Geometry class
 	fGeometry = new Geometry();
 	
-	fGeometry->detector_length = fWCGeo->GetWCCylRadius();
-	fGeometry->detector_radius = fWCGeo->GetWCCylLength();
+	fGeometry->detector_length = fWCGeo->GetWCCylLength();
+	fGeometry->detector_radius = fWCGeo->GetWCCylRadius();
 	
 	fDarkRate_Normal = dDarkRate_Normal;
 	fDarkRate_mPMT   = dDarkRate_mPMT;
