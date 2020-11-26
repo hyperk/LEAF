@@ -7,7 +7,7 @@ include ../Makefile/Makefile.${OSNAME}
 
 # set compiler options for ROOT
 CXXFLAGS += $(shell root-config --cflags)
-CXXFLAGS += '-fPIC' -std=c++11
+CXXFLAGS += '-fPIC' -std=c++11 -Wpedantic -Wno-long-long
 
 INCFLAGS = -I.
 INCFLAGS += -I$(WCSIMDIR)/include

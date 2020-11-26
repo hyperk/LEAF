@@ -11,7 +11,7 @@ include ../Makefile/Makefile.${OSNAME}
 
 # set compiler options for ROOT
 CXXFLAGS += $(shell root-config --cflags)
-CXXFLAGS += '-fPIC' -std=c++11
+CXXFLAGS += '-fPIC' -std=c++11 -Wpedantic -Wno-long-long
 
 INCFLAGS = -I.
 INCFLAGS += -I$(WCSIMDIR)/include
@@ -26,7 +26,14 @@ LIB_FITTER = ../lib/libLEAF.so
 LIB_ASTROANALYSIS = ../lib/libHKAstroAnalysis.so
 
 LIBS_OBJECTS = $(LIB_DATAMODEL) $(LIB_MANAGER) $(LIB_FITTER) #$(LIB_ASTROANALYSIS)
-DATAMODEL_OBJECTS = GeoTools.o TimeDelta.o HitInfo.o PMTInfo.o Geometry.o 
+
+DATAMODEL_HEADERS =	$(PWD)/DataModel/GeoTools.h $(PWD)/DataModel/TimeDelta.h $(PWD)/DataModel/RootHitInfo.h \
+			$(PWD)/DataModel/RootPMTInfo.h $(PWD)/DataModel/Geometry.h $(PWD)/DataModel/RootRecoInfo.h \
+			$(PWD)/DataModel/RootTriggerInfo.h $(PWD)/DataModel/RootEventInfo.h
+DATAMODEL_OBJECTS = 	GeoTools.o TimeDelta.o RootHitInfo.o \
+			RootPMTInfo.o Geometry.o RootRecoInfo.o \
+			RootTriggerInfo.o RootEventInfo.o \
+			DataModelRootDict.o
 
 
 all: .depend $(LIBS_OBJECTS)
@@ -55,29 +62,20 @@ $(LIB_ASTROANALYSIS): HKAstroAnalysis.o
 	fi
 	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS) 
 	
-$(LIB_DATAMODEL): $(DATAMODEL_OBJECTS)
+$(LIB_DATAMODEL): DataModelRootDict.cpp $(DATAMODEL_OBJECTS) 
 	@echo '<< generating ' $@ ' >>'
 	@$(SOMAKER) $(SOFLAGS) -o $@  $(DATAMODEL_OBJECTS)  $(LIBS)
 	
 
+DataModelRootDict.cpp:
+	@echo '<< generating ' $@ ' >>'
+	@rootcint -f DataModelRootDict.cpp -c $(CXXFLAGS) -p $(DATAMODEL_HEADERS) $(PWD)/DataModel/LinkDef.h
+	@echo '<< install DataModelRootDict_rdict.pcm >>'
+	@cp DataModelRootDict_rdict.pcm ../lib/.
+	
+	
 # DataModel objects
-GeoTools.o: DataModel/GeoTools.cpp DataModel/GeoTools.h
-	@echo '<< compiling DataModel object: ' $@ ' >>'
-	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
-	
-TimeDelta.o: DataModel/TimeDelta.cpp DataModel/TimeDelta.h
-	@echo '<< compiling DataModel object: ' $@ ' >>'
-	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
-	
-HitInfo.o: DataModel/HitInfo.cpp DataModel/HitInfo.h
-	@echo '<< compiling DataModel object: ' $@ ' >>'
-	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
-	
-PMTInfo.o: DataModel/PMTInfo.cpp DataModel/PMTInfo.h
-	@echo '<< compiling DataModel object: ' $@ ' >>'
-	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
-	
-Geometry.o: DataModel/Geometry.cpp DataModel/Geometry.h
+%.o: DataModel/%.cpp DataModel/%.h
 	@echo '<< compiling DataModel object: ' $@ ' >>'
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
 

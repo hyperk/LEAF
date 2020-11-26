@@ -3,3 +3,6 @@ app/FitVertexLE
 *.swp
 *.o
 .depend
+leaf/DataModelRootDict.cpp
+leaf/DataModelRootDict_rdict.pcm
+leaf/HKAstroAnalysis.*

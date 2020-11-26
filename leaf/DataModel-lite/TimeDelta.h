@@ -5,6 +5,8 @@
 #include <vector>
 #include <stdint.h>
 
+#include "TObject.h"
+
 /// Universal data type to store both large scale (unix timestamp) and short scale (hit times) time differences
 ///
 /// The type and unit of the long and short scale times are optimised to allow
@@ -23,7 +25,7 @@
 ///
 ///     double naive_t = t / TimeDelta::us;
 ///
-class TimeDelta{
+class TimeDelta : public TObject {
 
 	public:
 		/// Default constructor (sets all times to 0)
@@ -62,6 +64,7 @@ class TimeDelta{
 		/// TimeDelta of 1 s
 		static const TimeDelta s;
 
+		ClassDef(TimeDelta,1) //EventRootInfo structure
 };
 
 	// Operators
@@ -79,5 +82,9 @@ class TimeDelta{
 	TimeDelta& operator+=(TimeDelta& left_delta, const TimeDelta& right_delta);
 	TimeDelta& operator-=(TimeDelta& left_delta, const TimeDelta& right_delta);
 	std::ostream& operator<<(std::ostream& outs, const TimeDelta& delta);
+
+#if !defined(__CLING__)
+ClassImp(TimeDelta)
+#endif
 
 #endif

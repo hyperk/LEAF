@@ -187,7 +187,7 @@ void LEAF::LoadSplines() {
 
 		fSTimePDFLimitsQueueNegative_fullTimeWindow = fSplineTimePDFQueue[pmtType]->GetXmin();
 		fSTimePDFLimitsQueuePositive_fullTimeWindow = fSplineTimePDFQueue[pmtType]->GetXmax();
-		std::cout<<"Min="<<fSTimePDFLimitsQueueNegative_fullTimeWindow<<", max="<<fSTimePDFLimitsQueuePositive_fullTimeWindow<<std::endl;
+		//std::cout<<"Min="<<fSTimePDFLimitsQueueNegative_fullTimeWindow<<", max="<<fSTimePDFLimitsQueuePositive_fullTimeWindow<<std::endl;
 		if(fSTimePDFLimitsQueueNegative < fSTimePDFLimitsQueueNegative_fullTimeWindow) fSTimePDFLimitsQueuePositive = fSplineTimePDFQueue[pmtType]->GetXmin();//To avoid to use PDF where it is not defined
 		if(fSTimePDFLimitsQueuePositive > fSTimePDFLimitsQueuePositive_fullTimeWindow) fSTimePDFLimitsQueuePositive = fSplineTimePDFQueue[pmtType]->GetXmax();//same here.
 
@@ -249,9 +249,9 @@ void LEAF::VectorVertexPMT(std::vector<double> vertex, int iPMT, double* dAngles
 	// Guillaume 2020/11/20:
 	// Reference is moved to outside LEAF (HKManager or hk-AstroAnalysis)
   	
-	PMTInfo lPMTInfo = (*fPMTList)[iPMT];
+	RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
   	int iPMTTop = lPMTInfo.mPMT_RefTube;
-	PMTInfo lPMTInfoTop = (*fPMTList)[iPMTTop];
+	RootPMTInfo lPMTInfoTop = (*fPMTList)[iPMTTop];
   
 	//5. Now we have our referential, we should just calculate the angles of the PMT to vertex position vector in this referential.
 	//a. calculate the PMT to vertex position vector.
@@ -262,7 +262,7 @@ void LEAF::VectorVertexPMT(std::vector<double> vertex, int iPMT, double* dAngles
 	dVtx_PMTRef[1] = vertex[1] - lPMTInfoTop.Position[1];
 	dVtx_PMTRef[2] = vertex[2] - lPMTInfoTop.Position[2];
 	
-	double dLengthVtx = GetLength(dVtx_PMTRef);
+	double dLengthVtx = Astro_GetLength(dVtx_PMTRef);
 	GeoTools::Normalize(dVtx_PMTRef);
 		
 	if( VERBOSE >= 3 ){
@@ -271,7 +271,7 @@ void LEAF::VectorVertexPMT(std::vector<double> vertex, int iPMT, double* dAngles
 	}
 	
 	//b. Then extract Theta and Phi:
-	double dCosTheta= GetScalarProd(dVtx_PMTRef,lPMTInfo.mPMT_RefZ);
+	double dCosTheta= Astro_GetScalarProd(dVtx_PMTRef,lPMTInfo.mPMT_RefZ);
 	double dTheta	= TMath::ACos(dCosTheta);
 	
 	double dPhi 	= 0.;
@@ -281,8 +281,8 @@ void LEAF::VectorVertexPMT(std::vector<double> vertex, int iPMT, double* dAngles
 	}
 	else {
 		//We know x=cosPhi x sinTheta and y=sinPhi x sinTheta
-		double dX 	= GetScalarProd(dVtx_PMTRef,lPMTInfo.mPMT_RefX);
-		double dY 	= GetScalarProd(dVtx_PMTRef,lPMTInfo.mPMT_RefY);
+		double dX 	= Astro_GetScalarProd(dVtx_PMTRef,lPMTInfo.mPMT_RefX);
+		double dY 	= Astro_GetScalarProd(dVtx_PMTRef,lPMTInfo.mPMT_RefY);
 		double dTanPhi	= dY/dX;
 		dPhi		= TMath::ATan(dTanPhi);
 		
@@ -314,7 +314,7 @@ double LEAF::FindDirectionTheta(std::vector<double> vertex,int tubeNumber, int v
 
 	//clock_t timeStart=clock();
 	
-	PMTInfo lPMTInfo = (*fPMTList)[tubeNumber];
+	RootPMTInfo lPMTInfo = (*fPMTList)[tubeNumber];
 	
 	int pmt_number_in_mpmt = lPMTInfo.mPMT_TubeNum;
 	double particleRelativePMTpos[3];
@@ -361,11 +361,11 @@ void LEAF::MakeEventInfo(double lowerLimit, double upperLimit) {
 	int iHitTotal = fHitCollection->Size();
 	
 	for(int iHit=0; iHit < iHitTotal; iHit++ ) {
-		//Hit lHit = fHitInfo[iHit];		
-		Hit lHit = fHitCollection->At(iHit);
+		//RootHit lHit = fHitInfo[iHit];		
+		RootHit lHit = fHitCollection->At(iHit);
 		
 		int iPMT = lHit.PMT;
-		int iType = GetPMTType(iPMT);
+		int iType = Astro_GetPMTType(iPMT);
 		fEventInfo[iType].hits += 1;
 	}
 	
@@ -444,15 +444,15 @@ double LEAF::FindNLL_Likelihood(std::vector<double> vertexPosition, int nhits, d
 	double NLL = 0;
 		
 	for(int ihit = 0; ihit < nhits; ihit++){
-		//Hit lHit = fHitInfo[ihit];		
-		Hit lHit = fHitCollection->At(ihit);
+		//RootHit lHit = fHitInfo[ihit];		
+		RootHit lHit = fHitCollection->At(ihit);
 		
 		int iPMT = lHit.PMT;
 		double hitTime = lHit.T;
-		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
+		RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		
-		int pmtType = GetPMTType(iPMT);
-		double distance = GetDistance(lPMTInfo.Position,vertexPosition); 
+		int pmtType = Astro_GetPMTType(iPMT);
+		double distance = Astro_GetDistance(lPMTInfo.Position,vertexPosition); 
 		
 		double tof = distance / fLightSpeed;
 		double residual = hitTime - tof - vertexPosition[3];
@@ -559,17 +559,17 @@ double LEAF::FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nhits,
 	//std::cout << " Find NLL " << nhits << std::endl;
 	//std::cout << " First Hit " << fHitCollection->At(0).PMT << " " << vertexPosition.size() << std::endl;	
 	for(int ihit = 0; ihit < nhits; ihit++){
-		//Hit lHit = fHitInfo[ihit];		
-		Hit lHit = fHitCollection->At(ihit);
+		//RootHit lHit = fHitInfo[ihit];		
+		RootHit lHit = fHitCollection->At(ihit);
 	
 		//std::cout << " NLL Hit " << ihit << " " << lHit.PMT << std::endl;
 		int iPMT = lHit.PMT;		
 	
 		double hitTime = lHit.T;
-		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
+		RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		
-		int pmtType = GetPMTType(iPMT);
-		double distance = GetDistance(lPMTInfo.Position,vertexPosition);
+		int pmtType = Astro_GetPMTType(iPMT);
+		double distance = Astro_GetDistance(lPMTInfo.Position,vertexPosition);
 		
 		double tof = distance / fLightSpeed;
 		double residual = hitTime - tof - vertexPosition[3];
@@ -619,15 +619,15 @@ double LEAF::FindNLL(std::vector<double> vertexPosition, int nhits, bool likelih
 	timer.Start();
 	
 	for(int ihit = 0; ihit < nhits; ihit++){
-		//Hit lHit = fHitInfo[ihit];		
-		Hit lHit = fHitCollection->At(ihit);
+		//RootHit lHit = fHitInfo[ihit];		
+		RootHit lHit = fHitCollection->At(ihit);
 		
 		int iPMT = lHit.PMT;
 		double hitTime = lHit.T;
-		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
+		RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		
-		int pmtType = GetPMTType(iPMT);
-		double distance = GetDistance(lPMTInfo.Position,vertexPosition);
+		int pmtType = Astro_GetPMTType(iPMT);
+		double distance = Astro_GetDistance(lPMTInfo.Position,vertexPosition);
 		
 		double tof = distance / fLightSpeed;
 		double residual = hitTime - tof - vertexPosition[3];
@@ -766,13 +766,13 @@ double LEAF::FindNLLDirectionality(std::vector<double> vVtxPos, int nhits, int v
 	
 		
 	for(int ihit = 0; ihit < nhits; ihit++){
-		//Hit lHit = fHitInfo[ihit];		
-		Hit lHit = fHitCollection->At(ihit);
+		//RootHit lHit = fHitInfo[ihit];		
+		RootHit lHit = fHitCollection->At(ihit);
 		
 		int iPMT = lHit.PMT;
 		
-		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
-		int pmtType = GetPMTType(iPMT);
+		RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
+		int pmtType = Astro_GetPMTType(iPMT);
 
 		if(pmtType==0) continue;
 		bool condition = true;
@@ -1232,6 +1232,8 @@ std::vector< std::vector<double> > LEAF::MinimizeVertex(std::vector< std::vector
 		tReconstructedVertexPosition.push_back(vPos);
 	}
 	
+	delete minimizer;
+
 	tBestReconstructedVertexPosition = tReconstructedVertexPosition[0]; 
 		
 	clock_t timeEnd=clock();
@@ -1302,7 +1304,9 @@ void LEAF::MinimizeVertex_thread(
 
 	std::vector<struct FitPosition>  tVtxContainer;
 
+	mtx.lock();
 	TFitter * minimizer = new TFitter(8);//4=nb de params?
+	mtx.unlock();
 	TMinuit * minuit = minimizer->GetMinuit();
 	
 	double arglist[20];
@@ -1406,10 +1410,11 @@ void LEAF::MinimizeVertex_thread(
 		fThreadOutput.push_back(vPos);
 		
 	}
+	delete minimizer;
 	mtx.unlock();
 }
 
-struct LEAF::FitterOutput LEAF::MakeFit(const HitCollection* lHitCol, bool bMultiPMT) {
+struct LEAF::FitterOutput LEAF::MakeFit(const RootHitCollection* lHitCol, bool bMultiPMT) {
 
 	fHitCollection = lHitCol; 
 
@@ -1530,14 +1535,14 @@ struct LEAF::FitterOutput LEAF::MakeFit(const HitCollection* lHitCol, bool bMult
 			int iInTime = 0;
 			
 			for(int ihit = 0; ihit < iHitsTotal; ihit++){
-				//Hit lHit = fHitInfo[ihit];
-				Hit lHit = fHitCollection->At(ihit);
+				//RootHit lHit = fHitInfo[ihit];
+				RootHit lHit = fHitCollection->At(ihit);
 				
 				int iPMT = lHit.PMT;
-				PMTInfo lPMTInfo = (*fPMTList)[iPMT];
+				RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
 				
 				double hitTime = lHit.T;
-				double distance = GetDistance(lPMTInfo.Position,fRecoVtxPosFinal[0]);
+				double distance = Astro_GetDistance(lPMTInfo.Position,fRecoVtxPosFinal[0]);
 				double tof = distance / fLightSpeed;
 				double residual = hitTime - tof - fRecoVtxPosFinal[0][3];
 				if(residual > fSTimePDFLimitsQueueNegative && residual < fSTimePDFLimitsQueuePositive){

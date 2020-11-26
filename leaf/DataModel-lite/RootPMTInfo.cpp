@@ -1,6 +1,6 @@
-#include "PMTInfo.h"
+#include "RootPMTInfo.h"
 
-PMTInfo::PMTInfo() {
+RootPMTInfo::RootPMTInfo() {
 	 
 	Id_original	= 0;
 	Id		= 0;
@@ -23,7 +23,7 @@ PMTInfo::PMTInfo() {
 	mPMT_RefTube 	= 0;
 }
 
-void PMTInfo::Setup_mPMT() {
+void RootPMTInfo::Setup_mPMT() {
 
 	Id += HKAA::kmPMT_Shift;
 	
@@ -36,7 +36,7 @@ void PMTInfo::Setup_mPMT() {
 
 
 
-void PMTInfo::Setup_mPMT_Referencial(const PMTInfo lTopPMT) {
+void RootPMTInfo::Setup_mPMT_Referencial(const RootPMTInfo lTopPMT) {
 	// Function from LEAF
 	
 	if ( lTopPMT.Id != mPMT_RefTube ) {
@@ -109,8 +109,8 @@ void PMTInfo::Setup_mPMT_Referencial(const PMTInfo lTopPMT) {
   	mPMT_RefY[2] = dEY[2];
   	/*
 	if ( VERBOSE >= 3 ) {
-		std::cout << " Scal product test = " 	<< TMath::ACos(GetScalarProd(mPMT_RefY,mPMT_RefZ))*180/TMath::Pi() << ", " 
-							<< GetLength(mPMT_RefY) << ", " << GetLength(mPMT_RefZ) << std::endl;
+		std::cout << " Scal product test = " 	<< TMath::ACos(Astro_GetScalarProd(mPMT_RefY,mPMT_RefZ))*180/TMath::Pi() << ", " 
+							<< Astro_GetLength(mPMT_RefY) << ", " << Astro_GetLength(mPMT_RefZ) << std::endl;
 	}
 	*/
   	
@@ -124,7 +124,7 @@ void PMTInfo::Setup_mPMT_Referencial(const PMTInfo lTopPMT) {
   	
 	//As ez and ey should be unitary, so does ex. So, let's check as a debug
   	
-  	double dLengthX = GetLength(mPMT_RefX);
+  	double dLengthX = Astro_GetLength(mPMT_RefX);
   	// dLengthX is not exactly 1 let's allow +/- 1e-6
   	
   	if ( dLengthX > (1 + 1e-6) || dLengthX < (1 - 1e-6) ) {
@@ -132,8 +132,8 @@ void PMTInfo::Setup_mPMT_Referencial(const PMTInfo lTopPMT) {
   		
 		std::cout << " \t Top PMT number = " << lTopPMT.Id << ", Tube number in mPMT = " << lTopPMT.mPMT_TubeNum << std::endl; 
 		std::cout << " \t PMT position in the mPMT referential = " << dPosition_Ref[0] << ", " << dPosition_Ref[1] << ", " << dPosition_Ref[2] << std::endl;
-		std::cout << " \t Scalar product test = " 	<< TMath::ACos(GetScalarProd(mPMT_RefY,mPMT_RefZ))*180/TMath::Pi() << ", Y: " 
-								<< GetLength(mPMT_RefY) << ", Z: " << GetLength(mPMT_RefZ) << std::endl;
+		std::cout << " \t Scalar product test = " 	<< TMath::ACos(Astro_GetScalarProd(mPMT_RefY,mPMT_RefZ))*180/TMath::Pi() << ", Y: " 
+								<< Astro_GetLength(mPMT_RefY) << ", Z: " << Astro_GetLength(mPMT_RefZ) << std::endl;
   	}
   	
   	
