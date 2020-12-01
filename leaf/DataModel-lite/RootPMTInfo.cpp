@@ -21,6 +21,9 @@ RootPMTInfo::RootPMTInfo() {
 	mPMT_TubeNum 	= 0;
 	mPMT_Group 	= 0;
 	mPMT_RefTube 	= 0;
+	
+	// Mask information
+	Masked 	= true;
 }
 
 void RootPMTInfo::Setup_mPMT() {

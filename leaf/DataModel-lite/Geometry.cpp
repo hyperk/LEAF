@@ -14,6 +14,7 @@ Geometry::Geometry(){
 		pmt_radius[i]		= 0;
 		pmt_num[i]		= 0;
 		pmt_dark_rate[i]	= 0.;
+		pmt_first[i]		= HKAA::kMaxPMT_ID;
 	}
 		
 	PMTList[HKAA::kID].resize(HKAA::kMaxPMT_ID);
@@ -23,11 +24,16 @@ Geometry::Geometry(){
 
 void Geometry::AddPMTInfo(RootPMTInfo lInfo) {
 
-	lInfo.Id_original = lInfo.Id;
+	lInfo.Id_original	= lInfo.Id;
+	lInfo.Masked		= false;
 
 	if ( lInfo.Type == HKAA::kIDPMT_3inch ) {
 		// Setup mPMT variables
 		lInfo.Setup_mPMT();
+	}
+	
+	if ( pmt_first[lInfo.Type] > lInfo.Id ) {
+		pmt_first[lInfo.Type] = lInfo.Id;
 	}
 	
 	if ( lInfo.Type == HKAA::kIDPMT_3inch || lInfo.Type == HKAA::kIDPMT_BnL ) {

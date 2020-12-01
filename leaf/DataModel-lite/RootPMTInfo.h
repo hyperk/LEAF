@@ -40,9 +40,12 @@ class RootPMTInfo : public TObject {
 	 	
 	 	bool mPMT;
 	 	
+	 	int mPMT_Num;
 	 	int mPMT_TubeNum;
 	 	int mPMT_Group;
 	 	int mPMT_RefTube;
+	 	
+	 	bool Masked;
 	 	
 	 	std::vector<double> mPMT_RefX;
 	 	std::vector<double> mPMT_RefY;
