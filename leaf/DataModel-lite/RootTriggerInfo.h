@@ -28,6 +28,7 @@ class RootTriggerInfo : public TObject {
 		RootTriggerInfo()			{				}
 		
 		unsigned int Id;
+		HKAA::DAQType DAQ;
 		
 		TimeDelta time_start;
 		TimeDelta time_end;
@@ -42,7 +43,7 @@ class RootTriggerInfo : public TObject {
 		
 	private:
 	
-		RootTriggerInfo(unsigned int lId, TimeDelta lTime); 
+		RootTriggerInfo(const HKAA::DAQType lDAQ, unsigned int lId, TimeDelta lTime); 
 		virtual ~RootTriggerInfo();
 		
 		ClassDef(RootTriggerInfo,1) //EventRootInfo structure

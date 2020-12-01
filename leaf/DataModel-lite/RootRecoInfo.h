@@ -8,6 +8,8 @@
 #include "Environments.h"
 #include "TimeDelta.h"
 
+#include "RootHitInfo.h"
+
 
 class RootRecoInfo {
 
@@ -26,11 +28,21 @@ class RootRecoInfo {
 			
 		double					Goodness;	
 		double					Goodness_Time;
+		
+		double					Wall; // Distance from wall
 	
 		std::vector<double> 			E;
 		std::vector< std::vector<double> > 	Dir;
 		std::vector< std::vector<double> > 	Cone;
 		std::vector<double>			Dir_Goodness;
+		
+		// For AstroAnalysis:
+		RootHitCollection			ExtendedHitCollection;
+		RootHitCollection			InTime20;
+		RootHitCollection			InTime30;
+		RootHitCollection			InTime50;
+		
+		//
 			  
 		void Reset();
 

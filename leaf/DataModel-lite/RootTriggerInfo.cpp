@@ -1,8 +1,9 @@
 #include "RootTriggerInfo.h"
 
-RootTriggerInfo::RootTriggerInfo(unsigned int lId, TimeDelta lTime) {
+RootTriggerInfo::RootTriggerInfo(const HKAA::DAQType lDAQ, unsigned int lId, TimeDelta lTime) {
 	Id = lId;
 	time = lTime;
+	DAQ = lDAQ;
 	
 	// Dummy value for now
 	time_start	= time - 1e9;
