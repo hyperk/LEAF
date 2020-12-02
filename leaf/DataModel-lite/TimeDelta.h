@@ -6,6 +6,9 @@
 #include <stdint.h>
 
 #include "TObject.h"
+#ifndef __CINT__
+#define S_LONG_TIME_UNIT 1.
+#endif
 
 /// Universal data type to store both large scale (unix timestamp) and short scale (hit times) time differences
 ///
@@ -31,7 +34,11 @@ class TimeDelta : public TObject {
 		/// Default constructor (sets all times to 0)
 		TimeDelta() : m_short_time(0), m_long_time(0){};
 		/// Copy constructor (just copies all member variables)
+#ifndef __CINT__
 		TimeDelta(const TimeDelta&) = default;
+#else
+		TimeDelta(const TimeDelta& a){m_short_time = a.m_short_time; m_long_time = a.m_long_time;};
+#endif
 		/// Constructor from naive floating point value (in ns)
 		TimeDelta(double naive_ns);
 
@@ -46,7 +53,9 @@ class TimeDelta : public TObject {
 		long_time_t m_long_time;
 
 		/// Relative unit of long time member, i.e. long_unit / short_unit, both ns so = 1.
+#ifndef __CINT__
 		static constexpr double s_long_time_unit = 1.;
+#endif
 
 		/// Ensure that the time difference stored in m_short_time is small and positive.
 		void Normalize();
