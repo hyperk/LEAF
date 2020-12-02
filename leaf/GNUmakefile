@@ -68,7 +68,7 @@ $(LIB_DATAMODEL): DataModelRootDict.cpp $(DATAMODEL_OBJECTS)
 
 DataModelRootDict.cpp:
 	@echo '<< generating ' $@ ' >>'
-	@rootcint -f DataModelRootDict.cpp -c $(CXXFLAGS) -p $(DATAMODEL_HEADERS) $(PWD)/DataModel/LinkDef.h
+	@rootcint -f DataModelRootDict.cpp -c -p $(DATAMODEL_HEADERS) $(PWD)/DataModel/LinkDef.h
 	@echo '<< install DataModelRootDict_rdict.pcm >>'
 	@cp DataModelRootDict_rdict.pcm ../lib/.
 	
