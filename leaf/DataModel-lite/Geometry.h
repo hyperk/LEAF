@@ -8,6 +8,8 @@
 #include "Environments.h"
 #include "RootPMTInfo.h"
 
+#include "TObject.h"
+
 /**
 * \class Geometry
  *
@@ -62,6 +64,7 @@ class Geometry : public TObject {
 	 
 		ClassDef(Geometry,1) //EventRootInfo structure
 };
+
 
 #if !defined(__CLING__)
 ClassImp(Geometry)
