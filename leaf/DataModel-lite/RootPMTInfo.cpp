@@ -26,6 +26,13 @@ RootPMTInfo::RootPMTInfo() {
 	Masked 	= true;
 }
 
+RootPMTInfo::~RootPMTInfo() {
+
+	mPMT_RefX.clear();
+	mPMT_RefY.clear();
+	mPMT_RefZ.clear();
+}
+
 void RootPMTInfo::Setup_mPMT() {
 
 	Id += HKAA::kmPMT_Shift;

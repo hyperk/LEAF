@@ -9,16 +9,16 @@ include ../Makefile/Makefile.${OSNAME}
 CXXFLAGS += $(shell root-config --cflags)
 CXXFLAGS += '-fPIC' -std=c++11 -Wpedantic -Wno-long-long
 
-INCFLAGS = -I.
+INCFLAGS = -I. -I$(shell root-config --incdir)
 INCFLAGS += -I$(WCSIMDIR)/include
 INCFLAGS += -I$(BONSAIDIR)/bonsai
 INCFLAGS += -I$(LEAFDIR)/leaf
 INCFLAGS += -I$(LEAFDIR)/leaf/DataModel
 
-LIBS += ${WCSIMDIR}/libWCSimRoot.so 
+LIBS += -L${WCSIMDIR} -lWCSimRoot 
 LIBS += $(shell root-config --libs) -lMinuit 
 LIBS_BONSAI += -L${BONSAIDIR} -lWCSimBonsai
-LIBS_LEAF += -L${LEAFDIR}/lib -lDataModel -lHKManager -lLEAF #-lHKAstroAnalysis 
+LIBS_LEAF += -L${LEAFDIR}/lib -lDataModelLite -lHKManager -lLEAF #-lHKAstroAnalysis 
 
 
 OBJECT = analysis
@@ -33,7 +33,7 @@ analysis: analysis.o
 # default rules
 .cc.o: 
 	@echo '<< compiling' $< '>>'
-	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $<
+	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $< 
 
 %.o: %.cc %.hh
 	@echo '<< compiling' $< '>>'

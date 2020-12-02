@@ -29,6 +29,7 @@ class RootPMTInfo : public TObject {
 
 	public:
 		RootPMTInfo(); 
+		virtual ~RootPMTInfo(); 
 	 	
 	 	int Id_original;
 	 	int Id;  

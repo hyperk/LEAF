@@ -21,6 +21,10 @@ RootHit::RootHit() {
 }
 
 
+RootHit::~RootHit() {
+}
+
+
 RootHit::RootHit(int lID, TimeDelta::short_time_t lT, double lQ, bool mPMT) {
 
 	PMT		= lID;
@@ -70,6 +74,7 @@ bool RootHit::SortFunctor_HitTimeOfFlight::operator() (
 
 RootHitCollection::RootHitCollection() {
 	timestamp = 0;
+	timestamp_last = 0;
 	first_unique = 0;
 }
 
@@ -79,6 +84,7 @@ RootHitCollection::~RootHitCollection() {
 
 void RootHitCollection::Clean() {
 	timestamp = 0;
+	timestamp_last = 0;
 	first_unique = 0;
 	hits.clear();	
 }
@@ -92,17 +98,18 @@ void RootHitCollection::SortByTimeOfFlight() {
 
 bool RootHitCollection::Append(const RootHitCollection lHC) {
 	// Adapted from SubSample append by T.Dealtry
-	
 
 	if ( hits.size() == 0 ) {
 		// First time RootHitCollection is filled
 		hits = lHC.hits;
 		timestamp = lHC.timestamp;
+		timestamp_last = lHC.timestamp_last;
 		first_unique = lHC.first_unique;
 	}
 	else {
 		// Need to shift the hit times by the difference of timestamp offsets
 		TimeDelta::short_time_t time_shift = (lHC.timestamp - timestamp) / TimeDelta::ns;
+	
 	
 		for ( unsigned int i = 0; i < lHC.Size(); i++ ) {
 			
@@ -110,6 +117,8 @@ bool RootHitCollection::Append(const RootHitCollection lHC) {
 			lHit.T += time_shift;
 		
 			hits.push_back( lHit );
+			
+			timestamp_last = timestamp + TimeDelta(lHit.T);
 		}
 	}
 	

@@ -24,6 +24,7 @@ class RootHit : public TObject {
 	public:
 		RootHit(); 
 		RootHit(int lID, TimeDelta::short_time_t lT, double lQ, bool mPMT=false); 
+		~RootHit(); 
 
 		int PMT;
 		int PMT_original;
@@ -59,10 +60,11 @@ class RootHitCollection : public TObject {
 
 	public:
 		RootHitCollection(); 
-		~RootHitCollection(); 
+		virtual ~RootHitCollection(); 
 		
 		int first_unique;
 		TimeDelta timestamp;
+		TimeDelta timestamp_last;
 		std::vector<RootHit> hits;
 		
 		// Data access functions

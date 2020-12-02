@@ -6,8 +6,8 @@ RootTriggerInfo::RootTriggerInfo(const HKAA::DAQType lDAQ, unsigned int lId, Tim
 	DAQ = lDAQ;
 	
 	// Dummy value for now
-	time_start	= time - 1e9;
-	time_end	= time + 1e9;
+	time_start	= time;
+	time_end	= time;
 		
 	RecoList.resize(HKAA::kRecoVtxMax);
 	for ( unsigned int i = 0; i < RecoList.size(); i++ ) {

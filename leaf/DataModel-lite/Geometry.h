@@ -26,6 +26,7 @@ class Geometry : public TObject {
 	
 	public:
 		Geometry(); ///< Simple constructor
+		~Geometry();
 		
 		// WCSim geometry information
 		

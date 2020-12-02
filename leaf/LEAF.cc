@@ -448,7 +448,7 @@ double LEAF::FindNLL_Likelihood(std::vector<double> vertexPosition, int nhits, d
 		RootHit lHit = fHitCollection->At(ihit);
 		
 		int iPMT = lHit.PMT;
-		double hitTime = lHit.T;
+		double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
 		RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		
 		int pmtType = Astro_GetPMTType(iPMT);
@@ -565,7 +565,7 @@ double LEAF::FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nhits,
 		//std::cout << " NLL Hit " << ihit << " " << lHit.PMT << std::endl;
 		int iPMT = lHit.PMT;		
 	
-		double hitTime = lHit.T;
+		double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
 		RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		
 		int pmtType = Astro_GetPMTType(iPMT);
@@ -623,7 +623,7 @@ double LEAF::FindNLL(std::vector<double> vertexPosition, int nhits, bool likelih
 		RootHit lHit = fHitCollection->At(ihit);
 		
 		int iPMT = lHit.PMT;
-		double hitTime = lHit.T;
+		double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
 		RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		
 		int pmtType = Astro_GetPMTType(iPMT);
@@ -1414,9 +1414,13 @@ void LEAF::MinimizeVertex_thread(
 	mtx.unlock();
 }
 
-struct LEAF::FitterOutput LEAF::MakeFit(const RootHitCollection* lHitCol, bool bMultiPMT) {
+struct LEAF::FitterOutput LEAF::MakeFit(const RootHitCollection* lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT) {
 
-	fHitCollection = lHitCol; 
+	fHitCollection  = lHitCol; 
+	fTriggerTime    = lTriggerTime;
+	fTimeCorrection = fHitCollection->timestamp - fTriggerTime;
+	
+	//std::cout << " N thread is: " << fThread << std::endl;
 
 	// Get Hits total
 
@@ -1525,12 +1529,6 @@ struct LEAF::FitterOutput LEAF::MakeFit(const RootHitCollection* lHitCol, bool b
 			//3.a. Test the NLL of the true vertex to compare with reco
 			// -> Commented since ages, removed on 2020/11/20
 
-			// Fill Output
-			fOutput.Vtx[0] 	= fRecoVtxPosFinal[0][0];
-			fOutput.Vtx[1] 	= fRecoVtxPosFinal[0][1];
-			fOutput.Vtx[2] 	= fRecoVtxPosFinal[0][2];
-			fOutput.Vtx[3]   	= fRecoVtxPosFinal[0][3];
-			fOutput.NLL 		= fRecoVtxPosFinal[0][4];  
 			
 			int iInTime = 0;
 			
@@ -1541,7 +1539,7 @@ struct LEAF::FitterOutput LEAF::MakeFit(const RootHitCollection* lHitCol, bool b
 				int iPMT = lHit.PMT;
 				RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
 				
-				double hitTime = lHit.T;
+				double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
 				double distance = Astro_GetDistance(lPMTInfo.Position,fRecoVtxPosFinal[0]);
 				double tof = distance / fLightSpeed;
 				double residual = hitTime - tof - fRecoVtxPosFinal[0][3];
@@ -1549,6 +1547,13 @@ struct LEAF::FitterOutput LEAF::MakeFit(const RootHitCollection* lHitCol, bool b
 					iInTime++;
 				}
 			}
+			
+			// Fill Output
+			fOutput.Vtx[0] 	= fRecoVtxPosFinal[0][0];
+			fOutput.Vtx[1] 	= fRecoVtxPosFinal[0][1];
+			fOutput.Vtx[2] 	= fRecoVtxPosFinal[0][2];
+			fOutput.Vtx[3]   	= (fRecoVtxPosFinal[0][3] - fTimeCorrection) / TimeDelta::ns;
+			fOutput.NLL 		= fRecoVtxPosFinal[0][4];  
 			
 			fOutput.InTime 	= iInTime;
 			

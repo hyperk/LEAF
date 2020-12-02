@@ -22,6 +22,13 @@ Geometry::Geometry(){
 }
 
 
+Geometry::~Geometry(){
+
+	PMTList[HKAA::kID].clear();
+	PMTList[HKAA::kOD].clear();
+}
+
+
 void Geometry::AddPMTInfo(RootPMTInfo lInfo) {
 
 	lInfo.Id_original	= lInfo.Id;

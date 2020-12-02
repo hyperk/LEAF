@@ -9,6 +9,7 @@
 #include "TimeDelta.h"
 
 #include "RootHitInfo.h"
+#include "RootPosition.h"
 
 
 class RootRecoInfo {
@@ -22,8 +23,7 @@ class RootRecoInfo {
 		// Base of the RecoInfo
 		HKAA::RecoVtxInfo AlgVtx; 
 		
-		std::vector<double> 			Vtx;
-		Pos3D					Pos;
+		RootPosition	 			Vtx;
 		TimeDelta				Time;
 			
 		double					Goodness;	
@@ -41,6 +41,8 @@ class RootRecoInfo {
 		RootHitCollection			InTime20;
 		RootHitCollection			InTime30;
 		RootHitCollection			InTime50;
+		
+		std::vector<double>			DirKS;
 		
 		//
 			  

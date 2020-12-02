@@ -39,12 +39,12 @@ void RootRecoInfo::Reset()
 	Goodness_Time 	= 0;
 	
 	Wall		= 0;
-	
-	Vtx		.resize(4,0.);		
+		
 	E		.resize(HKAA::kRecoEneMax,0.);
 	Dir		.resize(HKAA::kRecoDirMax,lEmptyThree);
 	Cone		.resize(HKAA::kRecoDirMax,lEmptyTwo);
-	Dir_Goodness	.resize(HKAA::kRecoDirMax,0);
+	Dir_Goodness	.resize(HKAA::kRecoDirMax,-1);
+	DirKS		.resize(HKAA::kRecoDirMax,-1);
 }
 
 

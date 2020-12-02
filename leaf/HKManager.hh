@@ -47,7 +47,7 @@ class WCSimReader {
 		const RootHitCollection* GetHitCollection() { return &fHitCollection; }
 				
 		// Manage hit info
-		void ResetHitInfo() { fHitCollection.Clear(); }
+		void ResetHitInfo() { fHitCollection.Clean(); }
 		void AddHit(double time, double charge, int pmtType, int tubeNumber) {
 		
 			// tubeNumber is from 1 to xxx in Hit array

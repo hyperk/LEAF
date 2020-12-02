@@ -2,6 +2,7 @@
 
 RootPosition::RootPosition() {
 	Vtx.resize(4,0.);
+	
 }
 
 RootPosition::~RootPosition() {
