@@ -27,13 +27,12 @@ LIB_ASTROANALYSIS = ../lib/libHKAstroAnalysis.so
 
 LIBS_OBJECTS = $(LIB_DATAMODEL) $(LIB_MANAGER) $(LIB_FITTER) #$(LIB_ASTROANALYSIS)
 
-DATAMODEL_HEADERS =	$(PWD)/DataModel/GeoTools.h $(PWD)/DataModel/TimeDelta.h $(PWD)/DataModel/RootHitInfo.h \
-			$(PWD)/DataModel/RootPMTInfo.h $(PWD)/DataModel/Geometry.h $(PWD)/DataModel/RootRecoInfo.h \
-			$(PWD)/DataModel/RootTriggerInfo.h $(PWD)/DataModel/RootEventInfo.h
-DATAMODEL_OBJECTS = 	GeoTools.o TimeDelta.o RootHitInfo.o \
-			RootPMTInfo.o Geometry.o RootRecoInfo.o \
-			RootTriggerInfo.o RootEventInfo.o \
-			DataModelRootDict.o
+
+DATAMODEL_SOURCES = $(wildcard DataModel/*.cpp)
+DATAMODEL_SRC_NOP = $(DATAMODEL_SOURCES:DataModel/%=./%)
+
+DATAMODEL_HEADERS = $(DATAMODEL_SOURCES:%.cpp=%.h)
+DATAMODEL_OBJECTS = $(DATAMODEL_SRC_NOP:%.cpp=%.o)
 
 
 all: .depend $(LIBS_OBJECTS)
@@ -111,5 +110,6 @@ DataModelRootDict.cpp:
 clean: 
 	@echo '<< cleaning >>'
 	@rm -f ./*.o
-	@rm -f ./../lib*.so
+	@rm -f ./../lib/lib*.so
+	@rm -f ./*Dict*
 	

@@ -1468,7 +1468,7 @@ struct LEAF::FitterOutput LEAF::MakeFit(const RootHitCollection* lHitCol, bool b
 			
 						
 			if(VERBOSE>=2){
-			  for(unsigned int a=0;a<tRecoVtxPos.size();a++) std::cout<<"Candidate vertex [ " << a << " ] = " <<tRecoVtxPos[a][0] << " , " << tRecoVtxPos[a][1] << " , " << tRecoVtxPos[a][2] << " , " << tRecoVtxPos[a][3] << ", NLL = "<< tRecoVtxPos[a][4] << std::endl;
+				for(unsigned int a=0;a<tRecoVtxPos.size();a++) std::cout<<"Candidate vertex [ " << a << " ] = " <<tRecoVtxPos[a][0] << " , " << tRecoVtxPos[a][1] << " , " << tRecoVtxPos[a][2] << " , " << tRecoVtxPos[a][3] << ", NLL = "<< tRecoVtxPos[a][4] << std::endl;
 			}
 			timer.Stop();
 			//std::cout << "SearchVertex took: " << timer.RealTime() << std::endl;

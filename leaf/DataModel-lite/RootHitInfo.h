@@ -30,9 +30,23 @@ class RootHit : public TObject {
 		TimeDelta::short_time_t T;
 		double Q;
 		
+		// Need for AstroAnalysis
+		double distance;
+		double ToF;
 		
+		double NormX;
+		double NormY;
+		double NormZ;
+		
+		double theta;
+		double phi;
+				
 		// Sort functor following hit time after resolution applied
 		struct SortFunctor_HitTime {
+			bool operator() (const RootHit &a, const RootHit &b) const;
+		};
+		// Sort functor following hit time of flight after resolution applied
+		struct SortFunctor_HitTimeOfFlight {
 			bool operator() (const RootHit &a, const RootHit &b) const;
 		};
 		
@@ -63,9 +77,11 @@ class RootHitCollection : public TObject {
 		bool Append(const RootHitCollection lHC);
 		
 		// Cleaner
-		void Clear();
+		void Clean();
+		void EraseFirstHit()			{ hits.erase(hits.begin());	}
 		
 		void SortByTime();
+		void SortByTimeOfFlight();
 				
 		ClassDef(RootHitCollection,1) //EventRootInfo structure
 };

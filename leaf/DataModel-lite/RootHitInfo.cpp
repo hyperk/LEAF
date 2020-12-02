@@ -8,6 +8,16 @@ RootHit::RootHit() {
 	T 		= 0.;
 	Q 		= 0.;
 	
+	distance	= 0;
+	ToF 		= 0;
+		
+	NormX		= 0;
+	NormY		= 0;
+	NormZ		= 0;
+		
+	theta		= 0;
+	phi		= 0;
+	
 }
 
 
@@ -22,6 +32,16 @@ RootHit::RootHit(int lID, TimeDelta::short_time_t lT, double lQ, bool mPMT) {
 	
 	T 		= lT;
 	Q 		= lQ;
+	
+	distance	= 0;
+	ToF 		= 0;
+		
+	NormX		= 0;
+	NormY		= 0;
+	NormZ		= 0;
+		
+	theta		= 0;
+	phi		= 0;
 
 }
 
@@ -36,6 +56,17 @@ bool RootHit::SortFunctor_HitTime::operator() (
 	return ta < tb;
 }
 
+// Sort functor following Hit Time
+bool RootHit::SortFunctor_HitTimeOfFlight::operator() (
+		const RootHit &a,
+		const RootHit &b) const {
+		
+	double ta = a.ToF;
+	double tb = b.ToF;
+	
+	return ta < tb;
+}
+
 
 RootHitCollection::RootHitCollection() {
 	timestamp = 0;
@@ -46,7 +77,7 @@ RootHitCollection::~RootHitCollection() {
 	this->Clear();
 }
 
-void RootHitCollection::Clear() {
+void RootHitCollection::Clean() {
 	timestamp = 0;
 	first_unique = 0;
 	hits.clear();	
@@ -54,6 +85,9 @@ void RootHitCollection::Clear() {
 
 void RootHitCollection::SortByTime() {
 	std::sort(hits.begin(), hits.end(), RootHit::SortFunctor_HitTime());
+}
+void RootHitCollection::SortByTimeOfFlight() {
+	std::sort(hits.begin(), hits.end(), RootHit::SortFunctor_HitTimeOfFlight());
 }
 
 bool RootHitCollection::Append(const RootHitCollection lHC) {
@@ -64,6 +98,7 @@ bool RootHitCollection::Append(const RootHitCollection lHC) {
 		// First time RootHitCollection is filled
 		hits = lHC.hits;
 		timestamp = lHC.timestamp;
+		first_unique = lHC.first_unique;
 	}
 	else {
 		// Need to shift the hit times by the difference of timestamp offsets
@@ -80,3 +115,4 @@ bool RootHitCollection::Append(const RootHitCollection lHC) {
 	
 	return true;
 }
+
