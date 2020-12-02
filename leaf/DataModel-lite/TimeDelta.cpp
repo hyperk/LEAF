@@ -1,6 +1,10 @@
 #include <cmath>
 #include "TimeDelta.h"
 
+#ifdef ROOT5
+const double TimeDelta::s_long_time_unit = 1.;
+#endif
+
 TimeDelta::TimeDelta(double naive_ns){
 	m_long_time = 0;
 	m_short_time = naive_ns;
@@ -9,6 +13,9 @@ TimeDelta::TimeDelta(double naive_ns){
 	double difference = naive_ns - (*this / ns);
 	m_short_time += difference;
 	Normalize();
+}
+
+TimeDelta::~TimeDelta() {
 }
 
 void TimeDelta::Normalize(){

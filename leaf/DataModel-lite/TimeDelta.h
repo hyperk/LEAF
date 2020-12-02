@@ -30,10 +30,19 @@ class TimeDelta : public TObject {
 	public:
 		/// Default constructor (sets all times to 0)
 		TimeDelta() : m_short_time(0), m_long_time(0){};
+		
+		#ifndef ROOT5
 		/// Copy constructor (just copies all member variables)
 		TimeDelta(const TimeDelta&) = default;
+		#else
+		/// Copy constructor (just copies all member variables)
+		TimeDelta(const TimeDelta& a) { m_short_time = a.m_short_time; m_long_time = a.m_long_time; }
+		#endif
+		
 		/// Constructor from naive floating point value (in ns)
 		TimeDelta(double naive_ns);
+		
+		~TimeDelta();
 
 		/// Type for relative hit times within a SubSample. Unit = ns
 		typedef double short_time_t;
@@ -45,9 +54,13 @@ class TimeDelta : public TObject {
 		/// Member for long time delta
 		long_time_t m_long_time;
 
+		#ifndef ROOT5
 		/// Relative unit of long time member, i.e. long_unit / short_unit, both ns so = 1.
 		static constexpr double s_long_time_unit = 1.;
-
+		#else
+		static const double s_long_time_unit;
+		#endif
+		
 		/// Ensure that the time difference stored in m_short_time is small and positive.
 		void Normalize();
 
