@@ -51,9 +51,13 @@ class TimeDelta : public TObject {
 		short_time_t m_short_time;
 		/// Member for long time delta
 		long_time_t m_long_time;
-
+		
+		#ifndef ROOT5
 		/// Relative unit of long time member, i.e. long_unit / short_unit, both ns so = 1.
 		static constexpr double s_long_time_unit = 1.;
+		#else
+		static const double s_long_time_unit;
+		#endif
 
 		/// Ensure that the time difference stored in m_short_time is small and positive.
 		void Normalize();
