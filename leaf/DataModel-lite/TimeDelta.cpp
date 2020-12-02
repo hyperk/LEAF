@@ -1,6 +1,10 @@
 #include <cmath>
 #include "TimeDelta.h"
 
+#ifdef ROOT5
+const double TimeDelta::s_long_time_unit = 1.;
+#endif
+
 TimeDelta::TimeDelta(double naive_ns){
 	m_long_time = 0;
 	m_short_time = naive_ns;
@@ -11,18 +15,13 @@ TimeDelta::TimeDelta(double naive_ns){
 	Normalize();
 }
 
+TimeDelta::~TimeDelta() {
+}
+
 void TimeDelta::Normalize(){
-#ifndef __CINT__
 	long_time_t long_diff = std::floor(m_short_time / s_long_time_unit);
-#else
-	long_time_t long_diff = std::floor(m_short_time / S_LONG_TIME_UNIT);
-#endif
 	m_long_time += long_diff;
-#ifndef __CINT__
 	m_short_time -= (long_diff * s_long_time_unit);
-#else 
-	m_short_time -= (long_diff * S_LONG_TIME_UNIT);
-#endif
 }
 
 TimeDelta operator*(const TimeDelta& old_delta, double factor){
@@ -32,11 +31,7 @@ TimeDelta operator*(const TimeDelta& old_delta, double factor){
 	// Make sure no information of m_long_time is lost
 	if (factor != 0){
 		double remainder = old_delta.m_long_time - new_delta.m_long_time * (1. / factor);
-#ifndef __CINT__
 		new_delta.m_short_time += (remainder * TimeDelta::s_long_time_unit);
-#else
-		new_delta.m_short_time += (remainder * S_LONG_TIME_UNIT);
-#endif
 	}
 	new_delta.Normalize();
 	return new_delta;
@@ -47,17 +42,9 @@ TimeDelta operator*(double factor, const TimeDelta& old_delta){
 }
 
 double operator/(const TimeDelta& left_delta, const TimeDelta& right_delta){
-#ifndef __CINT__
 	double left_ns = (left_delta.m_long_time * (double)TimeDelta::s_long_time_unit);
-#else 
-	double left_ns = (left_delta.m_long_time * (double)S_LONG_TIME_UNIT);
-#endif
 	left_ns += left_delta.m_short_time;
-#ifndef __CINT__
 	double right_ns = (right_delta.m_long_time * (double)TimeDelta::s_long_time_unit);
-#else 
-	double right_ns = (right_delta.m_long_time * (double)S_LONG_TIME_UNIT);
-#endif
 	right_ns += right_delta.m_short_time;
 	return left_ns / right_ns;
 }
@@ -118,11 +105,7 @@ bool operator!=(const TimeDelta& left_delta, const TimeDelta& right_delta){
 }
 
 std::ostream& operator<<(std::ostream& outs, const TimeDelta& delta){
-#ifndef __CINT__
 	return outs << delta.m_short_time + delta.m_long_time*TimeDelta::s_long_time_unit << " ns";
-#else
-	return outs << delta.m_short_time + delta.m_long_time*S_LONG_TIME_UNIT << " ns";
-#endif
 }
 
 // Unit constants
