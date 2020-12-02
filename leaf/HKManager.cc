@@ -53,8 +53,8 @@ void WCSimReader::SetGeometry( WCSimRootGeom * wGeo, double dDarkRate_Normal, do
 	// Fill Geometry class
 	fGeometry = new Geometry();
 	
-	fGeometry->detector_length = fWCGeo->GetWCCylLength();
 	fGeometry->detector_radius = fWCGeo->GetWCCylRadius();
+	fGeometry->detector_length = fWCGeo->GetWCCylLength();
 	
 	fDarkRate_Normal = dDarkRate_Normal;
 	fDarkRate_mPMT   = dDarkRate_mPMT;
@@ -127,7 +127,7 @@ void WCSimReader::LoadPMTInfo() {
 		wPMT = fWCGeo->GetPMT(iPMT,false);
 #endif
 
-		PMTInfo lPMTInfo;
+		RootPMTInfo lPMTInfo;
 		
 		lPMTInfo.Id				= wPMT.GetTubeNo();
 		
@@ -156,8 +156,8 @@ void WCSimReader::LoadPMTInfo() {
 	// Compute minimal diagonal distance:
 	// PMT 4 is the closest diag PMT from PMT 0
 	/*
-	PMTInfo lInfoIdxZero = fGeometry->PMTList.at(HKAA::kID)[0];
-	PMTInfo lInfoIdxFour = fGeometry->PMTList.at(HKAA::kID)[4];
+	RootPMTInfo lInfoIdxZero = fGeometry->PMTList.at(HKAA::kID)[0];
+	RootPMTInfo lInfoIdxFour = fGeometry->PMTList.at(HKAA::kID)[4];
 	fPMTDiagDistance = std::ceil( sqrt( 	  pow(lInfoIdxZero.Position[0]-lInfoIdxFour.Position[0],2.) 
 						+ pow(lInfoIdxZero.Position[1]-lInfoIdxFour.Position[1],2.) 
 						+ pow(lInfoIdxZero.Position[2]-lInfoIdxFour.Position[2],2.) ) );
@@ -174,7 +174,7 @@ void WCSimReader::LoadPMTInfo() {
 	
 		wPMT = fWCGeo->GetPMT(iPMT,true);
 		
-		PMTInfo lPMTInfo;
+		RootPMTInfo lPMTInfo;
 		
 		lPMTInfo.Id				= wPMT.GetTubeNo();
 		lPMTInfo.Type				= HKAA::kIDPMT_3inch;

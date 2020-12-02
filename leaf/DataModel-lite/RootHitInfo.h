@@ -18,12 +18,12 @@
  *          
  */
 
-class Hit {
+class RootHit : public TObject {
 
 
 	public:
-		Hit(); 
-		Hit(int lID, TimeDelta::short_time_t lT, double lQ, bool mPMT=false); 
+		RootHit(); 
+		RootHit(int lID, TimeDelta::short_time_t lT, double lQ, bool mPMT=false); 
 
 		int PMT;
 		int PMT_original;
@@ -33,41 +33,47 @@ class Hit {
 		
 		// Sort functor following hit time after resolution applied
 		struct SortFunctor_HitTime {
-			bool operator() (const Hit &a, const Hit &b) const;
+			bool operator() (const RootHit &a, const RootHit &b) const;
 		};
+		
+		ClassDef(RootHit,1) //EventRootInfo structure
 		
 };
 
 
-class HitCollection {
+class RootHitCollection : public TObject {
 
 	public:
-		HitCollection(); 
-		~HitCollection(); 
+		RootHitCollection(); 
+		~RootHitCollection(); 
 		
 		int first_unique;
 		TimeDelta timestamp;
-		std::vector<Hit> hits;
+		std::vector<RootHit> hits;
 		
 		// Data access functions
-		Hit &operator[](int n) {
-			return hits[n];
-		}
+		RootHit &operator[](int n) 		{ return hits[n];		}
 		
 		// Information getter		
 		unsigned int Size() const		{ return hits.size();		}
-		Hit At(int n)	const			{ return hits[n];		}
+		RootHit At(int n) const		{ return hits[n];		}
 		
 		// Filler
-		void Add(Hit lHit)			{ hits.push_back(lHit);	}
-		bool Append(const HitCollection lHC);
+		void Add(RootHit lHit)			{ hits.push_back(lHit);	}
+		bool Append(const RootHitCollection lHC);
 		
 		// Cleaner
 		void Clear();
 		
 		void SortByTime();
+				
+		ClassDef(RootHitCollection,1) //EventRootInfo structure
 };
 
+#if !defined(__CLING__)
+ClassImp(RootHitCollection)
+ClassImp(RootHit)
+#endif
 
 
 

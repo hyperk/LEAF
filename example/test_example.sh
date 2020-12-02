@@ -12,7 +12,7 @@ cd example
 input=./test.root
 # test.root doesn't exist, this is just a placeholder
 
-if [ -z $input ]; then
+if [ -f "$input" ]; then
 	echo "Set input file doesn't exist! Add your WCSim input file here. (Note: make sure the WCSim path in RunAtStart matches the WCSim version you used to produce the file)"
 else
 	echo "Processing ${input}..."

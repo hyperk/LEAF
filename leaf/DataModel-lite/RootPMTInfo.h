@@ -8,6 +8,7 @@
 
 //ROOT Headers
 #include "TMath.h"
+#include "TObject.h"
 
 /**
 * \class PMTInfo
@@ -22,12 +23,12 @@
  */
  
 
-class PMTInfo {
+class RootPMTInfo : public TObject {
 
 	friend class Geometry;
 
 	public:
-		PMTInfo(); 
+		RootPMTInfo(); 
 	 	
 	 	int Id_original;
 	 	int Id;  
@@ -50,9 +51,14 @@ class PMTInfo {
 	private:
 		 	
 		void Setup_mPMT();
-		void Setup_mPMT_Referencial(const PMTInfo lTopPMT);
+		void Setup_mPMT_Referencial(const RootPMTInfo lTopPMT);
+		
+		ClassDef(RootPMTInfo,1) //EventRootInfo structure
 };
 
+#if !defined(__CLING__)
+ClassImp(RootPMTInfo)
+#endif
 
 
 #endif

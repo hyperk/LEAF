@@ -1,6 +1,6 @@
-#include "HitInfo.h"
+#include "RootHitInfo.h"
 
-Hit::Hit() {
+RootHit::RootHit() {
 	 
 	PMT		= 0;
 	PMT_original	= 0;
@@ -11,7 +11,7 @@ Hit::Hit() {
 }
 
 
-Hit::Hit(int lID, TimeDelta::short_time_t lT, double lQ, bool mPMT) {
+RootHit::RootHit(int lID, TimeDelta::short_time_t lT, double lQ, bool mPMT) {
 
 	PMT		= lID;
 	PMT_original	= lID;
@@ -26,9 +26,9 @@ Hit::Hit(int lID, TimeDelta::short_time_t lT, double lQ, bool mPMT) {
 }
 
 // Sort functor following Hit Time
-bool Hit::SortFunctor_HitTime::operator() (
-		const Hit &a,
-		const Hit &b) const {
+bool RootHit::SortFunctor_HitTime::operator() (
+		const RootHit &a,
+		const RootHit &b) const {
 		
 	double ta = a.T;
 	double tb = b.T;
@@ -37,31 +37,31 @@ bool Hit::SortFunctor_HitTime::operator() (
 }
 
 
-HitCollection::HitCollection() {
+RootHitCollection::RootHitCollection() {
 	timestamp = 0;
 	first_unique = 0;
 }
 
-HitCollection::~HitCollection() {
+RootHitCollection::~RootHitCollection() {
 	this->Clear();
 }
 
-void HitCollection::Clear() {
+void RootHitCollection::Clear() {
 	timestamp = 0;
 	first_unique = 0;
 	hits.clear();	
 }
 
-void HitCollection::SortByTime() {
-	std::sort(hits.begin(), hits.end(), Hit::SortFunctor_HitTime());
+void RootHitCollection::SortByTime() {
+	std::sort(hits.begin(), hits.end(), RootHit::SortFunctor_HitTime());
 }
 
-bool HitCollection::Append(const HitCollection lHC) {
+bool RootHitCollection::Append(const RootHitCollection lHC) {
 	// Adapted from SubSample append by T.Dealtry
 	
 
 	if ( hits.size() == 0 ) {
-		// First time HitCollection is filled
+		// First time RootHitCollection is filled
 		hits = lHC.hits;
 		timestamp = lHC.timestamp;
 	}
@@ -71,7 +71,7 @@ bool HitCollection::Append(const HitCollection lHC) {
 	
 		for ( unsigned int i = 0; i < lHC.Size(); i++ ) {
 			
-			Hit lHit = lHC.hits[i];
+			RootHit lHit = lHC.hits[i];
 			lHit.T += time_shift;
 		
 			hits.push_back( lHit );

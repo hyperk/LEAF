@@ -21,7 +21,7 @@ Geometry::Geometry(){
 }
 
 
-void Geometry::AddPMTInfo(PMTInfo lInfo) {
+void Geometry::AddPMTInfo(RootPMTInfo lInfo) {
 
 	lInfo.Id_original = lInfo.Id;
 
@@ -45,8 +45,8 @@ void Geometry::Setup_mPMTs() {
 
 	for ( int i=HKAA::kmPMT_Shift; i < (HKAA::kmPMT_Shift + pmt_num[HKAA::kIDPMT_3inch]); i++ ) {
 	
-		PMTInfo lInfo		= PMTList[HKAA::kID][i];
-		PMTInfo lInfoTop	= PMTList[HKAA::kID][lInfo.mPMT_RefTube];
+		RootPMTInfo lInfo	= PMTList[HKAA::kID][i];
+		RootPMTInfo lInfoTop	= PMTList[HKAA::kID][lInfo.mPMT_RefTube];
 		
 		lInfo.Setup_mPMT_Referencial(lInfoTop);
 	}
