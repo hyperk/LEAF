@@ -468,7 +468,7 @@ int main(int argc, char** argv){
 		fLFTime = timerLF.RealTime();
 		
 		//std::cout << " n50 " << leaf_output_ana.n50[0] << " " << leaf_output_ana.n50[1] << " " << leaf_output_ana.n50[2] << std::endl;
-		//std::cout << " LEAF took: " << timerLF.RealTime() << std::endl;
+		std::cout << " LEAF took: " << timerLF.RealTime() << " for " << HKManager::GetME()->GetHitCollection()->Size() << " Hits"<<  std::endl;
 
 		/****************************************************************************************/
 		/* Bonsai										*/

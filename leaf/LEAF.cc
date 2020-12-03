@@ -1419,8 +1419,6 @@ struct LEAF::FitterOutput LEAF::MakeFit(const RootHitCollection* lHitCol, const 
 	fHitCollection  = lHitCol; 
 	fTriggerTime    = lTriggerTime;
 	fTimeCorrection = fHitCollection->timestamp - fTriggerTime;
-	
-	//std::cout << " N thread is: " << fThread << std::endl;
 
 	// Get Hits total
 
