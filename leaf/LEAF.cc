@@ -249,9 +249,9 @@ void LEAF::VectorVertexPMT(std::vector<double> vertex, int iPMT, double* dAngles
 	// Guillaume 2020/11/20:
 	// Reference is moved to outside LEAF (HKManager or hk-AstroAnalysis)
   	
-	RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
+	PMTInfo lPMTInfo = (*fPMTList)[iPMT];
   	int iPMTTop = lPMTInfo.mPMT_RefTube;
-	RootPMTInfo lPMTInfoTop = (*fPMTList)[iPMTTop];
+	PMTInfo lPMTInfoTop = (*fPMTList)[iPMTTop];
   
 	//5. Now we have our referential, we should just calculate the angles of the PMT to vertex position vector in this referential.
 	//a. calculate the PMT to vertex position vector.
@@ -314,7 +314,7 @@ double LEAF::FindDirectionTheta(std::vector<double> vertex,int tubeNumber, int v
 
 	//clock_t timeStart=clock();
 	
-	RootPMTInfo lPMTInfo = (*fPMTList)[tubeNumber];
+	PMTInfo lPMTInfo = (*fPMTList)[tubeNumber];
 	
 	int pmt_number_in_mpmt = lPMTInfo.mPMT_TubeNum;
 	double particleRelativePMTpos[3];
@@ -361,8 +361,8 @@ void LEAF::MakeEventInfo(double lowerLimit, double upperLimit) {
 	int iHitTotal = fHitCollection->Size();
 	
 	for(int iHit=0; iHit < iHitTotal; iHit++ ) {
-		//RootHit lHit = fHitInfo[iHit];		
-		RootHit lHit = fHitCollection->At(iHit);
+		//Hit lHit = fHitInfo[iHit];		
+		Hit lHit = fHitCollection->At(iHit);
 		
 		int iPMT = lHit.PMT;
 		int iType = Astro_GetPMTType(iPMT);
@@ -444,12 +444,12 @@ double LEAF::FindNLL_Likelihood(std::vector<double> vertexPosition, int nhits, d
 	double NLL = 0;
 		
 	for(int ihit = 0; ihit < nhits; ihit++){
-		//RootHit lHit = fHitInfo[ihit];		
-		RootHit lHit = fHitCollection->At(ihit);
+		//Hit lHit = fHitInfo[ihit];		
+		Hit lHit = fHitCollection->At(ihit);
 		
 		int iPMT = lHit.PMT;
 		double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
-		RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
+		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		
 		int pmtType = Astro_GetPMTType(iPMT);
 		double distance = Astro_GetDistance(lPMTInfo.Position,vertexPosition); 
@@ -559,14 +559,14 @@ double LEAF::FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nhits,
 	//std::cout << " Find NLL " << nhits << std::endl;
 	//std::cout << " First Hit " << fHitCollection->At(0).PMT << " " << vertexPosition.size() << std::endl;	
 	for(int ihit = 0; ihit < nhits; ihit++){
-		//RootHit lHit = fHitInfo[ihit];		
-		RootHit lHit = fHitCollection->At(ihit);
+		//Hit lHit = fHitInfo[ihit];		
+		Hit lHit = fHitCollection->At(ihit);
 	
 		//std::cout << " NLL Hit " << ihit << " " << lHit.PMT << std::endl;
 		int iPMT = lHit.PMT;		
 	
 		double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
-		RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
+		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		
 		int pmtType = Astro_GetPMTType(iPMT);
 		double distance = Astro_GetDistance(lPMTInfo.Position,vertexPosition);
@@ -619,12 +619,12 @@ double LEAF::FindNLL(std::vector<double> vertexPosition, int nhits, bool likelih
 	timer.Start();
 	
 	for(int ihit = 0; ihit < nhits; ihit++){
-		//RootHit lHit = fHitInfo[ihit];		
-		RootHit lHit = fHitCollection->At(ihit);
+		//Hit lHit = fHitInfo[ihit];		
+		Hit lHit = fHitCollection->At(ihit);
 		
 		int iPMT = lHit.PMT;
 		double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
-		RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
+		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		
 		int pmtType = Astro_GetPMTType(iPMT);
 		double distance = Astro_GetDistance(lPMTInfo.Position,vertexPosition);
@@ -766,12 +766,12 @@ double LEAF::FindNLLDirectionality(std::vector<double> vVtxPos, int nhits, int v
 	
 		
 	for(int ihit = 0; ihit < nhits; ihit++){
-		//RootHit lHit = fHitInfo[ihit];		
-		RootHit lHit = fHitCollection->At(ihit);
+		//Hit lHit = fHitInfo[ihit];		
+		Hit lHit = fHitCollection->At(ihit);
 		
 		int iPMT = lHit.PMT;
 		
-		RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
+		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		int pmtType = Astro_GetPMTType(iPMT);
 
 		if(pmtType==0) continue;
@@ -1414,7 +1414,7 @@ void LEAF::MinimizeVertex_thread(
 	mtx.unlock();
 }
 
-struct LEAF::FitterOutput LEAF::MakeFit(const RootHitCollection* lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT) {
+struct LEAF::FitterOutput LEAF::MakeFit(const HitCollection<Hit>* lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT) {
 
 	fHitCollection  = lHitCol; 
 	fTriggerTime    = lTriggerTime;
@@ -1531,11 +1531,11 @@ struct LEAF::FitterOutput LEAF::MakeFit(const RootHitCollection* lHitCol, const 
 			int iInTime = 0;
 			
 			for(int ihit = 0; ihit < iHitsTotal; ihit++){
-				//RootHit lHit = fHitInfo[ihit];
-				RootHit lHit = fHitCollection->At(ihit);
+				//Hit lHit = fHitInfo[ihit];
+				Hit lHit = fHitCollection->At(ihit);
 				
 				int iPMT = lHit.PMT;
-				RootPMTInfo lPMTInfo = (*fPMTList)[iPMT];
+				PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 				
 				double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
 				double distance = Astro_GetDistance(lPMTInfo.Position,fRecoVtxPosFinal[0]);

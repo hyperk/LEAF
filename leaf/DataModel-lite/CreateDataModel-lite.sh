@@ -7,13 +7,10 @@ else
 	echo "HK_ASTROANALYSIS_DIR was found to be: $HK_ASTROANALYSIS_DIR . Create DataModel-lite"
 	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/Geometry.* .
 	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/GeoTools.* .
-	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/RootEventInfo.* .
-	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/RootHitInfo.* .
-	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/RootPMTInfo.* .
-	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/RootRecoInfo.* .
-	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/RootTriggerInfo.* .
+	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/HitInfo.* .
+	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/PMTInfo.* .
 	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/TimeDelta.* .
-	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/RootPosition.* .
+	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/Pos3DT.* .
 			
 	echo "You should update manually Environments.h"
 fi

@@ -26,7 +26,7 @@
 
 //DataModel informations
 #include "Geometry.h"
-#include "RootHitInfo.h"
+#include "HitInfo.h"
 
 //WCSim parameters:
 // If using a WCSim version without mPMT implementation
@@ -44,7 +44,7 @@ class WCSimReader {
 		const Geometry* GetGeometry() { return fGeometry; }
 		void SetGeometry( WCSimRootGeom * wGeo, double dDarkRate_Normal=4200., double dDarkRate_mPMT=100. );
 		
-		const RootHitCollection* GetHitCollection() { return &fHitCollection; }
+		const HitCollection<Hit>* GetHitCollection() { return &fHitCollection; }
 				
 		// Manage hit info
 		void ResetHitInfo() { fHitCollection.Clean(); }
@@ -55,7 +55,7 @@ class WCSimReader {
 				std::cout << "ERROR: tubeNumber is below 0 (" << tubeNumber << ")" << std::endl;
 			}
 			
-			RootHit hHit (tubeNumber, time, charge, pmtType);	
+			Hit hHit (tubeNumber, time, charge, pmtType);	
 			
 			fHitCollection.Add(hHit);
 		}
@@ -75,7 +75,7 @@ class WCSimReader {
 		Geometry* fGeometry;
 		
 		// HitCollection
-		RootHitCollection fHitCollection;
+		HitCollection<Hit> fHitCollection;
 		
 		// Darknoise
 		double fDarkRate_Normal;

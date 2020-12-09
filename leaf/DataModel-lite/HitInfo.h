@@ -18,20 +18,32 @@
  *          
  */
 
-class RootHit : public TObject {
-
+class Hit {
 
 	public:
-		RootHit(); 
-		RootHit(int lID, TimeDelta::short_time_t lT, double lQ, bool mPMT=false); 
-		~RootHit(); 
+		Hit(); 
+		Hit(int lID, TimeDelta::short_time_t lT, double lQ, bool mPMT=false); 
+		~Hit(); 
 
 		int PMT;
 		int PMT_original;
 		TimeDelta::short_time_t T;
 		double Q;
+						
+		// Sort functor following hit time after resolution applied
+		struct SortFunctor_HitTime {
+			bool operator() (const Hit &a, const Hit &b) const;
+		};
 		
-		// Need for AstroAnalysis
+};
+
+class HitExtended : public Hit {
+
+
+	public:
+		HitExtended();
+		HitExtended(const Hit&);
+		
 		double distance;
 		double ToF;
 		
@@ -42,56 +54,46 @@ class RootHit : public TObject {
 		double theta;
 		double phi;
 				
-		// Sort functor following hit time after resolution applied
-		struct SortFunctor_HitTime {
-			bool operator() (const RootHit &a, const RootHit &b) const;
-		};
 		// Sort functor following hit time of flight after resolution applied
 		struct SortFunctor_HitTimeOfFlight {
-			bool operator() (const RootHit &a, const RootHit &b) const;
+			bool operator() (const HitExtended &a, const HitExtended &b) const;
 		};
-		
-		ClassDef(RootHit,1) //EventRootInfo structure
 		
 };
 
 
-class RootHitCollection : public TObject {
+template <typename T> class HitCollection {
 
 	public:
-		RootHitCollection(); 
-		virtual ~RootHitCollection(); 
+		HitCollection(); 
+		virtual ~HitCollection(); 
 		
 		int first_unique;
 		TimeDelta timestamp;
 		TimeDelta timestamp_last;
-		std::vector<RootHit> hits;
+		std::vector<T> hits;
 		
 		// Data access functions
-		RootHit &operator[](int n) 		{ return hits[n];		}
+		T &operator[](int n) 			{ return hits[n];		}
 		
 		// Information getter		
 		unsigned int Size() const		{ return hits.size();		}
-		RootHit At(int n) const		{ return hits[n];		}
+		T At(int n) const			{ return hits[n];		}
 		
 		// Filler
-		void Add(RootHit lHit)			{ hits.push_back(lHit);	}
-		bool Append(const RootHitCollection lHC);
+		void Add(T lHit)			{ hits.push_back(lHit);	}
+		void Append(const HitCollection<T> lHC);
+		void CopyCollection(const HitCollection<Hit> lHC);
 		
 		// Cleaner
 		void Clean();
 		void EraseFirstHit()			{ hits.erase(hits.begin());	}
 		
+		
 		void SortByTime();
 		void SortByTimeOfFlight();
-				
-		ClassDef(RootHitCollection,1) //EventRootInfo structure
 };
 
-#if !defined(__CLING__)
-ClassImp(RootHitCollection)
-ClassImp(RootHit)
-#endif
 
 
 

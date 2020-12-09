@@ -1,14 +1,13 @@
-#ifndef RootPosition_H
-#define RootPosition_H
+#ifndef Pos3DT_H
+#define Pos3DT_H
 
 
-#include "TObject.h"
 #include "Environments.h"
 
 /**
-* \class RootPosition
+* \class Pos3DT
  *
- * This class holds Position information (aims to replace Pos3D)
+ * This class holds Position information (aims to replace Pos3DT)
  *
  *
  * $Author: G.Pronost $
@@ -18,10 +17,10 @@
  */
  
 
-class RootPosition : public TObject {
+class Pos3DT {
 	public:
-		RootPosition();
-		~RootPosition();
+		Pos3DT();
+		~Pos3DT();
 		
 		
 		double &operator[](int n) 		{ return Vtx[n];			}
@@ -40,12 +39,6 @@ class RootPosition : public TObject {
 		
 		
 		std::vector<double> Vtx;
-		
-		ClassDef(RootPosition,1) //EventRootInfo structure
 };
-
-#if !defined(__CLING__)
-ClassImp(RootPosition)
-#endif
 
 #endif

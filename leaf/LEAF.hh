@@ -61,7 +61,7 @@
 
 //DataModel informations
 #include "Geometry.h"
-#include "RootHitInfo.h"
+#include "HitInfo.h"
 
 // Number of PMT configuration:
 #define NPMT_CONFIGURATION 	2
@@ -121,7 +121,7 @@ class LEAF {
 		
 
                 // Fitter Main Method. Process the whole fit. 
-		struct FitterOutput MakeFit(const RootHitCollection* lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT=true);
+		struct FitterOutput MakeFit(const HitCollection<Hit>* lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT=true);
 		
 		// NLL
                 // Calculate likelihood function based on input PDF. For now, the function is based on time residuals.
@@ -250,12 +250,12 @@ class LEAF {
 		
 		// Inputs:
 		const Geometry* fGeometry;
-		const RootHitCollection* fHitCollection;
+		const HitCollection<Hit>* fHitCollection;
 		TimeDelta fTriggerTime;
 		TimeDelta fTimeCorrection;
 		
 		// PMT Informations
-		const std::vector<RootPMTInfo> *fPMTList;
+		const std::vector<PMTInfo> *fPMTList;
 		double fDarkRate_ns[NPMT_CONFIGURATION];
 		
 		// Detector geometry:

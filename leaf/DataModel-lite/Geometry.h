@@ -6,9 +6,7 @@
 #include <vector>
 
 #include "Environments.h"
-#include "RootPMTInfo.h"
-
-#include "TObject.h"
+#include "PMTInfo.h"
 
 /**
 * \class Geometry
@@ -21,7 +19,7 @@
  *          
  */
 
-class Geometry : public TObject {
+class Geometry {
 
 	friend class WCSimReader;
 	friend class PMTMask;
@@ -44,16 +42,16 @@ class Geometry : public TObject {
 		double	pmt_dark_rate[HKAA::kPMTTypeMax];
 		int 	pmt_first[HKAA::kPMTTypeMax];
 		
-		std::map<const HKAA::DetectorType, std::vector<RootPMTInfo> > PMTList;
+		std::map<const HKAA::DetectorType, std::vector<PMTInfo> > PMTList;
 		
-		const std::vector<RootPMTInfo> *GetPMTList(const HKAA::DetectorType lDetector=HKAA::kID) const { return &PMTList.at(lDetector); } ;
+		const std::vector<PMTInfo> *GetPMTList(const HKAA::DetectorType lDetector=HKAA::kID) const { return &PMTList.at(lDetector); } ;
 		
-		RootPMTInfo GetPMT(int lChannel, const HKAA::DetectorType lDetector=HKAA::kID)	const {	return PMTList.at(lDetector)[lChannel];		}
+		PMTInfo GetPMT(int lChannel, const HKAA::DetectorType lDetector=HKAA::kID)	const {	return PMTList.at(lDetector)[lChannel];		}
 		bool GetIfMasked(int lChannel, const HKAA::DetectorType lDetector=HKAA::kID)		const { 	return PMTList.at(lDetector)[lChannel].Masked;	}
   		
 	private: 
-		// Function to properly set RootPMTInfo
-		void AddPMTInfo(RootPMTInfo lInfo);
+		// Function to properly set PMTInfo
+		void AddPMTInfo(PMTInfo lInfo);
 		
 		// Start making referencial for mPMTs
 		void Setup_mPMTs();
@@ -61,13 +59,6 @@ class Geometry : public TObject {
 		// Mask PMT
 		void Mask_PMT(int lChannel, const HKAA::DetectorType lDetector=HKAA::kID)	{	PMTList.at(lDetector)[lChannel].Masked = true;		}
 		void UnMask_PMT(int lChannel, const HKAA::DetectorType lDetector=HKAA::kID)	{	PMTList.at(lDetector)[lChannel].Masked = false;		}
-	 
-		ClassDef(Geometry,1) //EventRootInfo structure
 };
-
-
-#if !defined(__CLING__)
-ClassImp(Geometry)
-#endif
 
 #endif

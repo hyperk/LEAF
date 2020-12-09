@@ -16,15 +16,17 @@ CXXFLAGS_BASE += $(shell root-config --cflags)
 CXXFLAGS_BASE += '-fPIC' -Wpedantic -Wno-long-long
 
 CXXFLAGS = $(CXXFLAGS_BASE)
-CXXFLAGS_ROOT = $(CXXFLAGS_BASE)
+#CXXFLAGS_ROOT = $(CXXFLAGS_BASE)
 
 ifeq ($(shell echo "$(ROOT_VERSION) >= 6.0" | bc -l ), 1)
+echo "Using ROOT6"
 MAKE_LEAF_WITH_ROOT6 = 1
 CXXFLAGS += -std=c++11 -DROOT6
-CXXFLAGS_ROOT += -std=c++11 -DROOT6
+#CXXFLAGS_ROOT += -std=c++11 -DROOT6
 else
+echo "Using ROOT5"
 CXXFLAGS += -std=c++11 -DROOT5
-CXXFLAGS_ROOT += -DROOT5
+#CXXFLAGS_ROOT += -DROOT5
 endif
 
 INCFLAGS = -I. -I$(shell root-config --incdir)
@@ -46,7 +48,7 @@ DATAMODEL_SOURCES = $(wildcard DataModel/*.cpp)
 DATAMODEL_SRC_NOP = $(DATAMODEL_SOURCES:DataModel/%=./%)
 
 DATAMODEL_HEADERS = $(DATAMODEL_SOURCES:%.cpp=%.h)
-DATAMODEL_OBJECTS = $(DATAMODEL_SRC_NOP:%.cpp=%.o) DataModelRootDict.o
+DATAMODEL_OBJECTS = $(DATAMODEL_SRC_NOP:%.cpp=%.o) #DataModelRootDict.o
 
 
 all: .depend $(LIBS_OBJECTS)
@@ -59,34 +61,35 @@ $(LIB_FITTER): LEAF.o
 		mkdir ../lib; \
 	fi
 	@echo '<< generating ' $@ ' >>'
-	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS)
+	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS) $(LIB_DATAMODEL)
 	
 $(LIB_MANAGER): HKManager.o 
 	@echo '<< generating ' $@ ' >>'
 	@if [ ! -d ../lib ]; then \
 		mkdir ../lib; \
 	fi
-	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS) 
+	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS) $(LIB_DATAMODEL)
 	
 $(LIB_ASTROANALYSIS): HKAstroAnalysis.o 
 	@echo '<< generating ' $@ ' >>'
 	@if [ ! -d ../lib ]; then \
 		mkdir ../lib; \
 	fi
-	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS) 
+	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS) $(LIB_DATAMODEL)
 	
-$(LIB_DATAMODEL): DataModelRootDict.cpp $(DATAMODEL_OBJECTS) 
+#$(LIB_DATAMODEL): DataModelRootDict.cpp $(DATAMODEL_OBJECTS) 
+$(LIB_DATAMODEL): $(DATAMODEL_OBJECTS) 
 	@echo '<< generating ' $@ ' >>'
 	@$(SOMAKER) $(SOFLAGS) -o $@  $(DATAMODEL_OBJECTS)  $(LIBS)
 	
-
-DataModelRootDict.cpp:
-	@echo '<< generating ' $@ ' >>'
-	@rootcint -f DataModelRootDict.cpp -c $(CXXFLAGS_ROOT) -p $(DATAMODEL_HEADERS) $(PWD)/DataModel/LinkDef.h
-ifeq ($(MAKE_LEAF_WITH_ROOT6),1)
-	@echo '<< install DataModelRootDict_rdict.pcm >>'
-	@cp DataModelRootDict_rdict.pcm ../lib/.
-endif
+# Not needed anymore
+#DataModelRootDict.cpp:
+#	@echo '<< generating ' $@ ' >>'
+#	@rootcint -f DataModelRootDict.cpp -c $(CXXFLAGS_ROOT) -p $(DATAMODEL_HEADERS) $(PWD)/DataModel/LinkDef.h
+#ifeq ($(MAKE_LEAF_WITH_ROOT6),1)
+#	@echo '<< install DataModelRootDict_rdict.pcm >>'
+#	@cp DataModelRootDict_rdict.pcm ../lib/.
+#endif
 	
 # DataModel objects
 %.o: DataModel/%.cpp DataModel/%.h

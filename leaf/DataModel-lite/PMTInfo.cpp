@@ -1,6 +1,6 @@
-#include "RootPMTInfo.h"
+#include "PMTInfo.h"
 
-RootPMTInfo::RootPMTInfo() {
+PMTInfo::PMTInfo() {
 	 
 	Id_original	= 0;
 	Id		= 0;
@@ -26,14 +26,14 @@ RootPMTInfo::RootPMTInfo() {
 	Masked 	= true;
 }
 
-RootPMTInfo::~RootPMTInfo() {
+PMTInfo::~PMTInfo() {
 
 	mPMT_RefX.clear();
 	mPMT_RefY.clear();
 	mPMT_RefZ.clear();
 }
 
-void RootPMTInfo::Setup_mPMT() {
+void PMTInfo::Setup_mPMT() {
 
 	Id += HKAA::kmPMT_Shift;
 	
@@ -46,7 +46,7 @@ void RootPMTInfo::Setup_mPMT() {
 
 
 
-void RootPMTInfo::Setup_mPMT_Referencial(const RootPMTInfo lTopPMT) {
+void PMTInfo::Setup_mPMT_Referencial(const PMTInfo lTopPMT) {
 	// Function from LEAF
 	
 	if ( lTopPMT.Id != mPMT_RefTube ) {
