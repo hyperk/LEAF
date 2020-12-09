@@ -61,41 +61,4 @@ class HitExtended : public Hit {
 		
 };
 
-
-template <typename T> class HitCollection {
-
-	public:
-		HitCollection(); 
-		virtual ~HitCollection(); 
-		
-		int first_unique;
-		TimeDelta timestamp;
-		TimeDelta timestamp_last;
-		std::vector<T> hits;
-		
-		// Data access functions
-		T &operator[](int n) 			{ return hits[n];		}
-		
-		// Information getter		
-		unsigned int Size() const		{ return hits.size();		}
-		T At(int n) const			{ return hits[n];		}
-		
-		// Filler
-		void Add(T lHit)			{ hits.push_back(lHit);	}
-		void Append(const HitCollection<T> lHC);
-		void CopyCollection(const HitCollection<Hit> lHC);
-		
-		// Cleaner
-		void Clean();
-		void EraseFirstHit()			{ hits.erase(hits.begin());	}
-		
-		
-		void SortByTime();
-		void SortByTimeOfFlight();
-};
-
-
-
-
-
 #endif

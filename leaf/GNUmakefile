@@ -13,7 +13,7 @@ ROOT_VERSION = $(shell root-config --version | tr -d '/' )
 
 # set compiler options for ROOT
 CXXFLAGS_BASE += $(shell root-config --cflags)
-CXXFLAGS_BASE += '-fPIC' -Wpedantic -Wno-long-long
+CXXFLAGS_BASE += '-fPIC' -Wall -Wpedantic -Wno-long-long -DDATAMODEL_LITE
 
 CXXFLAGS = $(CXXFLAGS_BASE)
 #CXXFLAGS_ROOT = $(CXXFLAGS_BASE)
@@ -64,21 +64,21 @@ $(LIB_FITTER): LEAF.o
 		mkdir ../lib; \
 	fi
 	@echo '<< generating ' $@ ' >>'
-	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS) $(LIB_DATAMODEL)
+	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS)
 	
 $(LIB_MANAGER): HKManager.o 
 	@echo '<< generating ' $@ ' >>'
 	@if [ ! -d ../lib ]; then \
 		mkdir ../lib; \
 	fi
-	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS) $(LIB_DATAMODEL)
+	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS)
 	
 $(LIB_ASTROANALYSIS): HKAstroAnalysis.o 
 	@echo '<< generating ' $@ ' >>'
 	@if [ ! -d ../lib ]; then \
 		mkdir ../lib; \
 	fi
-	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS) $(LIB_DATAMODEL)
+	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS)
 	
 #$(LIB_DATAMODEL): DataModelRootDict.cpp $(DATAMODEL_OBJECTS) 
 $(LIB_DATAMODEL): $(DATAMODEL_OBJECTS) 

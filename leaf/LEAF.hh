@@ -61,7 +61,7 @@
 
 //DataModel informations
 #include "Geometry.h"
-#include "HitInfo.h"
+#include "HitCollection.h"
 
 // Number of PMT configuration:
 #define NPMT_CONFIGURATION 	2

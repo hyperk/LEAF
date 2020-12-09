@@ -8,6 +8,7 @@ else
 	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/Geometry.* .
 	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/GeoTools.* .
 	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/HitInfo.* .
+	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/HitCollection.* .
 	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/PMTInfo.* .
 	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/TimeDelta.* .
 	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/Pos3DT.* .

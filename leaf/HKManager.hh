@@ -26,7 +26,7 @@
 
 //DataModel informations
 #include "Geometry.h"
-#include "HitInfo.h"
+#include "HitCollection.h"
 
 //WCSim parameters:
 // If using a WCSim version without mPMT implementation
