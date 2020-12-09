@@ -19,12 +19,10 @@ CXXFLAGS = $(CXXFLAGS_BASE)
 #CXXFLAGS_ROOT = $(CXXFLAGS_BASE)
 
 ifeq ($(shell echo "$(ROOT_VERSION) >= 6.0" | bc -l ), 1)
-echo "Using ROOT6"
 MAKE_LEAF_WITH_ROOT6 = 1
 CXXFLAGS += -std=c++11 -DROOT6
 #CXXFLAGS_ROOT += -std=c++11 -DROOT6
 else
-echo "Using ROOT5"
 CXXFLAGS += -std=c++11 -DROOT5
 #CXXFLAGS_ROOT += -DROOT5
 endif
@@ -51,9 +49,14 @@ DATAMODEL_HEADERS = $(DATAMODEL_SOURCES:%.cpp=%.h)
 DATAMODEL_OBJECTS = $(DATAMODEL_SRC_NOP:%.cpp=%.o) #DataModelRootDict.o
 
 
-all: .depend $(LIBS_OBJECTS)
+all: .depend ROOT_CHECK $(LIBS_OBJECTS)
 
-
+ROOT_CHECK:
+ifeq ($(MAKE_LEAF_WITH_ROOT6),1)
+	@echo '<< compile with ROOT6 >>'
+else
+	@echo '<< compile with ROOT5 >>'
+endif
 
 # library
 $(LIB_FITTER): LEAF.o 
