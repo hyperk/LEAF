@@ -10,13 +10,12 @@ Geometry::Geometry(){
 		
 	HasOD			= false;
 		
-	for ( int i=0; i<HKAA::kPMTTypeMax; i++ ) {
-		pmt_radius[i]		= 0;
-		pmt_num[i]		= 0;
-		pmt_dark_rate[i]	= 0.;
-		pmt_first[i]		= HKAA::kMaxPMT_ID;
-	}
-		
+	pmt_radius		.resize(HKAA::kPMTTypeMax, 0.);
+	pmt_num		.resize(HKAA::kPMTTypeMax, 0 );
+	pmt_num_original	.resize(HKAA::kPMTTypeMax, 0 );
+	pmt_dark_rate		.resize(HKAA::kPMTTypeMax, 0.);
+	pmt_first		.resize(HKAA::kPMTTypeMax, HKAA::kMaxPMT_ID);
+			
 	PMTList[HKAA::kID].resize(HKAA::kMaxPMT_ID);
 	PMTList[HKAA::kOD].resize(HKAA::kMaxPMT_OD);
 }

@@ -39,7 +39,9 @@ template <typename T> class HitCollection {
 		// Filler
 		void Add(T lHit)			{ hits.push_back(lHit);	}
 		void Append(const HitCollection<T> lHC);
+		void SetCollection(const HitCollection<T> lHC);
 		void CopyCollection(const HitCollection<Hit> lHC);
+		void CopyCollection(const HitCollection<HitExtended> lHC);
 		
 		// Cleaner
 		void Clean();

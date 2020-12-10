@@ -1,9 +1,5 @@
 #include "HitCollection.h"
 
-#ifndef DATAMODEL_LITE
-#include "RootHitInfo.h"
-#endif
-
 template<typename T>
 HitCollection<T>::HitCollection() {
 	timestamp = 0;
@@ -79,16 +75,26 @@ void HitCollection<T>::CopyCollection(const HitCollection<Hit> lHC) {
 	hits.assign( lHC.hits.begin(), lHC.hits.end() );
 }
 
+template<typename T> 
+void HitCollection<T>::CopyCollection(const HitCollection<HitExtended> lHC) {
+		
+	timestamp = lHC.timestamp;
+	timestamp_last = lHC.timestamp_last;
+	first_unique = lHC.first_unique;
+	
+	hits.assign( lHC.hits.begin(), lHC.hits.end() );
+}
+
+template<typename T> 
+void HitCollection<T>::SetCollection(const HitCollection<T> lHC) {
+		
+	timestamp = lHC.timestamp;
+	timestamp_last = lHC.timestamp_last;
+	first_unique = lHC.first_unique;
+	
+	hits = lHC.hits;
+}
+
 template class HitCollection<Hit>;
 template class HitCollection<HitExtended>;
 
-#ifndef DATAMODEL_LITE
-template<>
-void HitCollection<RootHit>::SortByTimeOfFlight() {
-	//do nothing
-	//std::cout << "FATAL: Call HitCollection<T>::SortByTimeOfFlight() for type: " << typeid(T).name() << std::endl;
-}
-
-template class HitCollection<RootHit>;
-template class HitCollection<RootHitExtended>;
-#endif

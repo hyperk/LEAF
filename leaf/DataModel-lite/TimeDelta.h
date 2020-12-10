@@ -74,7 +74,7 @@ class TimeDelta {
 		static const TimeDelta s;
 		
 		// Operators
-		TimeDelta operator=(const double& time);
+		//TimeDelta operator=(const double& time);
 
 };
 

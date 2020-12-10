@@ -36,11 +36,11 @@ class Geometry {
 		bool HasOD;
 		
 		// PMT Info
-		double	pmt_radius[HKAA::kPMTTypeMax];
-		int 	pmt_num[HKAA::kPMTTypeMax];
-		int 	pmt_num_original[HKAA::kPMTTypeMax];
-		double	pmt_dark_rate[HKAA::kPMTTypeMax];
-		int 	pmt_first[HKAA::kPMTTypeMax];
+		std::vector<double>	pmt_radius;
+		std::vector<int> 	pmt_num;
+		std::vector<int> 	pmt_num_original;
+		std::vector<double>	pmt_dark_rate;
+		std::vector<int> 	pmt_first;
 		
 		std::map<const HKAA::DetectorType, std::vector<PMTInfo> > PMTList;
 		

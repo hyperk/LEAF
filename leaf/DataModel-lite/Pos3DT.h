@@ -34,11 +34,8 @@ class Pos3DT {
 		
 		void clear()				{ Vtx.clear(); Vtx.resize(4,0.);	}
 		
-		
-	private:
-		
-		
 		std::vector<double> Vtx;
+	
 };
 
 #endif

@@ -23,12 +23,12 @@ void TimeDelta::Normalize(){
 	m_long_time += long_diff;
 	m_short_time -= (long_diff * s_long_time_unit);
 }
-
+/*
 TimeDelta TimeDelta::operator=(const double& time) {
 	TimeDelta new_delta(time);
 	return new_delta;
 }
-
+*/
 TimeDelta operator*(const TimeDelta& old_delta, double factor){
 	TimeDelta new_delta(old_delta);
 	new_delta.m_short_time *= factor;
