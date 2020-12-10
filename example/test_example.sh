@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Replace ./test.root by the path toward your WCSim input file
+# Replace $input contents with the path toward your WCSim input file
 # (Note: make sure the WCSim path in RunAtStart matches the WCSim version you used to produce the file)
 
 input=$WCSIMDIR/wcsim_hybrid.root
