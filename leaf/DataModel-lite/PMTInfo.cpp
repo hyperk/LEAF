@@ -7,14 +7,14 @@ PMTInfo::PMTInfo() {
 	Type		= HKAA::kIDPMT_BnL;
 	
 	// PMT Position initialization
-	Position[0] = 0.;
-	Position[1] = 0.;
-	Position[2] = 0.; 
+	Position[0]	= 0.;
+	Position[1]	= 0.;
+	Position[2]	= 0.;
 	
 	// PMT Direction initialization
-	Orientation[0] = 0.;
-	Orientation[1] = 0.;
-	Orientation[2] = 0.;
+	Orientation[0]	= 0.;
+	Orientation[1]	= 0.;
+	Orientation[2]	= 0.;
 	
 	// mPMT related info initialization
 	mPMT 		= false;
