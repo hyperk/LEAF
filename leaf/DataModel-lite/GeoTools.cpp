@@ -8,7 +8,7 @@ void GeoTools::CrossProduct( double* a, double* b, double* c ) {
 
 void GeoTools::Normalize( double* a ) {
 
-	double dL = GetLength(a);
+	double dL = Astro_GetLength(a);
 	a[0] /= dL;
 	a[1] /= dL;
 	a[2] /= dL;

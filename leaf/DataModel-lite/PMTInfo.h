@@ -28,6 +28,7 @@ class PMTInfo {
 
 	public:
 		PMTInfo(); 
+		virtual ~PMTInfo(); 
 	 	
 	 	int Id_original;
 	 	int Id;  
@@ -39,20 +40,21 @@ class PMTInfo {
 	 	
 	 	bool mPMT;
 	 	
+	 	int mPMT_Num;
 	 	int mPMT_TubeNum;
 	 	int mPMT_Group;
 	 	int mPMT_RefTube;
+	 	
+	 	bool Masked;
 	 	
 	 	std::vector<double> mPMT_RefX;
 	 	std::vector<double> mPMT_RefY;
 	 	std::vector<double> mPMT_RefZ;
 		
-	private:
+	protected:
 		 	
 		void Setup_mPMT();
 		void Setup_mPMT_Referencial(const PMTInfo lTopPMT);
 };
-
-
 
 #endif

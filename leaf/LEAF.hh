@@ -1,5 +1,5 @@
 /*****************************************************************************************************/
-/**	BQFitter.hh											**/
+/**	LEAF.hh											**/
 /**	Author: Guillaume Pronost (pronost@km.icrr.u-tokyo.ac.jp)					**/
 /**	Original author: Benjamin Quilain								**/
 /**	Date: December 18th 2019									**/
@@ -27,12 +27,12 @@
 // SearchVertex provides an output containing the best fits vertices, ordered from lower to higher 
 // NLL. 
 //
-// Most of default parameters of method 1 and 2 can be set in BQFitter.cc Init() method
+// Most of default parameters of method 1 and 2 can be set in LEAF.cc Init() method
 /*****************************************************************************************************/
 
 
-#ifndef BQFitter_hh
-#define BQFitter_hh
+#ifndef LEAF_hh
+#define LEAF_hh
 
 #include <algorithm>
 #include <iostream>
@@ -61,7 +61,7 @@
 
 //DataModel informations
 #include "Geometry.h"
-#include "HitInfo.h"
+#include "HitCollection.h"
 
 // Number of PMT configuration:
 #define NPMT_CONFIGURATION 	2
@@ -72,7 +72,6 @@
 #define AllPMT			2
 
 #define VERBOSE 		0
-#undef CHECK_TO_TRUE_VTX
 
 // Verbose level in functions:
 #undef VERBOSE_VTX // In SearchVertex
@@ -95,20 +94,18 @@ void MinimizeVertex_CallThread(	int iStart, int iIte,
 void SearchVertex_CallThread(	int iStart, int iIte,
 				int nhits,int tolerance,bool likelihood,double lowerLimit, double upperLimit,int directionality);
 
-bool SortOutputVector ( const std::vector<double>& v1, const std::vector<double>& v2 ) { 
+inline bool SortOutputVector ( const std::vector<double>& v1, const std::vector<double>& v2 ) { 
 	return v1[4] < v2[4]; 
 } 
 		
-class BQFitter/* : public TObject */{
+class LEAF {
 
 	public:
-		BQFitter();
-		~BQFitter();
-		static BQFitter*		GetME();
+		static LEAF*		GetME();
+		void			DeleteME();
 		
 		void Initialize(const Geometry* lGeometry);
 		
-		void SetTrueVertexInfo(std::vector<double> vtx, double time);
 		void SetNThread(int iThread=N_THREAD) { fThread=iThread; }
 		
 		struct FitterOutput {
@@ -116,14 +113,6 @@ class BQFitter/* : public TObject */{
 			double Vtx[4];
 			double NLL;
 			int InTime;
-			/*
-			double Wall;
-			int n50[3];
-			double dir[3][3];
-			double dir_goodness[3];
-			
-			double dirKS[3];
-			*/
 			
 			double True_NLLDiff;
 			double True_TimeDiff;
@@ -132,7 +121,7 @@ class BQFitter/* : public TObject */{
 		
 
                 // Fitter Main Method. Process the whole fit. 
-		struct FitterOutput MakeFit(const HitCollection* lHitCol, bool bHybrid=true);
+		struct FitterOutput MakeFit(const HitCollection<Hit>* lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT=true);
 		
 		// NLL
                 // Calculate likelihood function based on input PDF. For now, the function is based on time residuals.
@@ -155,6 +144,9 @@ class BQFitter/* : public TObject */{
 						double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true);
 		
 	private:
+	
+		LEAF();
+		~LEAF();
 		
 		void Init();
 		void LoadSplines();
@@ -228,15 +220,13 @@ class BQFitter/* : public TObject */{
 			double SignalIntegral;
 		};
 		
-		static BQFitter* myFitter;
+		static LEAF* myFitter;
 
 		// Spline
 		TSpline3 *	fSplineTimePDFQueue[NPMT_CONFIGURATION];
 		TSpline3 *	fSplineTimePDFDarkRate[NPMT_CONFIGURATION];
 		
 		// Histo
-		//TH1D * 	hPMTDirectionality_1D[NPMT_CONFIGURATION][HKAA::kmPMT_Groups];
-		//TH2D * 	hPMTDirectionality_2D[NPMT_CONFIGURATION][HKAA::kmPMT_Groups];
 		TGraph2D * 	gPMTDirectionality_2D[NPMT_CONFIGURATION][HKAA::kmPMT_Groups];
 				
 		// TF1
@@ -260,7 +250,9 @@ class BQFitter/* : public TObject */{
 		
 		// Inputs:
 		const Geometry* fGeometry;
-		const HitCollection* fHitCollection;
+		const HitCollection<Hit>* fHitCollection;
+		TimeDelta fTriggerTime;
+		TimeDelta fTimeCorrection;
 		
 		// PMT Informations
 		const std::vector<PMTInfo> *fPMTList;
@@ -283,8 +275,8 @@ class BQFitter/* : public TObject */{
 		double fSearchVtxTolerance;
 		
 		// Input/Output
-		std::vector<double> fTrueVtxPos;
-		std::vector< std::vector<double> > fTrueVtxPosDouble;
+		//std::vector<double> fTrueVtxPos;
+		//std::vector< std::vector<double> > fTrueVtxPosDouble;
 		double fPDFNorm_fullTimeWindow;
 		std::vector< std::vector<double> > fRecoVtxPosFinal;
 		

@@ -1,6 +1,10 @@
 #include <cmath>
 #include "TimeDelta.h"
 
+#ifdef ROOT5
+const double TimeDelta::s_long_time_unit = 1.;
+#endif
+
 TimeDelta::TimeDelta(double naive_ns){
 	m_long_time = 0;
 	m_short_time = naive_ns;
@@ -11,12 +15,20 @@ TimeDelta::TimeDelta(double naive_ns){
 	Normalize();
 }
 
+TimeDelta::~TimeDelta() {
+}
+
 void TimeDelta::Normalize(){
 	long_time_t long_diff = std::floor(m_short_time / s_long_time_unit);
 	m_long_time += long_diff;
 	m_short_time -= (long_diff * s_long_time_unit);
 }
-
+/*
+TimeDelta TimeDelta::operator=(const double& time) {
+	TimeDelta new_delta(time);
+	return new_delta;
+}
+*/
 TimeDelta operator*(const TimeDelta& old_delta, double factor){
 	TimeDelta new_delta(old_delta);
 	new_delta.m_short_time *= factor;

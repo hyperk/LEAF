@@ -24,7 +24,7 @@
 #include "WCSimRootGeom.hh"
 #include "WCSimEnumerations.hh"
 
-#include "BQFitter.hh"	
+#include "LEAF.hh"	
 #include "HKManager.hh"	
 #include "WCSimBonsai.hh"
 
@@ -68,17 +68,17 @@
 
 	//True information
 	std::vector<int>   true_particleId; 		// True particle Id (PDGId)
-	std::vector<float> true_energy;			// True energy (MeV)
-	std::vector<float> true_origin_X;		// True origin vertex (cm)
-	std::vector<float> true_origin_Y;		// True origin vertex (cm)
-	std::vector<float> true_origin_Z;		// True origin vertex (cm)
-	std::vector<float> true_origin_T;		// True origin vertex (ns)
+	std::vector<double> true_energy;			// True energy (MeV)
+	std::vector<double> true_origin_X;		// True origin vertex (cm)
+	std::vector<double> true_origin_Y;		// True origin vertex (cm)
+	std::vector<double> true_origin_Z;		// True origin vertex (cm)
+	std::vector<double> true_origin_T;		// True origin vertex (ns)
 		
 	//Raw hit
 	std::vector<int>   rawhit_pmtId;  		// List of pmtId
 	std::vector<int>   rawhit_Type;			// List of pmt Type
-	std::vector<float> rawhit_T;			// List of hit times
-	std::vector<float> rawhit_Q;			// List of hit charge'
+	std::vector<double> rawhit_T;			// List of hit times
+	std::vector<double> rawhit_Q;			// List of hit charge'
 	std::vector<bool>  rawhit_dark;  		// List of DarkNoise flag
 	int rawhit_num;					// Number of rawhit
 	int rawhit_num_noDN;				// Number of rawhit without DarkNoise
@@ -86,7 +86,7 @@
 	
 	std::vector<int>   rawhit_pmtId_tmp;  		// List of pmtId
 	std::vector<int>   rawhit_Type_tmp;		// List of pmt Type
-	std::vector<float> rawhit_T_tmp;		// List of hit times
+	std::vector<double> rawhit_T_tmp;		// List of hit times
 	
 	// In case of mPMT mixed with B&L we don't want to re apply the Digitization on the other type PMTs
 	int fLastRawHit;
@@ -95,8 +95,8 @@
 	//Digitized hit
 	std::vector<int>   digithit_pmtId;		// List of pmtId
 	std::vector<int>   digithit_Type;		// List of pmt Type
-	std::vector<float> digithit_T;			// List of hit times
-	std::vector<float> digithit_Q;			// List of hit charge'
+	std::vector<double> digithit_T;			// List of hit times
+	std::vector<double> digithit_Q;			// List of hit charge'
 	std::vector<bool>  digithit_dark;		// List of DarkNoise flag
 	int digithit_num;					// Number of digit hit
 	int digithit_num_noDN;				// Number of digit hit without DarkNoise
@@ -106,10 +106,10 @@
 	float bs_good[3];				// Bonsai goodness
 	float bs_energy;
 	
-	float fBSTime;
-	float fBQTime;
+	double fBSTime;
+	double fLFTime;
 
-	BQFitter::FitterOutput leaf_output;
+	LEAF::FitterOutput leaf_output;
 	FitterAnalysis	leaf_output_ana;
 	FitterAnalysis	bs_output_ana;
 	
@@ -248,8 +248,8 @@ int main(int argc, char** argv){
 	HKManager::GetME()->SetGeometry(fGeometry,dDarkNoise * 1e3,dDarkNoiseHybrid * 1e3);
 	
 	// Initialize LEAF
-	BQFitter::GetME()->Initialize(HKManager::GetME()->GetGeometry());
-	BQFitter::GetME()->SetNThread(); // Set number of Threads, default in the class is 12
+	LEAF::GetME()->Initialize(HKManager::GetME()->GetGeometry());
+	LEAF::GetME()->SetNThread(); // Set number of Threads, default in the class is 12
 	
 	// Initialize HKAstroAnalysis
 #ifdef WITH_HK_ASTROANALYSIS
@@ -312,7 +312,7 @@ int main(int argc, char** argv){
 		bs_good		      [2] = -9999.;
 		
 		fBSTime      = -9999;
-		fBQTime      = -9999;
+		fLFTime      = -9999;
 				
 		Hit_ID       = 0;
 		Hit_ID_50    = 0;
@@ -418,13 +418,14 @@ int main(int argc, char** argv){
 		/* Benjamin Fitter									*/
 		/****************************************************************************************/
 
-		//std::cout << " Start BQ " << std::endl;
-		TStopwatch timerBQ;
-		timerBQ.Reset();
-		timerBQ.Start();
+		//std::cout << " Start LEAF " << std::endl;
+		TStopwatch timerLF;
+		timerLF.Reset();
+		timerLF.Start();
 		
-		// 
-		leaf_output = BQFitter::GetME()->MakeFit(HKManager::GetME()->GetHitCollection());
+		// To be replaced by meaningful TriggerTime
+		TimeDelta fDummyTrigger(0.);
+		leaf_output = LEAF::GetME()->MakeFit(HKManager::GetME()->GetHitCollection(),fDummyTrigger);
 		
 #ifdef WITH_HK_ASTROANALYSIS
 		HKAstroAnalysis::GetME()->SetVertex(leaf_output.Vtx);
@@ -462,12 +463,12 @@ int main(int argc, char** argv){
 		
 #endif	
 		
-		timerBQ.Stop();
+		timerLF.Stop();
 		
-		fBQTime = timerBQ.RealTime();
+		fLFTime = timerLF.RealTime();
 		
 		//std::cout << " n50 " << leaf_output_ana.n50[0] << " " << leaf_output_ana.n50[1] << " " << leaf_output_ana.n50[2] << std::endl;
-		//std::cout << " BQ took: " << timerBQ.RealTime() << std::endl;
+		std::cout << " LEAF took: " << timerLF.RealTime() << " for " << HKManager::GetME()->GetHitCollection()->Size() << " Hits"<<  std::endl;
 
 		/****************************************************************************************/
 		/* Bonsai										*/
@@ -551,32 +552,32 @@ int main(int argc, char** argv){
 
 void SetCustomBranch(TTree* fPrimaryTree) {		
 
-	fPrimaryTree->Branch("eventId",			&eventId,		"eventId/I");	
-	fPrimaryTree->Branch("triggerId",		&triggerId,		"triggerId/I");
+	fPrimaryTree->Branch("eventId",		&eventId,			"eventId/I");	
+	fPrimaryTree->Branch("triggerId",		&triggerId,			"triggerId/I");
 	
-	fPrimaryTree->Branch("true_particleId",        	&true_particleId);
+	fPrimaryTree->Branch("true_particleId",       &true_particleId);
 	fPrimaryTree->Branch("true_origin_X",     	&true_origin_X);
 	fPrimaryTree->Branch("true_origin_Y",     	&true_origin_Y);
 	fPrimaryTree->Branch("true_origin_Z",     	&true_origin_Z);
 	fPrimaryTree->Branch("true_origin_T",     	&true_origin_T);
 	fPrimaryTree->Branch("true_energy",     	&true_energy);
 	
-	fPrimaryTree->Branch("rawhit_num", 		&rawhit_num,		"rawhit_num/I");
-	fPrimaryTree->Branch("digithit_num", 		&digithit_num,		"digithit_num/I");
+	fPrimaryTree->Branch("rawhit_num", 		&rawhit_num,			"rawhit_num/I");
+	fPrimaryTree->Branch("digithit_num", 		&digithit_num,			"digithit_num/I");
 	
-	fPrimaryTree->Branch("ID_hits", 		&Hit_ID,		"Hit_ID/I");	
-	fPrimaryTree->Branch("ID_hits_50", 		&Hit_ID_50,		"Hit_ID_50/I");	
-	fPrimaryTree->Branch("ID_hits_200", 		&Hit_ID_200,		"Hit_ID_200/I");	
-	fPrimaryTree->Branch("ID_hits_400", 		&Hit_ID_400,		"Hit_ID_400/I");
+	fPrimaryTree->Branch("ID_hits", 		&Hit_ID,			"Hit_ID/I");	
+	fPrimaryTree->Branch("ID_hits_50", 		&Hit_ID_50,			"Hit_ID_50/I");	
+	fPrimaryTree->Branch("ID_hits_200", 		&Hit_ID_200,			"Hit_ID_200/I");	
+	fPrimaryTree->Branch("ID_hits_400", 		&Hit_ID_400,			"Hit_ID_400/I");
 	
-	fPrimaryTree->Branch("mPMT_hits", 		&Hit_mPMT,		"Hit_mPMT/I");	
-	fPrimaryTree->Branch("mPMT_hits_50", 		&Hit_mPMT_50,		"Hit_mPMT_50/I");	
-	fPrimaryTree->Branch("mPMT_hits_200", 		&Hit_mPMT_200,		"Hit_mPMT_200/I");	
-	fPrimaryTree->Branch("mPMT_hits_400", 		&Hit_mPMT_400,		"Hit_mPMT_400/I");
+	fPrimaryTree->Branch("mPMT_hits", 		&Hit_mPMT,			"Hit_mPMT/I");	
+	fPrimaryTree->Branch("mPMT_hits_50", 		&Hit_mPMT_50,			"Hit_mPMT_50/I");	
+	fPrimaryTree->Branch("mPMT_hits_200", 	&Hit_mPMT_200,			"Hit_mPMT_200/I");	
+	fPrimaryTree->Branch("mPMT_hits_400", 	&Hit_mPMT_400,			"Hit_mPMT_400/I");
 	
-	fPrimaryTree->Branch("bs_vertex", 		bs_vertex,		"bs_vertex[4]/F");	
-	fPrimaryTree->Branch("bs_good", 		bs_good,		"bs_good[3]/F");	
-	fPrimaryTree->Branch("bs_ctime", 		&fBSTime,		"bs_ctime/F"); // Computation time
+	fPrimaryTree->Branch("bs_vertex", 		bs_vertex,			"bs_vertex[4]/F");	
+	fPrimaryTree->Branch("bs_good", 		bs_good,			"bs_good[3]/F");	
+	fPrimaryTree->Branch("bs_ctime", 		&fBSTime,			"bs_ctime/F"); // Computation time
 	
 	fPrimaryTree->Branch("lf_vertex", 		&leaf_output.Vtx,		"lf_vertex[4]/D");
 	fPrimaryTree->Branch("lf_NLL", 		&leaf_output.NLL,		"lf_NLL/D");
@@ -585,9 +586,9 @@ void SetCustomBranch(TTree* fPrimaryTree) {
 	fPrimaryTree->Branch("lf_wall", 		&leaf_output_ana.Wall,		"lf_wall/D");
 	fPrimaryTree->Branch("lf_n50", 		&leaf_output_ana.n50,		"lf_n50[3]/I");
 	fPrimaryTree->Branch("lf_dir", 		&leaf_output_ana.dir,		"lf_dir[3][3]/D");
-	fPrimaryTree->Branch("lf_dir_goodness", 	&leaf_output_ana.dir_goodness,"lf_dir_goodness[3]/D");
+	fPrimaryTree->Branch("lf_dir_goodness", 	&leaf_output_ana.dir_goodness, "lf_dir_goodness[3]/D");
 	fPrimaryTree->Branch("lf_dirKS", 		&leaf_output_ana.dirKS,	"lf_dirKS[3]/D");
-	fPrimaryTree->Branch("lf_ctime", 		&fBQTime,			"lf_ctime/F"); // Computation time
+	fPrimaryTree->Branch("lf_ctime", 		&fLFTime,			"lf_ctime/D"); // Computation time
 
 }
 
@@ -674,11 +675,11 @@ bool AnalyseEvent(WCSimRootEvent * tEvent, int iEventType) {
 		vVtxTrue[1] = true_origin_Y[0];
 		vVtxTrue[2] = true_origin_Z[0];
 			
-		BQFitter::GetME()->SetTrueVertexInfo(vVtxTrue,0);
+		//LEAF::GetME()->SetTrueVertexInfo(vVtxTrue,0);
 		
 		if ( nRawCherenkovHits < 1 ) return false;
 		
-		std::vector<float> times;
+		std::vector<double> times;
 		
 		// Get number of hit
 		rawhit_num = nRawCherenkovHits;
@@ -691,8 +692,8 @@ bool AnalyseEvent(WCSimRootEvent * tEvent, int iEventType) {
 
 			int pmtId      = wcDigitHit->GetTubeId();
 			
-			float HitT     = wcDigitHit->GetT() + fTriggerTime;
-			float HitQ     = wcDigitHit->GetQ();
+			double HitT     = wcDigitHit->GetT() + fTriggerTime;
+			double HitQ     = wcDigitHit->GetQ();
 				
 			digithit_pmtId.push_back(pmtId);
 			digithit_T.push_back(HitT);
@@ -731,14 +732,14 @@ bool AnalyseEvent(WCSimRootEvent * tEvent, int iEventType) {
 		fHit			= digithit_pmtId.size();	
 					
 		// Compute hits
-		std::vector<float> Hit_time_50;
-		std::vector<float> Hit_time_200;
-		std::vector<float> Hit_time_400;
+		std::vector<double> Hit_time_50;
+		std::vector<double> Hit_time_200;
+		std::vector<double> Hit_time_400;
 			
 		std::sort(times.begin(),times.end());
 		for(int iDigitHit = 0; iDigitHit < nDigitizedCherenkovHits; iDigitHit++){
 			
-			float HitT = times[iDigitHit];
+			double HitT = times[iDigitHit];
 				
 			Hit_time_50.push_back(HitT);
 			Hit_time_200.push_back(HitT);

@@ -20,17 +20,16 @@
 
 class Hit {
 
-
 	public:
 		Hit(); 
 		Hit(int lID, TimeDelta::short_time_t lT, double lQ, bool mPMT=false); 
+		~Hit(); 
 
 		int PMT;
 		int PMT_original;
 		TimeDelta::short_time_t T;
 		double Q;
-		
-		
+						
 		// Sort functor following hit time after resolution applied
 		struct SortFunctor_HitTime {
 			bool operator() (const Hit &a, const Hit &b) const;
@@ -38,38 +37,28 @@ class Hit {
 		
 };
 
+class HitExtended : public Hit {
 
-class HitCollection {
 
 	public:
-		HitCollection(); 
-		~HitCollection(); 
+		HitExtended();
+		HitExtended(const Hit&);
 		
-		int first_unique;
-		TimeDelta timestamp;
-		std::vector<Hit> hits;
+		double distance;
+		double ToF;
 		
-		// Data access functions
-		Hit &operator[](int n) {
-			return hits[n];
-		}
+		double NormX;
+		double NormY;
+		double NormZ;
 		
-		// Information getter		
-		unsigned int Size() const		{ return hits.size();		}
-		Hit At(int n)	const			{ return hits[n];		}
+		double theta;
+		double phi;
+				
+		// Sort functor following hit time of flight after resolution applied
+		struct SortFunctor_HitTimeOfFlight {
+			bool operator() (const HitExtended &a, const HitExtended &b) const;
+		};
 		
-		// Filler
-		void Add(Hit lHit)			{ hits.push_back(lHit);	}
-		bool Append(const HitCollection lHC);
-		
-		// Cleaner
-		void Clear();
-		
-		void SortByTime();
 };
-
-
-
-
 
 #endif

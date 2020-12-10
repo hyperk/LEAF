@@ -1,5 +1,8 @@
 #include "HitInfo.h"
 
+
+/*************************************************************************/
+
 Hit::Hit() {
 	 
 	PMT		= 0;
@@ -7,8 +10,10 @@ Hit::Hit() {
 	
 	T 		= 0.;
 	Q 		= 0.;
-	
 }
+
+
+Hit::~Hit() { }
 
 
 Hit::Hit(int lID, TimeDelta::short_time_t lT, double lQ, bool mPMT) {
@@ -22,7 +27,6 @@ Hit::Hit(int lID, TimeDelta::short_time_t lT, double lQ, bool mPMT) {
 	
 	T 		= lT;
 	Q 		= lQ;
-
 }
 
 // Sort functor following Hit Time
@@ -36,47 +40,48 @@ bool Hit::SortFunctor_HitTime::operator() (
 	return ta < tb;
 }
 
+/*************************************************************************/
 
-HitCollection::HitCollection() {
-	timestamp = 0;
-	first_unique = 0;
-}
+HitExtended::HitExtended() {
 
-HitCollection::~HitCollection() {
-	this->Clear();
-}
-
-void HitCollection::Clear() {
-	timestamp = 0;
-	first_unique = 0;
-	hits.clear();	
-}
-
-void HitCollection::SortByTime() {
-	std::sort(hits.begin(), hits.end(), Hit::SortFunctor_HitTime());
-}
-
-bool HitCollection::Append(const HitCollection lHC) {
-	// Adapted from SubSample append by T.Dealtry
-	
-
-	if ( hits.size() == 0 ) {
-		// First time HitCollection is filled
-		hits = lHC.hits;
-		timestamp = lHC.timestamp;
-	}
-	else {
-		// Need to shift the hit times by the difference of timestamp offsets
-		TimeDelta::short_time_t time_shift = (lHC.timestamp - timestamp) / TimeDelta::ns;
-	
-		for ( unsigned int i = 0; i < lHC.Size(); i++ ) {
-			
-			Hit lHit = lHC.hits[i];
-			lHit.T += time_shift;
+	distance	= 0;
+	ToF 		= 0;
 		
-			hits.push_back( lHit );
-		}
-	}
-	
-	return true;
+	NormX		= 0;
+	NormY		= 0;
+	NormZ		= 0;
+		
+	theta		= 0;
+	phi		= 0;
 }
+
+HitExtended::HitExtended(const Hit& tHit) {
+
+
+	PMT 		= tHit.PMT;
+	PMT_original	= tHit.PMT_original;
+	T		= tHit.T;
+	Q		= tHit.Q;
+
+	distance	= 0;
+	ToF 		= 0;
+		
+	NormX		= 0;
+	NormY		= 0;
+	NormZ		= 0;
+		
+	theta		= 0;
+	phi		= 0;
+}
+
+// Sort functor following Hit Time
+bool HitExtended::SortFunctor_HitTimeOfFlight::operator() (
+		const HitExtended &a,
+		const HitExtended &b) const {
+		
+	double ta = a.ToF;
+	double tb = b.ToF;
+	
+	return ta < tb;
+}
+
