@@ -1587,6 +1587,7 @@ int main (int argc, char **argv){
 	  printf("Track dir: %d %f\n",j, wcsimroottrack->GetDir(j));
 	}
       }
+      }
 
       
     }  // End of loop over tracks
