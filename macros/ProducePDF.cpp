@@ -1,4 +1,55 @@
-void ProduceWSPlots(){
+#include <iostream>
+#include <sstream>
+#include <fstream>
+#include <iomanip>
+#include <vector>
+#include <map>
+#include <TROOT.h>
+#include <TApplication.h>
+#include <TStyle.h>
+#include <TFile.h>
+#include <TTree.h>
+#include <TCanvas.h>
+#include <TChain.h>
+#include <TBranch.h>
+#include <TF1.h>
+#include <TH1.h>
+#include <TH2.h>
+#include <TH3.h>
+#include <TMath.h>
+#include <TGraph.h>
+#include <TGraphErrors.h>
+#include <TMinuit.h>
+#include <TFitter.h>
+#include <TLegend.h>
+#include <TGraph2D.h>
+#include <TSpline.h>
+#include <getopt.h>
+
+using namespace std;
+
+int main(int argc, char **argv){
+  TString ofname = "timePDF.root";
+  TString ifname = "Analyze_hkhybridmpmt10pc14374100Hz_4.2kHzbl_10MeV.root"; // Originally used in B.Quilain codes
+
+  int opt;
+
+  while ((opt = getopt(argc, argv, "f:o:h")) != -1){
+    switch (opt) {
+      case 'f':
+        ifname = TString(optarg);
+        break;
+      case 'o':
+        ofname = TString(optarg);
+        break;
+      default:
+        cerr << "Usage: " << argv[0] << " [-f input] [-o output]" << endl;
+        break;
+    }
+  }
+  
+
+
   const int nFiles=1;
   TFile * _f[nFiles];
   const int nPMTtypes = 2;
@@ -29,11 +80,11 @@ void ProduceWSPlots(){
   TLegend * l = new TLegend(0.65,0.65,0.89,0.89);
   l->SetLineColor(0);
 
-  TFile * fOut = new TFile("timePDF.root","recreate");
+  TFile * fOut = new TFile(ofname,"recreate");
   
   TH1D * ChargeProfile[nFiles][nPMTtypes];TCanvas * cChargeProfile;TH1D * ratioChargeProfile[nFiles][nPMTtypes];
   TH1D * ChargePerPMT[nFiles][nPMTtypes];TCanvas *cChargePerPMT;
-  TH1D * TotalCharge[nFiles][nPMTtypes];TH1D * TotalHit[nFiles][nPMTtypes];
+  TH1D * TotalCharge[nFiles][nPMTtypes];TCanvas *cTotalCharge; TH1D * TotalHit[nFiles][nPMTtypes]; TCanvas *cTotalHit;
 
   TH1D * TimeProfile[nFiles][nPMTtypes];TCanvas * cTimeProfile;
   TH1D * TimeTOFProfile[nFiles][nPMTtypes];TCanvas * cTimeTOFProfile;
@@ -124,11 +175,11 @@ void ProduceWSPlots(){
 
     //_f[f] = new TFile("Hybrid_20BAL_5mPMT14374_10MeV_noDR_digitized_fullStat_all.root","read");
     //if(f==0) _f[f] = new TFile("test_hk20pc_4.2kHzbl_e10.root","read");
-    if(f==0) _f[f] = new TFile("Analyze_hkhybridmpmt10pc14374100Hz_4.2kHzbl_10MeV.root","read");
+    //if(f==0) _f[f] = new TFile("Analyze_hkhybridmpmt10pc14374100Hz_4.2kHzbl_10MeV.root","read");
     //if(f==0) _f[f] = new TFile("Analyze_hkhybridmpmt10pc14374100Hz_4.2kHzbl_10MeV_nodr.root","read");
     //if(f==0) _f[f] = new TFile("Analyze_hkhybridmpmt10pc14374100Hz_4.2kHzbl_3MeV.root","read");
     //if(f==0) _f[f] = new TFile("10MeV_nodr.root","read");
-    else _f[f] = new TFile("test_hkhybridmpmt10pc14374100Hz_4.2kHzBL_e10.root","read");
+    //else _f[f] = new TFile("test_hkhybridmpmt10pc14374100Hz_4.2kHzBL_e10.root","read");
     //_f[f] = new TFile("gamma2.2MeV_5kmPMT.root","read");
     //_f[f] = new TFile("gamma2.2MeV_10kmPMT.root","read");
     //_f[f] = new TFile("inputs_10MeV_merged.root","read");
@@ -136,6 +187,8 @@ void ProduceWSPlots(){
     //_f[f] = new TFile("test7_uniform.root","read");
     //_f[f] = new TFile("test6_ampute_uniform.root","read");
     //_f[f] = new TFile("test6_ampute_digitized.root","read");
+
+    if(f==0) _f[f] = new TFile(ifname,"read");
 
     double nEvents=0;
     double events[nPMTtypes];
