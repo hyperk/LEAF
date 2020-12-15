@@ -1446,23 +1446,18 @@ int main (int argc, char **argv){
   TH2D * ChargeXPositionXTime = new TH2D("ChargeXPositionXTime","",36,0,180,TankSize,0,TankSize);
   TH2D * ChargeProfileXdWall = new TH2D("ChargeProfileXdWall","",720,0,180,100,0,TankSize);
   TH2D * TotalChargeXdWall = new TH2D("TotalChargeXdWall","",100,0,TankSize,1e3,0,1e5);
-
   TH2D * TimeAngleProfile = new TH2D("TimeAngleHitProfile","",720,0,180,1e4,0,5e3);TimeAngleProfile->Sumw2();
   TH2D * HitTimeAngleProfile = new TH2D("HitTimeAngleHitProfile","",720,0,180,1e4,0,5e3);HitTimeAngleProfile->Sumw2();
   TH2D * TimeTOFAngleProfile = new TH2D("TimeTOFAngleProfile","",720,0,180,1e4,-1e2,5e3);TimeTOFAngleProfile->Sumw2();
   TH2D * HitTimeTOFAngleProfile = new TH2D("HitTimeTOFAngleProfile","",720,0,180,1e4,-1e2,5e3);HitTimeTOFAngleProfile->Sumw2();
   TH2D * TimeTOFTOF = new TH2D("TimeTOFTOF","",1e4,-1e2,5e3,1e2,0,5e2);TimeTOFTOF->Sumw2();
   TH2D * HitTimeTOFTOF = new TH2D("HitTimeTOFTOF","",1e4,-1e2,5e3,1e2,0,5e2);HitTimeTOFTOF->Sumw2();
-
-
   TH3D * VertexPosition = new TH3D("VertexPosition","",100,-TankSize,TankSize,100,-TankSize,TankSize,100,-TankSize,TankSize);
   TH3D * VertexDirection = new TH3D("VertexDirection","",100,-1.1,1.1,100,-1.1,1.1,100,-1.1,1.1);
   TH1D * VertexXdWall = new TH1D("VertexXdWall","",100,0,TankSize);
   TH1D * ParentFlyingDistance = new TH1D("ParentFlyingDistance","",10000,0,TankSize);
-
   TH2D * EGammaSeparationXdWall = new TH2D("EGammaSeparationxdWall","",100,0,TankSize,1000,0.,5.);
   TH1D * EGammaSeparation = new TH1D("EGammaSeparation","",1000,0.,5.);
-
   //Set the 2D histogram to 0 to increase lisibility of plots
   for(int ibinx=1;ibinx<=ChargeProfile2D->GetNbinsX();ibinx++){
     for(int ibiny=1;ibiny<=ChargeProfile2D->GetNbinsY();ibiny++){
@@ -1582,9 +1577,11 @@ int main (int argc, char **argv){
 	printf("Track momentum: %f\n", wcsimroottrack->GetP());
 	printf("Track mass: %f\n", wcsimroottrack->GetM());
       
-	for (int j=0; j<3; j++)
+	for (int j=0; j<3; j++){
 	  printf("Track start: %d %f\n",j, wcsimroottrack->GetStart(j));
 	  printf("Track dir: %d %f\n",j, wcsimroottrack->GetDir(j));
+	}
+      }
       }
 
       

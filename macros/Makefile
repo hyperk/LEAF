@@ -1,28 +1,25 @@
 CPP 		= g++
-CXXFLAGS	= -g -O3 -Wall -fPIC -D_REENTRANT -Wno-deprecated -fpermissive
+CXXFLAGS	= -g -O3 -Wall -fPIC -D_REENTRANT -Wno-deprecated -fpermissive -std=c++11
 
 ROOTCFLAGS	:= $(shell root-config --cflags)
 ROOTLIBS     	:= $(shell root-config --libs)
 ROOTGLIBS    	:= $(shell root-config --glibs)
 CXXFLAGS	+= $(ROOTCFLAGS)
 
-#LIB = /home/bquilain/CC0pi_XS/MC/ingmc_IngridRevReWeightFinal/lib_New
-LIB = lib_New_r34
-#lib
-#export WCSIMDIR=/disk01/usr5/bquilain/WCSim_hybridPMT_official
-LIBS 		= $(ROOTGLIBS) $(WCSIMDIR)/libWCSimRoot.so -lMinuit
-#LIBS 		= $(ROOTGLIBS) /disk01/usr5/bquilain/WCSim_hybridPMT_official/libWCSimRoot.so -lMinuit
+LIBS 		= $(ROOTGLIBS) -lMinuit $(WCSIMDIR)/libWCSimRoot.so
 
 INC = $(WCSIMDIR)/include
 SRC= $(WCSIMDIR)/src
 
-CXXFLAGS += -I$(LIB) -I$(SRC) -I$(INC) 
+CXXFLAGS += -I$(LIBS) -I$(SRC) -I$(INC) 
 
-TARGET= FitVertexLE
+TARGET= LEAFOutputAnalysisHybrid_leafclass LEAFOutputAnalysisHybrid_master AnalyzeWSHierarchy FitVertexLE
 
 all: $(TARGET)
+LEAFOutputAnalysisHybrid_leafclass: LEAFOutputAnalysisHybrid_leafclass.o
+LEAFOutputAnalysisHybrid_master: LEAFOutputAnalysisHybrid_master.o
+AnalyzeWSHierarchy: AnalyzeWSHierarchy.o
 FitVertexLE: FitVertexLE.o
-
 
 %: %.o
 	@echo "Now make $@"
