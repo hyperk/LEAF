@@ -35,14 +35,14 @@ In order to use the class in your code look at example/
 5. inputs PDF, input from WCSim can be downloaded on sukap cluster. Please untar them in the LEAF repository.
 6. You can use shell scripts in shell/ in order to run the fitter or launch on batch.
 
-# Other scripts in ./macros
+# Useful scripts in ./macros
 You can compile with GNUMake like following in ./macros:
 ```
 $ make ProducePDF
 ```
 ## Making tuning file (e.g. ./inputs/timePDF_Directionality_DRnew.root)
-1. Produce plots by AnalyzeWSHierarchy: readout WCSim output and make plots.
-2. ProducePDF: produce time PDF (and angular PDF).
+1. Produce plots by AnalyzeWSHierarchy: reads out WCSim output and makes plots.
+2. Produce time PDF (and angular PDF) by ProducePDF: uses plots made by AnalyzeWSHierarchy and generate PDFs for LEAF.
 
 ```
 $ AnalyzeWSHierarchy -f wcrim_hybrid.root -o plots.root
