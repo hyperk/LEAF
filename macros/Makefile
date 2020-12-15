@@ -13,7 +13,7 @@ SRC= $(WCSIMDIR)/src
 
 CXXFLAGS += -I$(LIBS) -I$(SRC) -I$(INC) 
 
-TARGET= LEAFOutputAnalysisHybrid_leafclass LEAFOutputAnalysisHybrid_master AnalyzeWSHierarchy ProducePDF FitVertexLE
+TARGET= LEAFOutputAnalysisHybrid_leafclass LEAFOutputAnalysisHybrid_master AnalyzeWSHierarchy ProducePDF #FitVertexLE
 
 all: $(TARGET)
 LEAFOutputAnalysisHybrid_leafclass: LEAFOutputAnalysisHybrid_leafclass.o

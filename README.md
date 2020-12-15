@@ -43,5 +43,11 @@ $ make ProducePDF
 ## Making tuning file (e.g. ./inputs/timePDF_Directionality_DRnew.root)
 1. Produce plots by AnalyzeWSHierarchy: readout WCSim output and make plots.
 2. ProducePDF: produce time PDF (and angular PDF).
+
+```
+$ AnalyzeWSHierarchy -f wcrim_hybrid.root -o plots.root
+$ ProducePDF -f plots.root -o PDF.root
+```
+
 ## Making generic plots
 - LEAFOutputAnalysisHybrid_leafclass: read LEAF output to produce generic plots. If one uses the master branch for LEAF, please use LEAFOutputAnalysisHybrid_master
