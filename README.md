@@ -35,7 +35,7 @@ In order to use the class in your code look at example/
 5. inputs PDF, input from WCSim can be downloaded on sukap cluster. Please untar them in the LEAF repository.
 6. You can use shell scripts in shell/ in order to run the fitter or launch on batch.
 
-# Useful scripts in ./macros
+# Useful scripts in ./macros and ./shell
 You can compile with GNUMake like following in ./macros:
 ```
 $ make ProducePDF
@@ -51,3 +51,16 @@ $ ProducePDF -f plots.root -o PDF.root
 
 ## Making generic plots
 - LEAFOutputAnalysisHybrid_leafclass: read LEAF output to produce generic plots. If one uses the master branch for LEAF, please use LEAFOutputAnalysisHybrid_master
+
+## Shell scripts for large files
+You can refere shell scripts in ./shell in order to analyze many files.
+They are not working with latest LEAF class and its examples. They are just example how to analyze.
+
+- generateShellXX.c: this is a root macro which generates shell scripts to be submitted to sukap by LauncherXX.sh
+  - generateShell.c
+  - generateShell_analyzeWCSim.c
+- LauncherXX.sh: this submits jobs to sukap
+  - Launcher.sh
+  - Launcher_analyzeWCSim.sh
+- Merger_analyzeWCSim.sh: merge generated output by Launcher_analyzeWCSim.sh
+
