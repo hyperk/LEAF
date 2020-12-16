@@ -52,7 +52,7 @@ $ ProducePDF -f plots.root -o PDF.root
 ## Making generic plots
 - LEAFOutputAnalysisHybrid_leafclass: read LEAF output to produce generic plots. If one uses the master branch for LEAF, please use LEAFOutputAnalysisHybrid_master
 
-## Shell scripts for large files
+## Shell scripts for analysis of large files
 You can refere shell scripts in ./shell in order to analyze many files.
 They are not working with latest LEAF class and its examples. They are just example how to analyze.
 
