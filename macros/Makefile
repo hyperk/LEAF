@@ -13,11 +13,12 @@ SRC= $(WCSIMDIR)/src
 
 CXXFLAGS += -I$(LIBS) -I$(SRC) -I$(INC) 
 
-TARGET= LEAFOutputAnalysisHybrid_leafclass LEAFOutputAnalysisHybrid_master AnalyzeWSHierarchy FitVertexLE
+TARGET= LEAFOutputAnalysisHybrid_leafclass LEAFOutputAnalysisHybrid_master AnalyzeWSHierarchy ProducePDF #FitVertexLE
 
 all: $(TARGET)
 LEAFOutputAnalysisHybrid_leafclass: LEAFOutputAnalysisHybrid_leafclass.o
 LEAFOutputAnalysisHybrid_master: LEAFOutputAnalysisHybrid_master.o
+ProducePDF: ProducePDF.o
 AnalyzeWSHierarchy: AnalyzeWSHierarchy.o
 FitVertexLE: FitVertexLE.o
 
@@ -27,6 +28,13 @@ FitVertexLE: FitVertexLE.o
 	@echo "..Compile done! "
 
 %.o: %.c
+	@echo "$<"
+	@echo "Start Compiling $<"
+	@$(CPP) $(CXXFLAGS) -c $<
+	@echo ".. Compiling Object Files $<   --> done"
+	@echo ""
+
+%.o: %.cpp
 	@echo "$<"
 	@echo "Start Compiling $<"
 	@$(CPP) $(CXXFLAGS) -c $<

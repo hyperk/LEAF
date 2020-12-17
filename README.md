@@ -35,8 +35,32 @@ In order to use the class in your code look at example/
 5. inputs PDF, input from WCSim can be downloaded on sukap cluster. Please untar them in the LEAF repository.
 6. You can use shell scripts in shell/ in order to run the fitter or launch on batch.
 
-# Other scripts in macros:
-1. Produce PDF for LEAF: first runt AnalyzeWSHierarchy, then run ProducePDF on AnalyzeWSHierarchy output.
-2. AnalyzeWSHierarchy: readout WCSim output and fill generci plots.
-3. ProducePDF: produce time PDF (and angular PDF).
-4. LEAFOutputAnalysisHybrid_leafclass: read LEAF output to produce generic plots. If one uses the master branch for LEAF, please use LEAFOutputAnalysisHybrid_master
+# Useful scripts in ./macros and ./shell
+You can compile with GNUMake like following in ./macros:
+```
+$ make ProducePDF
+```
+## Making tuning file (e.g. ./inputs/timePDF_Directionality_DRnew.root)
+1. Produce plots by AnalyzeWSHierarchy: reads out WCSim output and makes plots.
+2. Produce time PDF (and angular PDF) by ProducePDF: uses plots made by AnalyzeWSHierarchy and generate PDFs for LEAF.
+
+```
+$ AnalyzeWSHierarchy -f wcrim_hybrid.root -o plots.root
+$ ProducePDF -f plots.root -o PDF.root
+```
+
+## Making generic plots
+- LEAFOutputAnalysisHybrid_leafclass: read LEAF output to produce generic plots. If one uses the master branch for LEAF, please use LEAFOutputAnalysisHybrid_master
+
+## Shell scripts for analysis of large files
+You can refere shell scripts in ./shell in order to analyze many files.
+They are not working with latest LEAF class and its examples. They are just example how to analyze.
+
+- generateShellXX.c: this is a root macro which generates shell scripts to be submitted to sukap by LauncherXX.sh
+  - generateShell.c
+  - generateShell_analyzeWCSim.c
+- LauncherXX.sh: this submits jobs to sukap
+  - Launcher.sh
+  - Launcher_analyzeWCSim.sh
+- Merger_analyzeWCSim.sh: merge generated output by Launcher_analyzeWCSim.sh
+
