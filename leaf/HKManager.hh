@@ -55,7 +55,7 @@ class WCSimReader {
 				std::cout << "ERROR: tubeNumber is below 0 (" << tubeNumber << ")" << std::endl;
 			}
 			
-			Hit hHit (tubeNumber, time, charge, pmtType);	
+			Hit hHit (tubeNumber, time, charge, (HKAA::PMTType) pmtType);	
 			
 			fHitCollection.Add(hHit);
 		}
