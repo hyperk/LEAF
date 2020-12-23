@@ -42,23 +42,24 @@ class Geometry {
 		std::vector<double>	pmt_dark_rate;
 		std::vector<int> 	pmt_first;
 		
-		std::map<const HKAA::DetectorType, std::vector<PMTInfo> > PMTList;
+		std::vector<PMTInfo>	PMTList;
 		
-		const std::vector<PMTInfo> *GetPMTList(const HKAA::DetectorType lDetector=HKAA::kID) const { return &PMTList.at(lDetector); } ;
+		const std::vector<PMTInfo> *GetPMTList() const 	{ 	return &PMTList; 					}
 		
-		PMTInfo GetPMT(int lChannel, const HKAA::DetectorType lDetector=HKAA::kID)	const {	return PMTList.at(lDetector)[lChannel];		}
-		bool GetIfMasked(int lChannel, const HKAA::DetectorType lDetector=HKAA::kID)		const { 	return PMTList.at(lDetector)[lChannel].Masked;	}
+		PMTInfo GetPMT(int lChannel) const 			{	return PMTList[lChannel];				}
+		bool GetIfMasked(int lChannel) const 			{ 	return PMTList[lChannel].Masked;			}
   		
 	private: 
 		// Function to properly set PMTInfo
 		void AddPMTInfo(PMTInfo lInfo);
 		
+		void Finalise();
 		// Start making referencial for mPMTs
 		void Setup_mPMTs();
 		
 		// Mask PMT
-		void Mask_PMT(int lChannel, const HKAA::DetectorType lDetector=HKAA::kID)	{	PMTList.at(lDetector)[lChannel].Masked = true;		}
-		void UnMask_PMT(int lChannel, const HKAA::DetectorType lDetector=HKAA::kID)	{	PMTList.at(lDetector)[lChannel].Masked = false;		}
+		void Mask_PMT(int lChannel)				{	PMTList[lChannel].Masked = true;			}
+		void UnMask_PMT(int lChannel)				{	PMTList[lChannel].Masked = false;			}
 };
 
 #endif

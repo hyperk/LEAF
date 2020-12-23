@@ -16,14 +16,10 @@ Hit::Hit() {
 Hit::~Hit() { }
 
 
-Hit::Hit(int lID, TimeDelta::short_time_t lT, double lQ, bool mPMT) {
+Hit::Hit(int lID, TimeDelta::short_time_t lT, double lQ, const HKAA::PMTType lPMT) {
 
-	PMT		= lID;
+	PMT		= lID + HKAA::kPMTId_Shift[lPMT];
 	PMT_original	= lID;
-	
-	if ( mPMT ) {
-		PMT += HKAA::kmPMT_Shift;
-	}
 	
 	T 		= lT;
 	Q 		= lQ;

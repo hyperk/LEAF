@@ -18,10 +18,16 @@
  *          
  */
  
-#define mPMT_ID_SHIFT 		 1000000
+#define mPMT_ID_SHIFT 		 	100000
+#define PMT_OD_SHIFT			 50000
 
  // Usefull processor functions:
 #define Astro_GetPMTType(x)		x>=mPMT_ID_SHIFT?1:0
+
+#define Astro_GetIfODPMT(x)		(x>=PMT_OD_SHIFT &&x<mPMT_ID_SHIFT)?1:0
+#define Astro_GetIfmPMT(x)		(x>=mPMT_ID_SHIFT                 )?1:0
+#define Astro_GetIfBnLPMT(x)		(                  x<PMT_OD_SHIFT )?1:0
+
 #define Astro_GetDistance(a,b)	sqrt( (a[0]-b[0])*(a[0]-b[0]) + (a[1]-b[1])*(a[1]-b[1]) + (a[2]-b[2])*(a[2]-b[2]) )
 #define Astro_GetLength(a)		sqrt( (a[0]*a[0]) + (a[1]*a[1]) + (a[2]*a[2]) )
 #define Astro_GetR(a)			sqrt( (a[0]*a[0]) + (a[1]*a[1]) )
@@ -48,15 +54,7 @@ namespace HKAA {
 	};
 	
 	// Detector constants
-	
-	const int kMaxPMT_ID	= 10000000;
-	const int kMaxPMT_OD	= 0;
-	
-	const int kmPMT_Shift	= 1000000;
-	const int kmPMT_Groups	= 3;
-	const int kmPMT_TopID	= 19; //Number of 3" PMT per mPMT
-	
-	const int kPMT_Type	= 1000000;
+
 	
 	// PMT Type
 	enum PMTType {
@@ -64,6 +62,12 @@ namespace HKAA {
 		kIDPMT_3inch, 		// ID: 3inch inside mPMT
 		kODPMT_3inch,		// OD: 3inch 
 		kPMTTypeMax
+	};
+	
+	const int kPMTId_Shift[kPMTTypeMax] = {
+		0, 			// ID - Box and Line PMTs
+		mPMT_ID_SHIFT, 	// ID - mPMTs
+		PMT_OD_SHIFT 		// OD - PMTs
 	};
 	
 	// DAQ Type
@@ -83,16 +87,26 @@ namespace HKAA {
 		kDetectorTypeMax
 	};
 	
+	// Trigger Type
+	// From WCSim Enumeration
+	enum TriggerType {
+		kTriggerUndefined = -1,	// Default 
+		kTriggerNDigits,
+		kTriggerNDigitsTest,
+		kTriggerTestVertices,
+		kTriggerNoTrig,
+		kTriggerFailure,
+		kTriggerTypeMax
+	};	
 	
+	const int kMaxPMT	= 1000000;
+	
+	const int kmPMT_Shift	= kPMTId_Shift[kIDPMT_3inch];
+	const int kmPMT_Groups	= 3;
+	const int kmPMT_TopID	= 19; //Number of 3" PMT per mPMT
+	
+	const int kODPMT_Shift	= kPMTId_Shift[kODPMT_3inch];
 	
 }
-
-// Useful struct
-struct Pos3D
-{
-	double x, y, z;
-	double R() { return sqrt(x*x + y*y + z*z); }
-};
-
 
 #endif

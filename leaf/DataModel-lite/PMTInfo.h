@@ -50,6 +50,10 @@ class PMTInfo {
 	 	std::vector<double> mPMT_RefX;
 	 	std::vector<double> mPMT_RefY;
 	 	std::vector<double> mPMT_RefZ;
+	 	
+	 	int GetTubeNo()		{ return Id;			}
+	 	double GetPosition(int i) 	{ return Position[i]; 		} 
+	 	double GetOrientation(int i) 	{ return Orientation[i]; 	} 
 		
 	protected:
 		 	

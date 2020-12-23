@@ -42,6 +42,10 @@ template <typename T> class HitCollection {
 		void SetCollection(const HitCollection<T> lHC);
 		void CopyCollection(const HitCollection<Hit> lHC);
 		void CopyCollection(const HitCollection<HitExtended> lHC);
+		void ResetTimes();
+		
+		void CopyDAQ(const HitCollection<T> lHC, const HKAA::DAQType iDAQ);
+		void FilterTime(const HitCollection<T> lHC, const TimeDelta tStart, const TimeDelta tEnd);
 		
 		// Cleaner
 		void Clean();

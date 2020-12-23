@@ -27,7 +27,6 @@ PMTInfo::PMTInfo() {
 }
 
 PMTInfo::~PMTInfo() {
-
 	mPMT_RefX.clear();
 	mPMT_RefY.clear();
 	mPMT_RefZ.clear();
@@ -35,16 +34,12 @@ PMTInfo::~PMTInfo() {
 
 void PMTInfo::Setup_mPMT() {
 
-	Id += HKAA::kmPMT_Shift;
-	
 	mPMT_RefTube = Id + ( HKAA::kmPMT_TopID - mPMT_TubeNum );
 	
 	if ( mPMT_TubeNum <= 12 )	mPMT_Group = 0;
 	else if ( mPMT_TubeNum <= 18)	mPMT_Group = 1;
 	else				mPMT_Group = HKAA::kmPMT_Groups - 1;
 }
-
-
 
 void PMTInfo::Setup_mPMT_Referencial(const PMTInfo lTopPMT) {
 	// Function from LEAF
@@ -146,7 +141,5 @@ void PMTInfo::Setup_mPMT_Referencial(const PMTInfo lTopPMT) {
 								<< Astro_GetLength(mPMT_RefY) << ", Z: " << Astro_GetLength(mPMT_RefZ) << std::endl;
   	}
   	
-  	
 	//Conclusion: we now have our referential.
-
 }
