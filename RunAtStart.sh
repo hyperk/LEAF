@@ -1,5 +1,32 @@
 #!/bin/bash
+
 export LEAFDIR=$(pwd)
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$LEAFDIR/lib
+
 export WCSIMDIR=${LEAFDIR}/libWCSIM
-export ROOTSYS=/usr/local/sklib_gcc4.8.5/root_v5.34.36
-source ${ROOTSYS}/bin/thisroot.sh
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$WCSIMDIR
+
+############################
+# ROOT/CERN
+############################
+# Note: official ROOT 5.34 installation on sukap is not compatible with cmake
+#  Temporary use Guillaume Pronost's version. Should change in the future.
+#
+export ROOT_DIR=/disk02/usr6/pronost/software/root-5.34.38-build
+# Note: There is no official ROOT 6 installation 
+#  Temporary use Guillaume Pronost's version. Should change in the future.
+#  WARNING: This version is quite slow currently, investigation on-going
+#export ROOT_DIR=/disk02/usr6/pronost/software/root6-build
+echo "Load ROOT from: ${ROOT_DIR}" 
+source ${ROOT_DIR}/bin/thisroot.sh
+
+alias root='root -l'
+
+############################
+# BONSAI
+############################
+
+#Temporary, any official location?
+export BONSAIDIR=/disk02/usr6/pronost/software/BonsaiHK
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$BONSAIDIR
+

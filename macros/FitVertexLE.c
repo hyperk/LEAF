@@ -18,7 +18,6 @@
 #include <TF1.h>
 #include <TH1.h>
 #include <TH2.h>
-#include <TGraph2D.h>
 #include <TH3.h>
 #include <TMath.h>
 #include <TSpline.h>
@@ -30,19 +29,18 @@
 #include "WCSimRootOptions.hh"
 WCSimRootGeom *geo = 0; 
 #define KILLFAKE
-//#define DRAWNLL
 //#define KILLHALF
 TRandom3 * trand = new TRandom3();
 TRandom3 * trand2 = new TRandom3();
 
-bool maskPMT=false;
+bool maskPMT=false;//true;//false;//true;
 int pmtTypeMasked=1;
-double maskedProbability=1.;
+double maskedProbability=0.4;
 
 bool isHE=false;//true;
 bool vertexFit=true;
 bool stepByStep=false;
-bool useDirectionality=false;//true;//true;//false;//true;//false;//true;//false;//true;//false;//true;//false;
+bool useDirectionality=true;//false;//true;//true;//false;//true;//false;//true;//false;//true;//true;//true;//true;//false;//true;//false;//true;//false;//true;//false;//true;//false;
 bool limitmPMT = true;//false;//true;//false;//true;//true;//false;//true;//If true, we apply same cuts for timing as B&L PMT when searching vertex. Otherwise, we do not apply them and use all the hits. The latter is particularly useful when directionality is added, as it can kill DR hits.
 int nAveraging=20;//Number of points we used to average the vertex on.
 double timeWindowSizeFull=1500;
@@ -59,8 +57,6 @@ double lightSpeed = cvacuum/nindex;
 using namespace std;
 // Simple example of reading a generated Root file
 const int nPMTtypes = 2;
-int mpmt_topPMT_id=19;
-//int nPMTpermPMT=19;
 const int npmts_in_mpmt = 19;
 const int nGroupsPMTs = 3;//Different PMT config in an mPMT. I assumed here a rotational symetry of the mPMT, so PMT 1 to 12 are the same, 13 to 18 are the same and 19 is separated
 const int maxPMTTubes = 1e6;
@@ -120,23 +116,14 @@ TSpline3 * stimePDF[nPMTtypes];TF1 * ftimePDF[nPMTtypes];
 TSpline3 * stimePDFQueue[nPMTtypes];
 TSpline3 * stimePDFDR[nPMTtypes];
 //TH2D * hPMTDirectionality[nPMTtypes][npmts_in_mpmt];
-TH2D * hPMTDirectionality_2D[nPMTtypes][nGroupsPMTs];
-TGraph2D * gPMTDirectionality_2D[nPMTtypes][nGroupsPMTs];
-TF1 * fDistResponsePMT[nPMTtypes];
+TH1D * hPMTDirectionality_1D[nPMTtypes][nGroupsPMTs];
+
 
 double * crossProduct(double* v0, double* v1, double * v2){
   v2[0] = v0[1]*v1[2]-v0[2]*v1[1];
   v2[1] = v0[2]*v1[0]-v0[0]*v1[2];
   v2[2] = v0[0]*v1[1]-v0[1]*v1[0];
   return v2;
-}
-
-double scalarProduct(double* v0, double* v1){
-  double total=0;
-  for(int j=0;j<3;j++){
-    total+=v0[j]*v1[j];
-  }
-  return total;
 }
 
 double groupPMTs(int pmtType, int pmt_number){
@@ -148,129 +135,157 @@ double groupPMTs(int pmtType, int pmt_number){
   }
 }
 
-double calculateWeight(double dist, double PMTrad, double partAng, int verbose=0){
-  double L0=TMath::Sqrt(dist*dist+PMTrad*PMTrad-dist*2*PMTrad*TMath::Sin(partAng));
-  double L1=TMath::Sqrt(dist*dist+PMTrad*PMTrad+dist*2*PMTrad*TMath::Sin(partAng));
-  double num=pow(L0,2)+pow(L1,2)-pow(PMTrad*2,2);
-  double denom=2*L0*L1;
-  //double C=dist*dist+PMTrad*PMTrad;
-  //double num=2*C-2*PMTrad*2*PMTrad;
-  //double denom=TMath::Sqrt( (C+dist*2*PMTrad*TMath::Sin(partAng)) * (C-dist*2*PMTrad*TMath::Sin(partAng)) );
-  double cosAlpha=num/denom;
-  double cosHalfAlpha=TMath::Sqrt((1+cosAlpha)/2);
-  //double cosAlpha=(2*C-2*PMTrad*2*PMTrad)/( C*TMath::Sqrt( 1 - pow((dist*PMTrad*2*TMath::Sin(partAng)/C),2) ) );
-  double surfaceEff=dist*dist*2*TMath::Pi()*(1-cosHalfAlpha);//solid angle
-  double fracSurface=surfaceEff/(4*TMath::Pi()*dist*dist);
-  if(verbose==3){
-    cout<<"Particle angle = "<<partAng*180/TMath::Pi()<<", Alpha = "<<TMath::ACos(cosAlpha)*180/TMath::Pi()<<", rad = "<<PMTrad<<", num = "<<num<<", denom = "<<denom<<endl;
-    cout<<"Distance = "<<dist<<", area seen ="<<surfaceEff<<", fraction obs = "<<fracSurface<<endl;
-  }
-  return 1./fracSurface;
-}
-
-void vectorVertexPMT(double * vertex, int tubeNumber, int pmtType, double angles[4],int pmt_number_in_mpmt,int verbose=0){
+void vectorVertexPMT(double * vertex, int tubeNumber, int pmtType, double * vDirection,int pmt_number_in_mpmt,int verbose=0){
   clock_t timeStart=clock();
-  double ex[3]={0.};
-  double ey[3]={0.};
-  double ez[3]={0.};
-  
-  //1. Get the PMT position
+  const int limit_maxPMT_per_mPMT = 50;
+  double pmtCenter[3]={0.};
+  double pmt_position_local[3]={0.};
+  int nPMT_per_mPMT=0;
+  double PMTpos[3];
+  double PMTdir[3];
   WCSimRootPMT pmt;
   if(pmtType == 0) pmt = geo->GetPMT(tubeNumber-1,false);
   else pmt  = geo->GetPMT(tubeNumber-1,true);
-  int mPMT_number = pmt.GetmPMTNo();
-  if(verbose==3) cout<<"Original PMT number = "<<pmt_number_in_mpmt<<endl;
-  double PMTpos[3];
-  //double PMTradius=pmt.GetWCPMTRadius(pmtType);
   for(int j=0;j<3;j++){
     PMTpos[j] = pmt.GetPosition(j);
-    ez[j] = pmt.GetOrientation(j);
+    PMTdir[j] = pmt.GetOrientation(j);
   }
-  if(verbose==3){
-    cout<<"Position of the PMT = "<<PMTpos[0]<<", "<<PMTpos[1]<<", "<<PMTpos[2]<<endl<<"Orientation of the PMT = "<<ez[0]<<", "<<ez[1]<<", "<<ez[2]<<endl;
-  }
-  //2. Get the mPMT position and its direction -> Provides orgin and first axis of the referential (ez)
-  //We do not have the mPMT position, so we will take the position of the PMT on top of the mPMT: number:
-  double mPMTpos[3];
-  double mPMTdir[3];
-
-  int tubeNumber2 = tubeNumber + ( mpmt_topPMT_id - pmt_number_in_mpmt );
-  WCSimRootPMT pmt2;
-  if(pmtType == 0) pmt2 = geo->GetPMT(tubeNumber2-1,false);
-  else pmt2  = geo->GetPMT(tubeNumber2-1,true);
-  int mPMT_number2 = pmt2.GetmPMTNo();
-  int pmt_number_in_mpmt2 = pmt2.GetmPMT_PMTNo();
-  for(int j=0;j<3;j++){
-    mPMTpos[j]=pmt2.GetPosition(j);
-    mPMTdir[j]=pmt2.GetOrientation(j);
-  }
+  int mPMT_number = pmt.GetmPMTNo();
+  pmt_number_in_mpmt = pmt.GetmPMT_PMTNo();
+  double particleRelativePMTpos[3];
+  for(int j=0;j<3;j++) particleRelativePMTpos[j] = PMTpos[j] - vertex[j];
   if(verbose == 3){
-    cout<<"Top PMT position = "<<mPMTpos[0]<<", "<<mPMTpos[1]<<", "<<mPMTpos[2]<<endl;
+    cout<<"Original PMT number = "<<pmt_number_in_mpmt<<endl;  
+    cout<<"Direction = "<<PMTdir[0]<<", "<<PMTdir[1]<<", "<<PMTdir[2]<<endl;
+  }
+  for(int t = -limit_maxPMT_per_mPMT/2;t<limit_maxPMT_per_mPMT/2;t++){
+    int tubeNumber2=tubeNumber+t;
+    if(tubeNumber2<1) continue;
+    
+    WCSimRootPMT pmt2;
+    if(pmtType == 0) pmt2 = geo->GetPMT(tubeNumber2-1,false);
+    else pmt2  = geo->GetPMT(tubeNumber2-1,true);
+    int mPMT_number2 = pmt2.GetmPMTNo();
+    int pmt_number_in_mpmt2 = pmt2.GetmPMT_PMTNo();
+    
+    if(mPMT_number2 == mPMT_number){
+      nPMT_per_mPMT++;
+      if(verbose == 3) cout<<"PMT number = "<<pmt_number_in_mpmt2<<", ";  
+      for(int j=0;j<3;j++){
+	pmtCenter[j]+=pmt2.GetPosition(j);
+	if(verbose == 3) cout<<pmt2.GetPosition(j)<<", ";
+      }
+      if(verbose == 3) cout<<endl;
+    }
+  }
+  
+  if(verbose == 3) cout<<"Position with respect to mean = ";
+  for(int j=0;j<3;j++){
+    if(nPMT_per_mPMT!=0) pmtCenter[j]/=nPMT_per_mPMT;
+    pmt_position_local[j]= PMTpos[j] - pmtCenter[j];
+    if(verbose == 3) cout<<pmt_position_local[j]<<", ";
+  }
+  if(verbose == 3) cout<<endl;
+  
+  //Now, let's check the angle from the PMT to the center in the referential orthogonal to the PMT direction.
+  //PMT direction is given by PMTdir
+  //We can construct the vector orthogonal to PMTdir and the direction from PMT to center. We will then normalize it.
+  //And finally, we should use that vertex and PMT dir to construct the orthogonal vector. That last vector will be in the same plane than PMTdir and PMT to center.
+  double * vCenter = new double[3];
+  double norm=0;
+  for(int j=0;j<3;j++){
+    vCenter[j]=-pmt_position_local[j];//Minus since we want the vector from PMT to center (and not opposite).
+    norm+=pow(vCenter[j],2);
+  }
+  for(int j=0;j<3;j++){
+    if(norm!=0) vCenter[j]/=TMath::Sqrt(norm);
+  }
+  
+  double ** v = new double*[3];
+  for(int x=0;x<3;x++) v[x] = new double[3];
+  norm=0;
+  for(int j=0;j<3;j++){
+    v[2][j]=PMTdir[j];
+    norm+=pow(v[2][j],2);
+  }
+  for(int j=0;j<3;j++){
+    if(norm!=0) v[2][j]/=TMath::Sqrt(norm);
+  }
+  
+  norm=0;
+  crossProduct(v[2],vCenter,v[1]);
+  for(int j=0;j<3;j++){
+    norm+=pow(v[1][j],2);
+  }
+  for(int j=0;j<3;j++){
+    if(norm!=0) v[1][j]/=TMath::Sqrt(norm);
+  }
+  
+  norm=0;
+  crossProduct(v[1],v[2],v[0]);
+  for(int j=0;j<3;j++){
+    norm+=pow(v[0][j],2);
+  }
+  for(int j=0;j<3;j++){
+    if(norm!=0) v[0][j]/=TMath::Sqrt(norm);
   }
 
-  //3. Define the second vector of the referential in the orthogonal plane to ez and colinear to the center PMT -> Active PMT plane
-  //a. PMT position in the mPMT referencec plane
-  double PMTpos_mPMTref[3];
-  for(int j=0;j<3;j++) PMTpos_mPMTref[j] = PMTpos[j] - mPMTpos[j];
-  double totlen_PMTpos = TMath::Sqrt(pow(PMTpos_mPMTref[0],2)+pow(PMTpos_mPMTref[1],2)+pow(PMTpos_mPMTref[2],2));
-  for(int j=0;j<3;j++) PMTpos_mPMTref[j]/=totlen_PMTpos;
-  if(verbose==3) cout<<"Vertex position in the mPMT referential = "<<PMTpos_mPMTref[0]<<", "<<PMTpos_mPMTref[1]<<", "<<PMTpos_mPMTref[2]<<endl;
-  //b. Define ey, perpendicular to ez and the center PMT -> Active PMT vector  
-  crossProduct(ez,PMTpos_mPMTref,ey);
-  double totlen_ey=TMath::Sqrt(pow(ey[0],2)+pow(ey[1],2)+pow(ey[2],2));
-    for(int j=0;j<3;j++){
-    ey[j]/=totlen_ey;
+  //
+  //Then, we should project the PMT to vertex in this new basis
+  double * vPMTvertex = new double[3];
+  for(int x=0;x<3;x++){
+    double ps=0;//scalar product
+    for(int j =0;j<3;j++){
+      ps+=(-particleRelativePMTpos[j])*v[x][j];
+      //ps+=(-PMTpos[j])*v[x][j];
+    }
+    vPMTvertex[x]=ps;
   }
-  if(verbose==3) cout<<"Scal product test = "<<TMath::ACos(scalarProduct(ey,ez))*180/TMath::Pi()<<", "<<TMath::Sqrt(pow(ey[0],2)+pow(ey[1],2)+pow(ey[2],2))<<", "<<TMath::Sqrt(pow(ez[0],2)+pow(ez[1],2)+pow(ez[2],2))<<endl;
+	  
+  if(verbose == 3){
+    cout<<"v dir:"<<endl;
+    for(int x=0;x<3;x++){
+      cout<<"vdir["<<x<<"]: ";
+      cout<<v[x][0]<<", "<<v[x][1]<<", "<<v[x][2]<<endl;
+    }
+    cout<<"To center PMT = "<<vCenter[0]<<", "<<vCenter[1]<<", "<<vCenter[2]<<endl;
+    cout<<"PMT vertex = "<<vPMTvertex[0]<<", "<<vPMTvertex[1]<<", "<<vPMTvertex[2]<<endl;
+  }
+  //First, get radius of this vector:
+  double radius=0;
+  for(int j =0;j<3;j++){
+    radius+=pow(vPMTvertex[j],2);
+  }
+  radius=TMath::Sqrt(radius);
+  //We just want phi:
+  for(int j =0;j<3;j++){
+    vPMTvertex[j]/=radius;
+  }
+  double cosTheta = vPMTvertex[2];
+  double tanPhi = vPMTvertex[1]/vPMTvertex[0];
+  //atan is defined between -pi/2 and pi/2
+  double Theta = TMath::ACos(cosTheta);
+  double Phi;
+  if(vPMTvertex[0]>=0) Phi=TMath::ATan(tanPhi);
+  else Phi=-TMath::ATan(tanPhi);
+  //The phi angle is the angle of
+  //We can first construct the cosine
+  vDirection[0]=Phi*180/TMath::Pi();
+  vDirection[1]=Theta*180/TMath::Pi();
 
-  //4. And then create ex which should be orthogonal to the 2 remaining vectors
-  crossProduct(ey,ez,ex);
-  //As ez and ey should be unitary, so does ex. So, let's check as a debug
-  if(TMath::Sqrt(pow(ex[0],2)+pow(ex[1],2)+pow(ex[2],2))!=1){
-    if(verbose==3) cout<<"There is a referential vector unitarity issue, length is ="<<TMath::Sqrt(pow(ex[0],2)+pow(ex[1],2)+pow(ex[2],2))<<endl;
+  if(verbose == 3){
+    cout<<"Number of PMTs in mPMT="<<nPMT_per_mPMT<<", PMT #"<<pmt_number_in_mpmt<<", position local = "<< pmt_position_local[0] << ", " << pmt_position_local[1] << ", " << pmt_position_local[2] << endl;
+    cout<<"Phi angle="<<vDirection[0]<<", theta = "<<vDirection[1]<<endl;
   }
-
-  //Conclusion: we now have our referential.
   
-  //5. Now we have our referential, we should just calculate the angles of the PMT to vertex position vector in this referential.
-  //a. calculate the PMT to vertex position vector.
-  double particlepos_PMTref[3];
-  for(int j=0;j<3;j++) particlepos_PMTref[j] = vertex[j] - PMTpos[j];
-  double totlen_particlepos = TMath::Sqrt(pow(particlepos_PMTref[0],2)+pow(particlepos_PMTref[1],2)+pow(particlepos_PMTref[2],2));
-  for(int j=0;j<3;j++) particlepos_PMTref[j]/=totlen_particlepos;
-  if(verbose==3){
-    cout<<"Vertex position = "<<vertex[0]<<", "<<vertex[1]<<", "<<vertex[2]<<endl;
-    cout<<"Vertex position from PMT = "<<particlepos_PMTref[0]<<", "<<particlepos_PMTref[1]<<", "<<particlepos_PMTref[2]<<endl;
-  }
-  //b. Then extract Theta and Phi:
-  double cosTheta=scalarProduct(particlepos_PMTref,ez);
-  double Theta=TMath::ACos(cosTheta);
-  //We know x=cosPhi x sinTheta and y=sinPhi x sinTheta
-  double x=scalarProduct(particlepos_PMTref,ex);
-  double y=scalarProduct(particlepos_PMTref,ey);
-  double tanPhi=y/x;
-  //tan is symetric from -pi/2 to +pi/2
-  double Phi=TMath::ATan(tanPhi);
-  if(x==0){
-    if(y<0) Phi=-TMath::Pi()/2.;
-    else Phi=TMath::Pi()/2.;
-  }
-  if(x<0) Phi+=TMath::Pi();//With this, angle become defines between -pi/2 to -pi/2 +2pi.
-  //We wish to bring this from 0 to 2pi:
-  if(Phi<0) Phi+=2*TMath::Pi();
-  //Actually, we have a symmetry in Phi between [0,pi] and [pi,2pi]. So, we will just define Phi in [0,pi] modulo pi
-  if(Phi > TMath::Pi()) Phi = TMath::Pi() - (Phi - TMath::Pi());
-  //Phi=TMath::Abs(Phi);
-  
-  if(pmt_number_in_mpmt==mpmt_topPMT_id) Phi=0.;//Phi is not defined in that case...
-  angles[0]=Phi*180./TMath::Pi();
-  angles[1]=Theta*180./TMath::Pi();
-  angles[2]=totlen_particlepos;
-  angles[3]=1;//calculateWeight(totlen_particlepos,PMTradius[pmtType],Theta,verbose);
-  
-  if(verbose==3) cout<<"Angles phi = "<<angles[0]<<", Theta = "<<angles[1]<<endl;
+  for(int x=0;x<3;x++) delete v[x];
+  delete vCenter;
+  delete v;
+  delete vPMTvertex;
   clock_t timeEnd=clock();
-  if(verbose == 3) cout<<"Time for the loop = "<<timeEnd-timeStart<<endl;  
+  if(verbose == 3) cout<<"Time for the loop = "<<timeEnd-timeStart<<endl;
+  //delete vPMTvertex;
+  
 }
 
 double findDirectionTheta(double * vertex,int tubeNumber,int pmtType,int pmt_number_in_mpmt,int verbose=0){
@@ -325,9 +340,10 @@ double findNLLDirectionality(double vertexPosition[4],int nhits,int verbose,doub
     info = essentialHitInfo[ihit];
     double hitTime = info[0];
     double hitPosition[3];
+    double distance = 0;
     int pmtType=info[4];
     int tubeNumber=info[5];
-    int pmt_number_in_mpmt=info[6];
+    int pmt_number_in_mpmt;
 
     for(int i=0;i<3;i++){
       vPos[i] = vertexPosition[i+1];
@@ -335,69 +351,47 @@ double findNLLDirectionality(double vertexPosition[4],int nhits,int verbose,doub
 
     if(pmtType==0) continue;
     
-    double distance = 0;
     for(int i=0;i<3;i++){
-      hitPosition[i] = info[i+1];
-      //hitPosition[i] = info[i+1] - vertexPosition[i+1];
-      distance+=pow(info[i+1]-vertexPosition[i+1],2);
+      hitPosition[i] = info[i+1] - vertexPosition[i+1];
+      distance+=pow(hitPosition[i],2);
     }
     distance=TMath::Sqrt(distance);
     double tof = distance / lightSpeed;
     double residual = hitTime - tof - vertexPosition[0];
-    bool condition = 1;//residual > lowerLimit && residual < upperLimit;
-    //if(condition){
-    
-      //bool condition;
-      //if(pmtType == 0 || (pmtType == 1 && limitmPMT) ) condition = residual > lowerLimit && residual < upperLimit;
-      //else condition = true;
+    bool condition;
+    if(pmtType == 0 || (pmtType == 1 && limitmPMT) ) condition = residual > lowerLimit && residual < upperLimit;
+    else condition = true;
     if(condition){
       //if(1/*residual > lowerLimit && residual < upperLimit*/){//Do not use it as fluctuating the number of hits used in one event does allow a fair comparison with this likelihood. If we want to restrict the likelihood, use the "DirectionalNLLBayes".
       //vectorVertexPMT(vPos,tubeNumber,pmtType,vDirection,pmt_number_in_mpmt,verbose);
       //proba = hPMTDirectionality_1D[pmtType][pmtGroup]->GetBinContent(hPMTDirectionality_1D[pmtType][pmtGroup]->FindBin(vDirection[1]));
-      double vPMTvertex[4];
-      vectorVertexPMT(vertexPosition,tubeNumber,pmtType,vPMTvertex,pmt_number_in_mpmt);
-      double phi=vPMTvertex[0];
-      double theta=vPMTvertex[1];
-      double dist_pmt_vertex=vPMTvertex[2];
+      double theta = findDirectionTheta(vPos,tubeNumber,pmtType,pmt_number_in_mpmt,verbose);
       int pmtGroup=groupPMTs(pmtType,pmt_number_in_mpmt);
       double proba;
-      //proba = hPMTDirectionality_2D[pmtType][pmtGroup]->GetBinContent(hPMTDirectionality_2D[pmtType][pmtGroup]->GetXaxis()->FindBin(phi),hPMTDirectionality_2D[pmtType][pmtGroup]->GetYaxis()->FindBin(theta));
-      proba = gPMTDirectionality_2D[pmtType][pmtGroup]->Interpolate(phi,theta);
-      double dist_correction = fDistResponsePMT[pmtType]->Eval(dist_pmt_vertex);
-      //if(dist_pmt_vertex!=0) dist_correction=pow(1./dist_pmt_vertex,2);
-      proba*=dist_correction;
-      //if(dist_pmt_vertex!=0) proba*=pow(1./dist_pmt_vertex,2);
+      proba = hPMTDirectionality_1D[pmtType][pmtGroup]->GetBinContent(hPMTDirectionality_1D[pmtType][pmtGroup]->FindBin(theta));
+
       
       if(proba==0){
-	/*
 	double min=0;
 	for(int ibinx=hPMTDirectionality_1D[pmtType][pmtGroup]->GetNbinsX();ibinx>=1;ibinx--){//Search the last bin of the distri non-zero and use its value
 	  if(hPMTDirectionality_1D[pmtType][pmtGroup]->GetBinContent(ibinx) !=0 ){
 	    min = hPMTDirectionality_1D[pmtType][pmtGroup]->GetBinContent(ibinx);
 	    break;
 	  }
-	  }*/
+	}
 	//proba=min;
 	proba=1e-20;
-	cout<<"We are at proba = 0, pmt group = "<<pmtGroup<<", phi = "<<phi<<", theta = "<<theta<<", proba used = "<<proba<<endl;
+	cout<<"We are at proba = 0, theta = "<<theta<<", proba used = "<<proba<<endl;
       }
       NLL += -TMath::Log(proba);
-    
+      
       if(verbose==3){
 	//cout<<"PMT type="<<pmtType<< ", hit#"<<ihit<<", theta =" << vDirection[1] << ", proba="<<proba<<endl;
-	cout<<"PMT type="<<pmtType<< ", hit#"<<ihit<<", group = "<<pmtGroup<<", phi = "<<phi<<", theta =" << theta << ", distance = "<<dist_pmt_vertex<<", proba="<<proba<<endl;
+	cout<<"PMT type="<<pmtType<< ", hit#"<<ihit<<", theta =" << theta << ", proba="<<proba<<endl;
       }
     }
   }
-  //if(verbose==3) cout<<"NLL directionnel="<<NLL<<endl;
-  /*
-  if(TMath::Abs(vertexPosition[3])>2740 || TMath::Sqrt(pow(vertexPosition[1],2) + pow(vertexPosition[2],2))>3540){
-      cout<<"Out of the tank, radius = "<<TMath::Sqrt(pow(vertexPosition[1],2) + pow(vertexPosition[2],2))<<", height = "<<vertexPosition[3]<<endl;
-      return 1e9;
-    }
-    */
-    if(verbose==3) cout<<"NLL directionnel="<<NLL<<endl;
-
+  if(verbose==2) cout<<"NLL directionnel="<<NLL<<endl;
   delete vDirection, vPos;
   return NLL;
 }
@@ -405,7 +399,6 @@ double findNLLDirectionality(double vertexPosition[4],int nhits,int verbose,doub
 //Created to compare 2 hypotheses: DR and signal.
 //Useful when we have a number of hits that fluctuates between 2 candidate vertex. The main example is when we restrict the likelihood to a given time window
 //Indeed, in that case, as the PDF <=1, the more hits we have, the less the Likelihood. But, what we want is to be able to compare cases with other vertices which corresponds to different number of hits in time window.
-/*
 double findNLLDirectionalityBayes(double vertexPosition[4],int nhits,int verbose,double lowerLimit,double upperLimit){
   double NLLsignal = 0.9;
   double NLLdr = 0.1;
@@ -481,7 +474,6 @@ double findNLLDirectionalityBayes(double vertexPosition[4],int nhits,int verbose
   delete vDirection, vPos;
   return NLL;
 }
-*/
 
 Double_t valueTimePDF(Double_t *time, Double_t *par){
   if(time[0]<par[0] || time[0]>par[1]) return 0;
@@ -496,13 +488,12 @@ Double_t valueTimePDF(Double_t *time, Double_t *par){
 void loadSplines(){
   TFile *fSplines, *fSplines2;
   if(isHE){
-    fSplines = new TFile("timePDF_HE.root","read");//To generate with my code ProduceWSPlots.c
+    fSplines = new TFile("../inputs/timePDF_HE.root","read");//To generate with my code ProduceWSPlots.c
     fSplines2 = fSplines;
   }
   else{
     fSplines = new TFile("../inputs/timePDF_DRnew_Large.root","read");//To generate with my code ProduceWSPlots.c
-    fSplines2 = new TFile("../inputs/timePDF_Directionality_DRnew.root","read");//To generate with my code ProduceWSPlots.c
-    //fSplines2 = new TFile("../inputs/timePDF_Directionality_3MeV_DRnew.root","read");//To generate with my code ProduceWSPlots.c
+    fSplines2 = new TFile("../inputs/timePDF_Directionality.root","read");//To generate with my code ProduceWSPlots.c
   }
   for(int pmtType=0;pmtType<nPMTtypes;pmtType++){
     //Load 1D t-tof splines
@@ -517,13 +508,10 @@ void loadSplines(){
 
     //Load 3D directionality histograms.
     for(int pmtGroup=0;pmtGroup<nGroupsPMTs;pmtGroup++){
-      //hPMTDirectionality_2D[pmtType][pmtGroup] = (TH1D*) fSplines2->Get(Form("hPMTDirectionality_1D_%d_%d_%d",0,pmtType,pmtGroup));
-      hPMTDirectionality_2D[pmtType][pmtGroup] = (TH2D*) fSplines2->Get(Form("hPMTDirectionality_2D_%d_%d_%d",0,pmtType,pmtGroup));
-      //DR_dir_proba[pmtType][pmtGroup] = hPMTDirectionality_2D[pmtType][pmtGroup]->Integral() / hPMTDirectionality_2D[pmtType][pmtGroup]->GetNbinsX();
-      //cout<<hPMTDirectionality_2D[pmtType][pmtGroup]->GetMean()<<", and DR = "<<DR_dir_proba[pmtType][pmtGroup]<<endl;
-      gPMTDirectionality_2D[pmtType][pmtGroup] = (TGraph2D*) fSplines2->Get(Form("gPMTDirectionality_2D_%d_%d_%d",0,pmtType,pmtGroup));
+      hPMTDirectionality_1D[pmtType][pmtGroup] = (TH1D*) fSplines2->Get(Form("hPMTDirectionality_1D_%d_%d_%d",0,pmtType,pmtGroup));
+      DR_dir_proba[pmtType][pmtGroup] = hPMTDirectionality_1D[pmtType][pmtGroup]->Integral() / hPMTDirectionality_1D[pmtType][pmtGroup]->GetNbinsX();
+      cout<<hPMTDirectionality_1D[pmtType][pmtGroup]->GetMean()<<", and DR = "<<DR_dir_proba[pmtType][pmtGroup]<<endl;
     }
-    fDistResponsePMT[pmtType] = (TF1*) fSplines2->Get(Form("fDistResponsePMT_pmtType%d",pmtType));
     /*
     bohPMTDirectionality_1Dol testSplines=true;
     if(testSplines){
@@ -721,7 +709,7 @@ double findNLL(double vertexPosition[4],int nhits,bool likelihood,int verbose,do
       //NLLdir=findNLLDirectionalityBayes(vertexPosition, nhits, verbose,hitTimeLimitsNegative,hitTimeLimitsPositive);
       NLLdir2=findNLLDirectionality(vertexPosition, nhits, verbose,hitTimeLimitsNegative,hitTimeLimitsPositive);
     }
-    if(verbose >= 2) cout<<"NLL = "<<NLL<<", dir (L) = "<<TMath::Exp(-NLLdir)<<", dir 2 = "<<NLLdir2<<endl;
+    if(verbose == 2) cout<<"NLL = "<<NLL<<", dir (L) = "<<TMath::Exp(-NLLdir)<<", dir 2 = "<<NLLdir2<<endl;
     if(directionality == 1) NLL+=NLLdir2;
     else if(directionality == 2) NLL=NLLdir2;
   }
@@ -748,19 +736,19 @@ double ** searchVertex(double tankRadius,double tankHeight,double integrationTim
   
   //for(double time = -50; time < integrationTimeWindow; time+=(stepSize/lightSpeed)){
   for(double time = -50; time < 50; time+=(stepSize/lightSpeed)){
-    if(verbose>=1) cout << "Time = " << time << "ns" << endl;
+    if(verbose) cout << "Time = " << time << "ns" << endl;
     for(double radius = 0;radius <= tankRadius;radius+=stepSize){
-      if(verbose>=1) cout << "Radius = " << radius << "m" << endl;
+      if(verbose) cout << "Radius = " << radius << "m" << endl;
       double perimeter = 2*TMath::Pi()*radius;
       int numberOfStepsOnCircle = floor(perimeter/stepSize);
       if(numberOfStepsOnCircle == 0) numberOfStepsOnCircle = 1;
       double angleStepOnCircle = 2*TMath::Pi()/numberOfStepsOnCircle;
       
       for(double angle=0;angle<=2*TMath::Pi();angle+=angleStepOnCircle){
-	//if(verbose>=1) cout << "Angle = " << angle << "rad" << endl;
+	//if(verbose) cout << "Angle = " << angle << "rad" << endl;
 	
 	for(double height=-tankHeight/2.;height <= tankHeight/2.;height+=stepSize){
-	  //if(verbose>=1) cout << "Height = " << height << "m" << endl;
+	  //if(verbose) cout << "Height = " << height << "m" << endl;
 	  
 	  double vertexPosition[4];//In centimeters
 	  vertexPosition[0] = time;
@@ -816,16 +804,16 @@ double ** searchVertex(double tankRadius,double tankHeight,double integrationTim
       //reconstructedVertexPosition[counter] = new double[4];
       for(int i=0;i<4;i++) reconstructedVertexPosition[counter][i] = (it->second)[i];
       reconstructedVertexPosition[counter][4] = it->first;
-      //if(verbose>=1) cout<<"NLL = "<<it->first<<", vertex = "<<it->second[0]<<", "<<it->second[1]<<", "<<it->second[2]<<", "<<it->second[3]<<endl;
+      //if(verbose) cout<<"NLL = "<<it->first<<", vertex = "<<it->second[0]<<", "<<it->second[1]<<", "<<it->second[2]<<", "<<it->second[3]<<endl;
 
-      if(verbose>=1){
+      if(verbose){
 	double distanceToTrue=0;
 	for(int i=0;i<3;i++){
 	  distanceToTrue += pow(trueVertexPosition[i+1]-it->second[i+1],2);
 	}
 	distanceToTrue = TMath::Sqrt(distanceToTrue);
 	cout<<"NLL = "<<it->first<<", time distance to true = "<<it->second[0]-trueVertexPosition[0]<<"ns, distance to true = "<<distanceToTrue<<"m, "<<endl;
-	if(verbose==2) cout<<"NLL = "<<it->first<<", vertex = "<<it->second[0]<<", "<<it->second[1]<<", "<<it->second[2]<<", "<<it->second[3]<<endl;
+	if(verbose) cout<<"NLL = "<<it->first<<", vertex = "<<it->second[0]<<", "<<it->second[1]<<", "<<it->second[2]<<", "<<it->second[3]<<endl;
       }
     }
     counter++;
@@ -835,7 +823,7 @@ double ** searchVertex(double tankRadius,double tankHeight,double integrationTim
     distanceToTrue += pow(trueVertexPosition[i+1]-bestReconstructedVertexPosition[i+1],2);
   }
   distanceToTrue = TMath::Sqrt(distanceToTrue);
-  if(verbose>=1){
+  if(verbose){
     cout << "Candidate is at a distance " << distanceToTrue << "m" << ", time difference = " << bestReconstructedVertexPosition[0] - trueVertexPosition[0] << "ns, with a min NLL = " <<minNLL << endl;
     cout << "Time of the true event = " << trueVertexPosition[0] << endl;
     }
@@ -857,7 +845,7 @@ double ** searchVertex(double tankRadius,double tankHeight,double integrationTim
 //nCandidate provide the size of the list of inital vertices, while tolerance provide the size of the output list.
 //Other informations are the same as searchVertex.
 double ** searchVertexFine(double ** initialVertex,double * limits, double stepSize,int nhits,int pmtType,double * trueVertexPosition,int nCandidates = 1,int tolerance = 1,int verbose=0,bool likelihood=false,bool average=false,double lowerLimit=stimePDFLimitsQueueNegative, double upperLimit=stimePDFLimitsQueuePositive, int directionality=false){
-  if(verbose==1) cout<<"Start fine search, use directionality? "<<directionality<<endl;
+  cout<<"Start fine search, use directionality? "<<directionality<<endl;
   //2. How to set the search?
   //double stepSize = 0.5;//in m
   //double * reconstructedVertexPosition = new double[4];
@@ -973,14 +961,14 @@ double ** searchVertexFine(double ** initialVertex,double * limits, double stepS
       for(int i=0;i<4;i++) reconstructedVertexPosition[counter][i] = (it->second)[i];
       reconstructedVertexPosition[counter][4] = it->first;
 
-      if(verbose>=1){
+      if(verbose){
 	double distanceToTrue=0;
 	for(int i=0;i<3;i++){
 	  distanceToTrue += pow(trueVertexPosition[i+1]-it->second[i+1],2);
 	}
 	distanceToTrue = TMath::Sqrt(distanceToTrue);
 	cout<<"NLL = "<<it->first<<", time distance to true = "<<it->second[0]-trueVertexPosition[0]<<"ns, distance to true = "<<distanceToTrue<<"m, "<<endl;
-      //if(verbose>=1) cout<<"NLL = "<<it->first<<", vertex = "<<it->second[0]<<", "<<it->second[1]<<", "<<it->second[2]<<", "<<it->second[3]<<endl;
+      //if(verbose) cout<<"NLL = "<<it->first<<", vertex = "<<it->second[0]<<", "<<it->second[1]<<", "<<it->second[2]<<", "<<it->second[3]<<endl;
       }
     }
     
@@ -991,9 +979,8 @@ double ** searchVertexFine(double ** initialVertex,double * limits, double stepS
     distanceToTrue += pow(trueVertexPosition[i+1]-bestReconstructedVertexPosition[i+1],2);
   }
   distanceToTrue = TMath::Sqrt(distanceToTrue);
-  if(verbose>=0){
+  if(verbose){
     cout << "Fine candidate is at a distance " << distanceToTrue << "m" << ", time difference = " << bestReconstructedVertexPosition[0] - trueVertexPosition[0] << "ns, with a min NLL = " <<minNLL << endl;
-    if(distanceToTrue>1000) cout<<"NOOOOOOOOO"<<endl;
     cout << "Time of the true event = " << trueVertexPosition[0] << endl;
   }
   clock_t timeEnd=clock();
@@ -1016,7 +1003,6 @@ void minuitLikelihood(int& nDim, double * gout, double & NLL, double par[], int 
   for(int i=0;i<4;i++) vertexPosition[i]=par[i];
   int pmtType=par[4];
   int nhits=par[5];
-  //int pmt=par[6];
   double lowerLimit=par[6];
   double upperLimit=par[7];
   double expoSigma=par[8];
@@ -1030,7 +1016,7 @@ void minuitLikelihood(int& nDim, double * gout, double & NLL, double par[], int 
   //NLL=findRateAndShape(pmtType,vertexPosition,nhits,1,lowerLimit,upperLimit,scalingFactor,true);
   //NLL=findChi2Binned(pmtType,vertexPosition,nhits,1,lowerLimit,upperLimit);
   //NLL=findChi2BinnedExpo(pmtType,vertexPosition,nhits,1,expoSigma);
-  //if(verbose>=1){
+  //if(verbose){
   //cout<<setprecision(10)<<"NLL="<<NLL<<", Vertex: "<<vertexPosition[0]<<"ns, ("<<vertexPosition[1]<<", "<<vertexPosition[2]<<", "<<vertexPosition[3]<<")"<<endl;
   //cout<<"Expo sigma = "<<expoSigma<<"ns"<<endl;
   //}
@@ -1060,9 +1046,6 @@ double ** minimizeVertex(double ** initialVertex,double * limits, double stepSiz
   //arglist[0]=0;
   double p1=verbose-1;
   minimizer->ExecuteCommand("SET PRINTOUT",&p1,1);//quiet mode
-  //minimizer->SuppressMinuitWarning(true);
-  //minuit->mnexcm("SET NOWarnings",verbose);
-  minuit->mnexcm("SET NOWarnings",verbose,verbose,verbose);
   minuit->SetErrorDef(1);
   arglist[0]=2;
   minuit->mnexcm("SET STR",arglist,1,err);//set strategy sets the number of derivative estimated. in the present case (2), this is the highest number of it with a counter-balance: very slow!
@@ -1092,9 +1075,7 @@ double ** minimizeVertex(double ** initialVertex,double * limits, double stepSiz
     if(verbose>=1) cout<<"Candidate #"<<icand<<endl;
       for(int i=0;i<4;i++){
 	//initialVertex[icand][i]-=trueVertexPosition[i];
-	if(verbose>=1) cout<<"Initial="<<initialVertex[icand][i]<<endl;
-	//double limit_inf=initialVertex[icand][i]-limits[i]/(i==0?lightSpeed:1);
-	//if(i)
+	cout<<"Initial="<<initialVertex[icand][i]<<endl;
 	minimizer->SetParameter(i,Form("vertex%d",i),initialVertex[icand][i],stepSize/(i==0?lightSpeed:1),initialVertex[icand][i]-limits[i]/(i==0?lightSpeed:1),initialVertex[icand][i]+limits[i]/(i==0?lightSpeed:1));
       }
       minimizer->SetParameter(4,"pmtType",pmtType,pmtType,pmtType-1,pmtType+1);
@@ -1116,38 +1097,22 @@ double ** minimizeVertex(double ** initialVertex,double * limits, double stepSiz
       //double nll=findNLL(initialVertex[icand],nhits,likelihood,2,lowerLimit,upperLimit,true,true);
       //double nll2=findNLL(initialVertex[icand],nhits,likelihood,2,-3,4);
       //cout<<"NLL="<<nll<<endl;
-#ifdef DRAWNLL
+      /*
       TFile * fScan = new TFile("fScan.root","recreate");
       TGraph *gr;
       double arglist1[2];
       for(int ipar=0;ipar<4;ipar++){
 	arglist1[0]=ipar+1;//param to scan
-	arglist1[1]=100;//number of points
-	/*
-	if(ipar==0){
-	  arglist1[2]=-100;//lower limit of the scan
-	  arglist1[3]=100;//upper limit
-	}
-	else{
-	  arglist1[2]=-2000;//lower limit of the scan
-	  arglist1[3]=2000;//upper limit
-	  }*/
+	arglist1[1]=10000;//number of points
+	//arglist1[2]=-200;//lower limit of the scan
+	//arglist1[3]=200;//upper limit
 	minimizer->ExecuteCommand("SCAN",arglist1,2);//arglist,1);//minmize log like fitting parameters
 	minuit=minimizer->GetMinuit();
 	gr = (TGraph*)minuit->GetPlot();
-	double * x = gr->GetX();double * y = gr->GetY();
-	for(int ibinx=0;ibinx<gr->GetN();ibinx++){
-	  x[ibinx]-=trueVertexPosition[ipar];
-	  //cout<<"Bin = "<<ibinx<<", x = "<<x[ibinx]<<" vs "<<trueVertexPosition[ipar]<<" nll = "<<y[ibinx]<<endl;
-	  gr->SetPoint(ibinx,x[ibinx],y[ibinx]);
-	}
-	//trueVertexPosition[i]
 	gr->Write(Form("scan_par%d",ipar));
       }
       fScan->Close();
-#else
-      minimizer->ExecuteCommand("MIGRAD",Mig,2);
-#endif
+      */
       //initialVertex[icand][0] = 6.40055e-01;
       //initialVertex[icand][1] = 3.26636e+03;
       //initialVertex[icand][2] = -1.14015e+03;
@@ -1166,9 +1131,7 @@ double ** minimizeVertex(double ** initialVertex,double * limits, double stepSiz
       minimizer->ExecuteCommand("MIGRAD",Mig,2);
       minimizer->ReleaseParameter(0);
       minimizer->ExecuteCommand("MIGRAD",Mig,2);*/
-
-      
-
+      minimizer->ExecuteCommand("MIGRAD",Mig,2);
       //minimizer->ExecuteCommand("SEEK",Mig,2);
       //minimizer->ExecuteCommand("MINIMIZE",Mig,2);
       //minimizer->ExecuteCommand("MINOS",Mig,2);
@@ -1208,14 +1171,14 @@ double ** minimizeVertex(double ** initialVertex,double * limits, double stepSiz
 	  for(int i=0;i<4;i++) reconstructedVertexPosition[counter][i] = (it->second)[i];
 	  reconstructedVertexPosition[counter][4] = it->first;
 	  
-	  if(verbose>=1){
+	  if(verbose){
 	    double distanceToTrue=0;
 	    for(int i=0;i<3;i++){
 	      distanceToTrue += pow(trueVertexPosition[i+1]-it->second[i+1],2);
 	    }
 	    distanceToTrue = TMath::Sqrt(distanceToTrue);
 	    cout<<"NLL = "<<it->first<<", time distance to true = "<<it->second[0]-trueVertexPosition[0]<<"ns, distance to true = "<<distanceToTrue<<"m, "<<endl;
-	    //if(verbose>=1) cout<<"NLL = "<<it->first<<", vertex = "<<it->second[0]<<", "<<it->second[1]<<", "<<it->second[2]<<", "<<it->second[3]<<endl;
+	    //if(verbose) cout<<"NLL = "<<it->first<<", vertex = "<<it->second[0]<<", "<<it->second[1]<<", "<<it->second[2]<<", "<<it->second[3]<<endl;
 	  }
 	}
 	
@@ -1226,7 +1189,7 @@ double ** minimizeVertex(double ** initialVertex,double * limits, double stepSiz
     distanceToTrue += pow(trueVertexPosition[i+1]-bestReconstructedVertexPosition[i+1],2);
   }
   distanceToTrue = TMath::Sqrt(distanceToTrue);
-  if(verbose>=0){
+  if(verbose){
     cout << "Fine candidate is at a distance " << distanceToTrue << "m" << ", time difference = " << bestReconstructedVertexPosition[0] - trueVertexPosition[0] << "ns, with a min NLL = " <<minNLL << endl;
     cout << "Time of the true event = " << trueVertexPosition[0] << endl;
   }
@@ -1243,13 +1206,13 @@ double ** minimizeVertex(double ** initialVertex,double * limits, double stepSiz
 
 }
 
-int main(int argc, char **argv){
+int main (int argc, char **argv){
 
   loadSplines();
   
-  char *filename=NULL;
-  char *outfilename=NULL;
-  int verbose=0;//-1;
+  std::string filename="";
+  std::string outfilename="";
+  int verbose=-1;
   bool hybrid = true;//false;//true;
   bool Gamma = false;//Is the mother particle a gamma or another particle?
   bool plotDigitized = true;//false;//true;//false;//true;//false;//true;//false;//true;//false;
@@ -1295,57 +1258,14 @@ int main(int argc, char **argv){
   
   TFile *file;
   // Open the file
-  if (filename==NULL){
-    //file = new TFile("/disk01/usr5/bquilain/WCSimData/wcsim_hk_e500_center_nominal.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/WCSimData/wcsim_hkmpmt_e500_center_nominal.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkmpmt_e500_center_nominal.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_trash.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e500_center_nominal_2muniformsphere.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e10_center_nominal_2muniformsphere.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e10_center_nominal_fulltank_1000events.root","read");   
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e10_center_nominal_fulltank.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e10_center_nominal_fulltank_10hitstrigger.root","read");
-    //wcsim_hkhybridmpmt_e10_center_nominal_fulltank_0hitstrigger_1000events.root
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e10_center_nominal_fulltank_0hitstrigger_1000events.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e10_center_nominal_fulltank_0hitstrigger_nodn.root","read");
-
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374100Hz_e10_center_nominal_0hitstrigger_nodn.root","read");
-    
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e10_center_nominal_fulltank_0hitstrigger.root","read");
-    
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374_e10_center_nominal_fulltank_0hitstrigger.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374_e10_center_nominal_fulltank_0hitstrigger_nodnno950.root","read");
-    file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374100Hz_e5_center_nominal_fulltank_0hitstrigger_10000.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374100Hz_e10_center_nominal_fulltank_0hitstrigger.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374100Hz_e10_center_nominal_fulltank_0hitstrigger.root","read");
-
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374100Hz_e10_center_nominal_fulltank_0hitstrigger_nodn_10000.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374100Hz_e3_center_nominal_fulltank_0hitstrigger_nodn.root","read");
-
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374_e10_center_nominal_fulltank_0hitstrigger_noqe.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt14374_e10_trash.root","read");
-    
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e500_center_nominal_2muniformsphere_100events.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/trash.root","read");
-
-    
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e500_center_nominal.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e500_center_nominal_onlybal.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt_e500_center_nominal_2.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/WCSimData/wcsim_hkmpmt_mu500_center_nominal_fulltank.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/fiTQun/HK_704cmx548cmID_mPMT_40perCent/timepdf/11_100_0_0_0/11_100_0_0_0.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/fiTQun/HK_704cmx548cmID_mPMT_40perCent/timepdf/11_900_0_6_0/11_900_0_6_0.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkmpmt100HzDN_e4_center_nominal_fulltank.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/wcsim_hkmpmt_e4_center_nominal_fulltank.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/WCSimData/wcsim_hk_e3_center_nominal_fulltank.root","read");
-    //file = new TFile("../test.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/fiTQun/HK_704cmx548cmID_mPMT_40perCent/timepdf/11_900_0_3_0/11_900_0_3_0.root","read");
-    //file = new TFile("/disk01/usr5/bquilain/fiTQun/HK_704cmx548cmID_mPMT_40perCent/timepdf/11_900_0_3_0/11_900_0_3_0.root","read");
+  if (filename == ""){
+    // Test input
+    file = new TFile("/disk01/usr5/bquilain/wcsim_hkhybridmpmt10pc14374100Hz_e10_center_nominal_fulltank_0hitstrigger_10000.root","read");
 
 
     
   }else{
-    file = new TFile(filename,"read");
+    file = new TFile(filename.c_str(),"read");
   }
   if (!file->IsOpen()){
     cout << "Error, could not open input file: " << filename << endl;
@@ -1358,7 +1278,7 @@ int main(int argc, char **argv){
   // Get the number of events
   int nevent = std::min(((int)tree->GetEntries()),20000);
   if(endEvent!=0) nevent = endEvent;
-  if(verbose>=1) printf("nevent %d\n",nevent);
+  if(verbose) printf("nevent %d\n",nevent);
   
   // Create a WCSimRootEvent to put stuff from the tree in
 
@@ -1382,7 +1302,7 @@ int main(int argc, char **argv){
   // Geometry tree - only need 1 "event"
   TTree *geotree = (TTree*)file->Get("wcsimGeoT");
   geotree->SetBranchAddress("wcsimrootgeom", &geo);
-  if(verbose>=1) std::cout << "Geotree has " << geotree->GetEntries() << " entries" << std::endl;
+  if(verbose) std::cout << "Geotree has " << geotree->GetEntries() << " entries" << std::endl;
   if (geotree->GetEntries() == 0) {
       exit(9);
   }
@@ -1413,7 +1333,7 @@ int main(int argc, char **argv){
   TTree *opttree = (TTree*)file->Get("wcsimRootOptionsT");
   WCSimRootOptions *opt = 0; 
   opttree->SetBranchAddress("wcsimrootoptions", &opt);
-  if(verbose>=1) std::cout << "Optree has " << opttree->GetEntries() << " entries" << std::endl;
+  if(verbose) std::cout << "Optree has " << opttree->GetEntries() << " entries" << std::endl;
   if (opttree->GetEntries() == 0) {
     exit(9);
   }
@@ -1440,8 +1360,8 @@ int main(int argc, char **argv){
   Int_t bsnhit_200ns[nPMTtypes]; //nsel (SLE)
   Int_t pmtTypeFill;
   
-  if(outfilename==NULL) sprintf(outfilename,"out.root");
-  TFile * outfile = new TFile(outfilename,"RECREATE");
+  if(outfilename == "") outfilename = "out.root";
+  TFile * outfile = new TFile(outfilename.c_str(),"RECREATE");
   TTree *bstree = new TTree("bstree","bstree");
   bstree->Branch("bsvertex", bsvertex, "bsvertex[4]/F");
   bstree->Branch("mcvertex", mcvertex, "mcvertex[4]/F");
@@ -1467,6 +1387,7 @@ int main(int argc, char **argv){
     //TFile * fOutput = new TFile(OutputFile,"recreate");
 
   for(int i=0;i<nPMTtypes;i++){
+    std::cout << " PMT Type: " << i << std::endl;
     ChargeProfile2D_onlyFront[i] = new TH2D(Form("ChargeProfile2D_onlyFront_pmtType%d",i),"",TankSize/2,-TankSize/2.,TankSize/2.,TankSize/2,-TankSize/2.,TankSize/2.);
     ChargeProfile2D[i] = new TH2D(Form("ChargeProfile2D_pmtType%d",i),"",TankSize/2,-TankSize/2.,TankSize/2.,TankSize/2,-TankSize/2.,TankSize/2.);
     ChargeProfile2DTop[i] = new TH2D(Form("ChargeProfile2DTop_pmtType%d",i),"",TankSize/2,-TankSize/2.,TankSize/2.,TankSize/2,-TankSize/2.,TankSize/2.);
@@ -1481,9 +1402,12 @@ int main(int argc, char **argv){
     TimeProfile[i] = new TH1D(Form("TimeProfile_pmtType%d",i),"",1e4,0,5e3);
     TimeHitProfile[i] = new TH1D(Form("TimeHitProfile_pmtType%d",i),"",1e4,0,5e3);
 
-    TimeTOFProfile[i] = new TH1D(Form("TimeTOFProfile_pmtType%d",i),"",1e4,-1e2,1e3);TimeTOFProfile[i]->Sumw2();
-    TimeTOFProfile_currentEvent[i] = new TH1D(Form("TimeTOFProfile_currentEvent_pmtType%d",i),"",1e4,-1e2,1e3);TimeTOFProfile[i]->Sumw2();
-    HitTimeTOFProfile[i] = new TH1D(Form("HitTimeTOFProfile_pmtType%d",i),"",1e4,-1e2,1e3);HitTimeTOFProfile[i]->Sumw2();
+    TimeTOFProfile[i] = new TH1D(Form("TimeTOFProfile_pmtType%d",i),"",1e4,-1e2,1e3);
+    TimeTOFProfile[i]->Sumw2();
+    TimeTOFProfile_currentEvent[i] = new TH1D(Form("TimeTOFProfile_currentEvent_pmtType%d",i),"",1e4,-1e2,1e3);
+    TimeTOFProfile[i]->Sumw2();
+    HitTimeTOFProfile[i] = new TH1D(Form("HitTimeTOFProfile_pmtType%d",i),"",1e4,-1e2,1e3);
+    HitTimeTOFProfile[i]->Sumw2();
 
     ChargePerPMT[i] = new TH1D(Form("ChargePerPMT_pmtType%d",i),"",500,0,500);
 
@@ -1522,23 +1446,18 @@ int main(int argc, char **argv){
   TH2D * ChargeXPositionXTime = new TH2D("ChargeXPositionXTime","",36,0,180,TankSize,0,TankSize);
   TH2D * ChargeProfileXdWall = new TH2D("ChargeProfileXdWall","",720,0,180,100,0,TankSize);
   TH2D * TotalChargeXdWall = new TH2D("TotalChargeXdWall","",100,0,TankSize,1e3,0,1e5);
-
   TH2D * TimeAngleProfile = new TH2D("TimeAngleHitProfile","",720,0,180,1e4,0,5e3);TimeAngleProfile->Sumw2();
   TH2D * HitTimeAngleProfile = new TH2D("HitTimeAngleHitProfile","",720,0,180,1e4,0,5e3);HitTimeAngleProfile->Sumw2();
   TH2D * TimeTOFAngleProfile = new TH2D("TimeTOFAngleProfile","",720,0,180,1e4,-1e2,5e3);TimeTOFAngleProfile->Sumw2();
   TH2D * HitTimeTOFAngleProfile = new TH2D("HitTimeTOFAngleProfile","",720,0,180,1e4,-1e2,5e3);HitTimeTOFAngleProfile->Sumw2();
   TH2D * TimeTOFTOF = new TH2D("TimeTOFTOF","",1e4,-1e2,5e3,1e2,0,5e2);TimeTOFTOF->Sumw2();
   TH2D * HitTimeTOFTOF = new TH2D("HitTimeTOFTOF","",1e4,-1e2,5e3,1e2,0,5e2);HitTimeTOFTOF->Sumw2();
-
-
   TH3D * VertexPosition = new TH3D("VertexPosition","",100,-TankSize,TankSize,100,-TankSize,TankSize,100,-TankSize,TankSize);
   TH3D * VertexDirection = new TH3D("VertexDirection","",100,-1.1,1.1,100,-1.1,1.1,100,-1.1,1.1);
   TH1D * VertexXdWall = new TH1D("VertexXdWall","",100,0,TankSize);
   TH1D * ParentFlyingDistance = new TH1D("ParentFlyingDistance","",10000,0,TankSize);
-
   TH2D * EGammaSeparationXdWall = new TH2D("EGammaSeparationxdWall","",100,0,TankSize,1000,0.,5.);
   TH1D * EGammaSeparation = new TH1D("EGammaSeparation","",1000,0.,5.);
-
   //Set the 2D histogram to 0 to increase lisibility of plots
   for(int ibinx=1;ibinx<=ChargeProfile2D->GetNbinsX();ibinx++){
     for(int ibiny=1;ibiny<=ChargeProfile2D->GetNbinsY();ibiny++){
@@ -1558,12 +1477,11 @@ int main(int argc, char **argv){
   for (int ev=startEvent; ev<nevent; ev++)
   {
     // Read the event from the tree into the WCSimRootEvent instance
-    tree->GetEntry(ev);
-    if(ev%10==0) cout<<"Event "<<ev<<" is fitted"<<endl;
+    tree->GetEntry(ev);      
     wcsimrootevent = wcsimrootsuperevent->GetTrigger(0);
     if(hybrid) wcsimrootevent2 = wcsimrootsuperevent2->GetTrigger(0);
     //wcsimrootevent2 = wcsimrootsuperevent2->GetTrigger(0);
-    if(verbose>=1){
+    if(verbose){
       printf("********************************************************");
       printf("Evt, date %d %d\n", wcsimrootevent->GetHeader()->GetEvtNum(),
 	     wcsimrootevent->GetHeader()->GetDate());
@@ -1579,7 +1497,7 @@ int main(int argc, char **argv){
     hvtx1->Fill(wcsimrootevent->GetVtx(1));
     hvtx2->Fill(wcsimrootevent->GetVtx(2));
 
-    if(verbose>=1){
+    if(verbose){
       printf("Jmu %d\n", wcsimrootevent->GetJmu());
       printf("Npar %d\n", wcsimrootevent->GetNpar());
       printf("Ntrack %d\n", wcsimrootevent->GetNtrack());
@@ -1594,7 +1512,7 @@ int main(int argc, char **argv){
     triggerInfo2.clear();
     if(hybrid) triggerInfo2 = wcsimrootevent2->GetTriggerInfo();
 
-    if(verbose>=1){
+    if(verbose){
       for(int v=0;v<triggerInfo.size();v++){
 	cout << "Trigger entry #" << v << ", info = " << triggerInfo[v] << endl;
       }
@@ -1627,7 +1545,7 @@ int main(int argc, char **argv){
     
     // Get the number of tracks
     int ntrack = wcsimrootevent->GetNtrack();
-    if(verbose>=1) printf("ntracks=%d\n",ntrack);
+    if(verbose) printf("ntracks=%d\n",ntrack);
 
     double particleStart[3];
     double particleStop[3];
@@ -1652,16 +1570,18 @@ int main(int argc, char **argv){
 	//if(particleStart[0] != 0 || particleStart[1] != 0 || particleStart[2] != 0) cout << endl << endl << endl << "###############################################" << endl << "Particle position has an issue" << endl << "###############################################" << endl;
       }
 
-      if(verbose>=1){
+      if(verbose){
 	printf("Track ipnu: %d\n",wcsimroottrack->GetIpnu());
 	printf("Track parent ID: %d\n",wcsimroottrack->GetParenttype());
 	printf("Track energy: %f\n", wcsimroottrack->GetE());
 	printf("Track momentum: %f\n", wcsimroottrack->GetP());
 	printf("Track mass: %f\n", wcsimroottrack->GetM());
       
-	for (int j=0; j<3; j++)
+	for (int j=0; j<3; j++){
 	  printf("Track start: %d %f\n",j, wcsimroottrack->GetStart(j));
 	  printf("Track dir: %d %f\n",j, wcsimroottrack->GetDir(j));
+	}
+      }
       }
 
       
@@ -1709,7 +1629,7 @@ int main(int argc, char **argv){
     int ncherenkovdigihits2 = 0;if(hybrid) ncherenkovdigihits2 = wcsimrootevent2->GetNcherenkovdigihits(); 
     
     h1->Fill(ncherenkovdigihits);
-    if(verbose>=1){
+    if(verbose){
       printf("node id: %i\n", ev);
       printf("Ncherenkovhits %d\n",     ncherenkovhits);
       printf("Ncherenkovdigihits %d\n", ncherenkovdigihits);
@@ -1718,17 +1638,17 @@ int main(int argc, char **argv){
       cout << "RAW HITS:" << endl;
     }
 
-    if(verbose>=1) cout << "DIGITIZED HITS:" << endl;
+    if(verbose) cout << "DIGITIZED HITS:" << endl;
     //for (int index = 0 ; index < wcsimrootsuperevent->GetNumberOfEvents(); index++) 
     //{
     //wcsimrootevent = wcsimrootsuperevent->GetTrigger(index);
-    //if(verbose>=1) cout << "Sub event number = " << index << "\n";
+    //if(verbose) cout << "Sub event number = " << index << "\n";
     
     //int ncherenkovdigihits = wcsimrootevent->GetNcherenkovdigihits();
-    //if(verbose>=1) printf("Ncherenkovdigihits %d\n", ncherenkovdigihits);
+    //if(verbose) printf("Ncherenkovdigihits %d\n", ncherenkovdigihits);
 
     for(int pmtType=0;pmtType<nPMTtypes;pmtType++){
-      if(verbose>=1) cout << "PMT Type = " << pmtType << endl;
+      if(verbose) cout << "PMT Type = " << pmtType << endl;
       // Grab the big arrays of times and parent IDs
       TClonesArray *timeArray;
       if(pmtType==0) timeArray = wcsimrootevent->GetCherenkovHitTimes();
@@ -1849,9 +1769,9 @@ int main(int argc, char **argv){
 	  if(verbose==2){
 	    if ( i < 10 ) // Only print first XX=10 tubes
 	      {
-		if(verbose>=1) printf("Total pe: %1.1f times( ",peForTube);
-		if(verbose>=1) cout << ")" << endl;
-		if(verbose>=1){
+		if(verbose) printf("Total pe: %1.1f times( ",peForTube);
+		if(verbose) cout << ")" << endl;
+		if(verbose){
 		  std::cout << "Position of PMT = " << PMTpos[0] << ", " << PMTpos[1] << ", " << PMTpos[2] << endl;
 		  std::cout << "Timing of the PMT hit = " << time << ", distance to vertex = " << Norm << endl;
 		}
@@ -1871,7 +1791,6 @@ int main(int argc, char **argv){
 	  for(int j=0;j<3;j++) essentialHitInfo_temp[unmaskedHit][j+1] = PMTpos[j];//Conversion from cm to m removed
 	  essentialHitInfo_temp[unmaskedHit][4] = pmtType;
 	  essentialHitInfo_temp[unmaskedHit][5] = tubeNumber;
-	  essentialHitInfo_temp[unmaskedHit][6] = pmt.GetmPMT_PMTNo();
 	  //std::cout << "Relative angle = " << relativeAngle << ", time = " << time << endl;
 	  
 	  if(plotDigitized){
@@ -1901,7 +1820,7 @@ int main(int argc, char **argv){
 	  unmaskedHit++;
 	} // End of loop over Cherenkov hits
 
-      if(verbose>=1) cout << "Total Pe : " << totalPe << endl;
+      if(verbose) cout << "Total Pe : " << totalPe << endl;
       if(plotDigitized){
 	TotalCharge[pmtType]->Fill(totalPe);
 	TotalHit[pmtType]->Fill(totalHit);
@@ -1920,13 +1839,13 @@ int main(int argc, char **argv){
 	for (i=0; i< nhitsTotal ; i++)
 	  {
 	    if(i<nhits_pmtType0){
-	      essentialHitInfo[i] = new double[7];
-	      for(int j=0;j<7;j++) essentialHitInfo[i][j] = essentialHitInfo_pmtType0[i][j];
+	      essentialHitInfo[i] = new double[6];
+	      for(int j=0;j<6;j++) essentialHitInfo[i][j] = essentialHitInfo_pmtType0[i][j];
 	      delete essentialHitInfo_pmtType0[i];
 	    }
 	    else{
-	      essentialHitInfo[i] = new double[7];
-	      for(int j=0;j<7;j++) essentialHitInfo[i][j] = essentialHitInfo_temp[i-nhits_pmtType0][j];//Remove the effect of trigger and 950 shift	      
+	      essentialHitInfo[i] = new double[6];
+	      for(int j=0;j<6;j++) essentialHitInfo[i][j] = essentialHitInfo_temp[i-nhits_pmtType0][j];//Remove the effect of trigger and 950 shift	      
 	    }
 	  }
 	cout<<"Ev="<<ev<<", pmt type="<<pmtType<<",nhits pmtType0="<<nhits_pmtType0<<", nhitsTotal="<<nhitsTotal<<endl;	  
@@ -1937,8 +1856,8 @@ int main(int argc, char **argv){
 	essentialHitInfo = new double*[nhitsTotal];
 	for (i=0; i< nhitsTotal ; i++)
 	  {
-	    essentialHitInfo[i] = new double[7];
-	    for(int j=0;j<7;j++) essentialHitInfo[i][j] = essentialHitInfo_temp[i][j];//Remove the effect of trigger and 950 shift
+	    essentialHitInfo[i] = new double[6];
+	    for(int j=0;j<6;j++) essentialHitInfo[i][j] = essentialHitInfo_temp[i][j];//Remove the effect of trigger and 950 shift
 	  }
 	cout<<"Ev="<<ev<<", pmt type="<<pmtType<<",nhitsTotal="<<nhitsTotal<<endl;
 	//Case 1: firt PMT type, then create the hit list as a copy of the temporary one
@@ -1947,8 +1866,8 @@ int main(int argc, char **argv){
 	  nhits_pmtType0=nhits;
 	  for (i=0; i< nhitsTotal ; i++)
 	    {
-	  essentialHitInfo_pmtType0[i] = new double[7];
-	      for(int j=0;j<7;j++) essentialHitInfo_pmtType0[i][j] = essentialHitInfo[i][j];//Remove the effect of trigger and 950 shift
+	  essentialHitInfo_pmtType0[i] = new double[6];
+	      for(int j=0;j<6;j++) essentialHitInfo_pmtType0[i][j] = essentialHitInfo[i][j];//Remove the effect of trigger and 950 shift
 	    }
 	}
       }
@@ -2074,15 +1993,7 @@ int main(int argc, char **argv){
 	  else{
 	    PDFnormalization_fullTimeWindow=splineIntegral(stimePDFQueue[pmtType],stimePDFLimitsQueueNegative_fullTimeWindow,stimePDFLimitsQueuePositive_fullTimeWindow);
 	    for(int i=0;i<4;i++) limits[i] = 2*stepSize;
-#ifdef DRAWNLL
-	    //Set the first vertex as the true one
-	    for(int i=0;i<4;i++){
-	      reconstructedVertexPosition[0][i]=trueVertexPosition[i];
-	    }
-	    reconstructedVertexPositionFinal = minimizeVertex(reconstructedVertexPosition,limits,stepSizeFinal,nhitsTotal,pmtType,trueVertexPosition,toleranceFinal,toleranceFinal,verbose,true,false,-700,1000,useDirectionality);
-#else
 	    reconstructedVertexPositionFinal = minimizeVertex(reconstructedVertexPosition,limits,stepSizeFinal,nhitsTotal,pmtType,trueVertexPosition,tolerance,toleranceFinal,verbose,true,false,-700,1000,useDirectionality);
-#endif
 	    //double stepSizeFine = 50;
 	    //int toleranceFine=30;
 	    //double ** reconstructedVertexPositionFine = minimizeVertex(reconstructedVertexPosition,limits,stepSizeFine,nhitsTotal,pmtType,trueVertexPosition,tolerance,toleranceFine,verbose,true,false,-100,500);
@@ -2111,14 +2022,14 @@ int main(int argc, char **argv){
 	*/
 
 	  //3.a. Test the NLL of the true vertex to compare with reco
-	  //if(verbose>=1) cout<<"Test of the NLL at the candidate vertex point"<<endl;
+	  //if(verbose) cout<<"Test of the NLL at the candidate vertex point"<<endl;
 	  //for(int i=0;i<4;i++) limits[i] = 0;//stepSizeFineFine;//particleStart[i]*1e-2;//onversion to meter
 	  //double ** reconstructedVertexPositionTest0 = searchVertexFine(&(reconstructedVertexPositionFine[0]),limits,stepSizeFineFine,nhitsTotal,pmtType,trueVertexPosition,1,100,verbose,true);
 	
-	  if(verbose>=1) cout<<"Test of the NLL at the true vertex point"<<endl;
+	  if(verbose) cout<<"Test of the NLL at the true vertex point"<<endl;
 	  for(int i=0;i<4;i++) limits[i] = 0;//stepSizeFineFine;//particleStart[i]*1e-2;//onversion to meter
 	  double ** trueVertexPositionFinal = searchVertexFine(&trueVertexPosition,limits,stepSize,nhitsTotal,pmtType,trueVertexPosition,1,1,verbose,true);
-	  if(verbose>=1) cout<<"done"<<endl;
+	  if(verbose) cout<<"done"<<endl;
 	  //DistanceToTrueXNLL[pmtType]->Fill(distancetotrue);
 	  /////////////////////////////////////////////////////////////
 
@@ -2161,9 +2072,9 @@ int main(int argc, char **argv){
 	  double distancetotrue=0;
 	  double nllDifference=0;
 
-	  if(verbose>=1) cout<<"done"<<endl;
+	  if(verbose) cout<<"done"<<endl;
 	  for(int a=0;a<toleranceFinal;a++){
-	    if(verbose>=1) cout<<"Final candidate vertex time = "<<reconstructedVertexPositionFinal[a][0]<<endl;
+	    if(verbose) cout<<"Final candidate vertex time = "<<reconstructedVertexPositionFinal[a][0]<<endl;
 	    if(a==0){
 	      for(int j=0;j<4;j++){
 		if(j==0) timetotrue = reconstructedVertexPositionFinal[a][j]-trueVertexPosition[j];
@@ -2178,10 +2089,10 @@ int main(int argc, char **argv){
 	      
 	    }
 	  }
-	  if(verbose>=1) cout<<"done"<<endl;
+	  if(verbose) cout<<"done"<<endl;
 	  distancetotrue=TMath::Sqrt(distancetotrue);
 	  if(trueVertexPositionFinal[0][4]!=0) nllDifference/=trueVertexPositionFinal[0][4];
-	  if(verbose>=1) cout<<"Vertex found has a time difference of "<<timetotrue<<"ns and a distance of "<<distancetotrue<<"cm from the true vertex, and nll difference ="<<nllDifference<<endl;
+	  if(verbose) cout<<"Vertex found has a time difference of "<<timetotrue<<"ns and a distance of "<<distancetotrue<<"cm from the true vertex, and nll difference ="<<nllDifference<<endl;
 	  if(distancetotrue>500) cout<<"code 666"<<endl;
 
 	  fitTimeToTrue[pmtType]->Fill(timetotrue);
@@ -2232,9 +2143,7 @@ int main(int argc, char **argv){
 	    double tof = distance / lightSpeed;
 	    double residual = hitTime - tof - reconstructedVertexPositionFinal[0][0];
 	    if(residual > stimePDFLimitsQueueNegative && residual < stimePDFLimitsQueuePositive){
-	      //bsnhit_intime[pmtType]++;
-	      int pmtHitted = ((int) info[4]);
-	      bsnhit_intime[pmtHitted]++;//Bug solved by B.Q on 2020/04/22
+	      bsnhit_intime[pmtType]++;
 	    }
 	  }
 	  bstree->Fill();

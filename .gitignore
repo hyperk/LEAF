@@ -1,5 +1,8 @@
-*.root*.o
-app/FitVertexLE
-*.swp
+*.root
 *.o
+*.swp
 .depend
+leaf/DataModelRootDict*
+leaf/HKAstroAnalysis.*
+leaf/DataModel
+lib/*
