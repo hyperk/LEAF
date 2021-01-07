@@ -26,6 +26,6 @@ alias root='root -l'
 ############################
 
 #Temporary, any official location?
-export BONSAIDIR=/disk02/usr6/pronost/software/BonsaiHK
+export BONSAIDIR=/home/pronost/HK/analysis/hk-BONSAI-ROOT5
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$BONSAIDIR
 

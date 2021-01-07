@@ -83,6 +83,9 @@ $(LIB_ASTROANALYSIS): HKAstroAnalysis.o
 #$(LIB_DATAMODEL): DataModelRootDict.cpp $(DATAMODEL_OBJECTS) 
 $(LIB_DATAMODEL): $(DATAMODEL_OBJECTS) 
 	@echo '<< generating ' $@ ' >>'
+	@if [ ! -d ../lib ]; then \
+		mkdir ../lib; \
+	fi
 	@$(SOMAKER) $(SOFLAGS) -o $@  $(DATAMODEL_OBJECTS)  $(LIBS)
 	
 # Not needed anymore
