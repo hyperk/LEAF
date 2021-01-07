@@ -22,7 +22,6 @@ class Hit {
 
 	public:
 		Hit(); 
-		Hit(int lID, TimeDelta::short_time_t lT, double lQ, int lPMT); 
 		Hit(int lID, TimeDelta::short_time_t lT, double lQ, const HKAA::PMTType lPMT=HKAA::kIDPMT_BnL); 
 		~Hit(); 
 
