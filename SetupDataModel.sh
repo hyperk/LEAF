@@ -1,5 +1,9 @@
 #!/bin/bash
 
+if [ ! -z ./leaf/DataModel ]; then
+	echo "Remove previous link"
+	rm ./leaf/DataModel
+fi
 
 if [ "$HK_ASTROANALYSIS_DIR" == "" ] || [ -z $HK_ASTROANALYSIS_DIR ]; then
 	echo "HK_ASTROANALYSIS_DIR is not defined or doesn't exist ($HK_ASTROANALYSIS_DIR). Will use lite DataModel."
