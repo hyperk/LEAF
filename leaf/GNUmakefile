@@ -41,8 +41,7 @@ LIB_ASTROANALYSIS = ../lib/libHKAstroAnalysis.so
 
 LIBS_OBJECTS = $(LIB_DATAMODEL) $(LIB_MANAGER) $(LIB_FITTER) #$(LIB_ASTROANALYSIS)
 
-
-DATAMODEL_SOURCES = $(wildcard DataModel/*.cpp)
+DATAMODEL_SOURCES = $(filter-out DataModel/DataModelRootDict.cpp, $(wildcard DataModel/*.cpp))
 DATAMODEL_SRC_NOP = $(DATAMODEL_SOURCES:DataModel/%=./%)
 
 DATAMODEL_HEADERS = $(DATAMODEL_SOURCES:%.cpp=%.h)
@@ -56,6 +55,8 @@ ifeq ($(MAKE_LEAF_WITH_ROOT6),1)
 	@echo '<< compile with ROOT6 >>'
 else
 	@echo '<< compile with ROOT5 >>'
+	@echo $(DATAMODEL_SOURCES)
+	
 endif
 
 # library
