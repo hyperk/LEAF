@@ -103,6 +103,8 @@ void HitCollection<T>::CopyCollection(const HitCollection<Hit> lHC) {
 	timestamp_last = lHC.timestamp_last;
 	first_unique = lHC.first_unique;
 	
+	hits.clear();
+	
 	hits.assign( lHC.hits.begin(), lHC.hits.end() );
 }
 
@@ -113,6 +115,8 @@ void HitCollection<T>::CopyCollection(const HitCollection<HitExtended> lHC) {
 	timestamp_last = lHC.timestamp_last;
 	first_unique = lHC.first_unique;
 	
+	hits.clear();
+	
 	hits.assign( lHC.hits.begin(), lHC.hits.end() );
 }
 
@@ -122,6 +126,8 @@ void HitCollection<T>::CopyDAQ(const HitCollection<T> lHC, const HKAA::DAQType l
 	timestamp = lHC.timestamp;
 	timestamp_last = lHC.timestamp_last;
 	first_unique = lHC.first_unique;
+	
+	hits.clear();
 	
 	// copy:
 	switch ( lDAQ ) {
@@ -158,6 +164,8 @@ void HitCollection<T>::FilterTime(const HitCollection<T> lHC, const TimeDelta tS
 	timestamp_last = lHC.timestamp_last;
 	first_unique = lHC.first_unique;
 	
+	hits.clear();
+	
 	for ( unsigned int i = 0; i < lHC.hits.size(); i++ ) {
 	
 		T tHit = lHC.hits[i];
@@ -176,6 +184,7 @@ void HitCollection<T>::SetCollection(const HitCollection<T> lHC) {
 	timestamp_last = lHC.timestamp_last;
 	first_unique = lHC.first_unique;
 	
+	hits.clear();
 	hits = lHC.hits;
 }
 
