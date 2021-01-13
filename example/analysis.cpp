@@ -26,7 +26,9 @@
 
 #include "LEAF.hh"	
 #include "HKManager.hh"	
+#ifdef WITH_BONSAI
 #include "WCSimBonsai.hh"
+#endif
 
 #define OLD_WCSIM // To be used if WCSim version is older than 1.8 (i.e. without multi vertex)
 #define mPMT // To be used if you are using mPMT
@@ -256,10 +258,11 @@ int main(int argc, char** argv){
 	HKAstroAnalysis::GetME()->Initialize(HKManager::GetME()->GetGeometry());
 #endif	
 
+#ifdef WITH_BONSAI
 	// Initialize Bonsai
 	WCSimBonsai* fBonsai = new WCSimBonsai();
 	fBonsai->Init(fGeometry);
-	
+#endif	
 	// Read Input Tree
 	int nPrimaryEvents = fInputTree->GetEntries();
 	int iWrite         = 0;
@@ -330,6 +333,7 @@ int main(int argc, char** argv){
 		Hit_OD_400   = 0;
 
 
+#ifdef WITH_BONSAI
 		// re-initialize Bonsai input
 		for ( int iHit = 0; iHit < 2000; iHit++ ) {
 			bsCAB[iHit] 	= 0;
@@ -337,7 +341,7 @@ int main(int argc, char** argv){
 			bsQ  [iHit] 	= 0.;
 		}
 		bsnhit[0] = 0;
-
+#endif
 		leaf_output.Vtx[0]	= 0.;
 		leaf_output.Vtx[1]	= 0.;
 		leaf_output.Vtx[2]	= 0.;
@@ -470,6 +474,7 @@ int main(int argc, char** argv){
 		//std::cout << " n50 " << leaf_output_ana.n50[0] << " " << leaf_output_ana.n50[1] << " " << leaf_output_ana.n50[2] << std::endl;
 		std::cout << " LEAF took: " << timerLF.RealTime() << " for " << HKManager::GetME()->GetHitCollection()->Size() << " Hits"<<  std::endl;
 
+#ifdef WITH_BONSAI
 		/****************************************************************************************/
 		/* Bonsai										*/
 		/****************************************************************************************/
@@ -529,7 +534,7 @@ int main(int argc, char** argv){
 			
 			fBSTime = timerBS.RealTime();
 		}	
-
+#endif
 		/****************************************************************************************/
 		/* Fill output tree									*/
 		/****************************************************************************************/
