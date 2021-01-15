@@ -1,54 +1,8 @@
-#include <iostream>
-#include <sstream>
-#include <fstream>
-#include <iomanip>
-#include <vector>
-#include <map>
-#include <TROOT.h>
-#include <TApplication.h>
-#include <TStyle.h>
-#include <TFile.h>
-#include <TTree.h>
-#include <TCanvas.h>
-#include <TChain.h>
-#include <TBranch.h>
-#include <TF1.h>
-#include <TH1.h>
-#include <TH2.h>
-#include <TH3.h>
-#include <TMath.h>
-#include <TGraph.h>
-#include <TGraphErrors.h>
-#include <TMinuit.h>
-#include <TFitter.h>
-#include <TLegend.h>
-#include <TGraph2D.h>
-#include <TSpline.h>
-#include <getopt.h>
-
-using namespace std;
-
-int main(int argc, char **argv){
+void ProducePDF(){
   TString ofname = "timePDF.root";
   TString ifname = "Analyze_hkhybridmpmt10pc14374100Hz_4.2kHzbl_10MeV.root"; // Originally used in B.Quilain codes
 
   int opt;
-
-  while ((opt = getopt(argc, argv, "f:o:h")) != -1){
-    switch (opt) {
-      case 'f':
-        ifname = TString(optarg);
-        break;
-      case 'o':
-        ofname = TString(optarg);
-        break;
-      default:
-        cerr << "Usage: " << argv[0] << " [-f input] [-o output]" << endl;
-        break;
-    }
-  }
-  
-
 
   const int nFiles=1;
   TFile * _f[nFiles];
@@ -715,51 +669,73 @@ int main(int argc, char **argv){
       fOut->cd();
       splineExpoConv[f][i]->Write(splineExpoConv[f][i]->GetTitle());
 
-      const int nBins=270;//150;//Number of big bins
-      double xPos[nBins];
-      double yPos[nBins];
-      double drPos[nBins];
+      cout<<"Start to merge bins in higher size bins to optimize PDF"<<endl;
+      vector <double> xPos;xPos.clear();
+      vector <double> yPos;yPos.clear();
+      vector <double> drPos;drPos.clear();
       int iBinActive=0;
       int nRebins=10;//Number of small bin gathered in a big one
       double xAverage=0;
       double yAverage=0;
       double drAverage=0;
       int binLimit=HitTimeTOFProfile[f][i]->FindBin(-limitFitGausExpo[i]);//HitTimeTOFProfile[f][i]->FindBin(limitFitGausExpo[i]-5);//Lower limit of the active big bin
-
-     
-      //for(int ibinx=HitTimeTOFProfile[f][i]->FindBin(limitFitGausExpo[i]-5);ibinx<=HitTimeTOFProfile[f][i]->GetNbinsX();ibinx++){
-      for(int ibinx=HitTimeTOFProfile[f][i]->FindBin(-limitFitGausExpo[i]);ibinx<=HitTimeTOFProfile[f][i]->GetNbinsX();ibinx++){
-	xAverage+=HitTimeTOFProfile[f][i]->GetBinCenter(ibinx);
-	yAverage+=HitTimeTOFProfile[f][i]->GetBinContent(ibinx);
-	drAverage+=HitTimeTOFDR[f][i]->GetBinContent(ibinx);
+      const int nLimits = 8;
+      double minValue = -limitFitGausExpo[i];
+      double maxValue = HitTimeTOFProfile[f][i]->GetXaxis()->GetXmax();
+      double lowLimits[nLimits] = {minValue, -100., -30., -10., 8., 30., 100.,maxValue};
+      double binLowLimits[nLimits];
+      for(int il = 0;il<nLimits;il++){
+	binLowLimits[il] = HitTimeTOFProfile[f][i]->FindBin(lowLimits[il]);
+      }
+      int rebinLowLimits[nLimits] = {100, 10, 5, 2, 10, 30, 100, 100};
+      int currentLimit = 0;
+      int nBinsAverage = 0;
+      int nBins=0;//150;//Number of big bins
+      //int iBinActive = 0;
+      //In between the different limits, the rebinning factor will be different.
+      //We should first ensure in which region we are. Based on this, we use a different rebinning value.
+      //Then, we will loop over the bins which are in the correct region. We will have an internal counter. As soon as this internal counter reach the rebinning value, we stop and average.
+      //Another way of reaching the factor could be to reach another regiob. We should take this into account.
 	
-	//if(HitTimeTOFProfile[f][i]->GetBinCenter(ibinx)<-3) nRebins=1;
-	if(HitTimeTOFProfile[f][i]->GetBinCenter(ibinx)<-100) nRebins=100;
-	else if(HitTimeTOFProfile[f][i]->GetBinCenter(ibinx)<-30) nRebins=10;
-	else if(HitTimeTOFProfile[f][i]->GetBinCenter(ibinx)<-10) nRebins=5;
-	else if(HitTimeTOFProfile[f][i]->GetBinCenter(ibinx)<8) nRebins=2;
-	else if(HitTimeTOFProfile[f][i]->GetBinCenter(ibinx)<30) nRebins=10;
-	else if(HitTimeTOFProfile[f][i]->GetBinCenter(ibinx)<100) nRebins=30;
-	else nRebins =100;
-	//cout<<"Rebins="<<nRebins<<", bin limit="<<ibinx-binLimit<<", average x="<<xAverage<<endl;
-	if((ibinx-binLimit)%nRebins==(nRebins-1)){
-	  xPos[iBinActive]=xAverage/nRebins;
-	  drPos[iBinActive]=drAverage/nRebins;
-	  yPos[iBinActive]=(yAverage/nRebins);
-	  cout<<"Position = "<<xPos[iBinActive]<<", value="<<yPos[iBinActive]<<", DR = "<<drPos[iBinActive]<<endl;
-	  iBinActive++;
+      //for(int ibinx=HitTimeTOFProfile[f][i]->FindBin(limitFitGausExpo[i]-5);ibinx<=HitTimeTOFProfile[f][i]->GetNbinsX();ibinx++){
+      //Loop over all bins of the histogram
+      for(int ibinx=HitTimeTOFProfile[f][i]->FindBin(-limitFitGausExpo[i]);ibinx<=HitTimeTOFProfile[f][i]->GetNbinsX();ibinx++){
+	cout<<"Bin = "<<ibinx<<" i.e. value of low edge = "<< HitTimeTOFProfile[f][i]->GetBinLowEdge(ibinx)<<", current low edge limit bin = "<<binLowLimits[currentLimit]<<", nBinsAverage = "<<nBinsAverage<<", rebinning factor = "<<rebinLowLimits[currentLimit]<<endl;
+	if((ibinx >= binLowLimits[currentLimit] && ibinx < binLowLimits[currentLimit+1]) && nBinsAverage < rebinLowLimits[currentLimit]){
+	  //Sum over bin content to average them until we reach the last bin 
+	  xAverage+=HitTimeTOFProfile[f][i]->GetBinCenter(ibinx);
+	  yAverage+=HitTimeTOFProfile[f][i]->GetBinContent(ibinx);
+	  drAverage+=HitTimeTOFDR[f][i]->GetBinContent(ibinx);
+	  nBinsAverage++;
+	}
+	if( (ibinx+1 >= binLowLimits[currentLimit+1]) || (nBinsAverage >= rebinLowLimits[currentLimit]) ){
+	  //If we reached the number of binning to rebin: store information.
+	  //Same if we reached the limit of the region to rebin of a given factor.
+	  //What if both happens at the same time, or worse: we reach limit of bins on bin n, and at n+1, we overcome the limit. In that case, we do not have anyting to fill our average? So, we understand that if we are in the last bin below the limit, we should store and then pass to the next step of limit. So, the check of the limit should always be on the next bin. 
+	  xPos.push_back(xAverage/nBinsAverage);
+	  drPos.push_back(drAverage/nBinsAverage);
+	  yPos.push_back((yAverage/nBinsAverage));
+	  cout<<"Position = "<<xPos[nBins]<<", value="<<yPos[nBins]<<", DR = "<<drPos[nBins]<<endl;
+	  nBins++;
+	  nBinsAverage = 0;
 	  xAverage=0;
 	  yAverage=0;
 	  drAverage=0;
-	  binLimit=ibinx+1;
-	}
-	if(iBinActive>=nBins){
-	  cout<<"Add more bins"<<endl;
-	  break;
+	  if(ibinx+1 >= binLowLimits[currentLimit+1]){
+	    currentLimit++;
+	  }
 	}
       }
-      
-      graphExpoQueue[f][i] = new TGraph(nBins,xPos,yPos);
+      double nBins_graph = nBins;
+      double * xPos_graph = new double[nBins];
+      double * yPos_graph = new double[nBins];
+      double * drPos_graph = new double[nBins];
+      for(int ibin = 0; ibin<nBins;ibin++){
+	xPos_graph[ibin] = xPos.at(ibin);
+	yPos_graph[ibin] = yPos.at(ibin);
+	drPos_graph[ibin] = drPos.at(ibin);
+      }
+      graphExpoQueue[f][i] = new TGraph(nBins_graph,xPos_graph,yPos_graph);
       
       //HitTimeTOFProfile[f][i]->Rebin(4);
       //ExpoQueue[f][i] = new TF1(Form("ExpoQueue%d_%d",f,i),"[0]*TMath::Exp(-[1]*x)",limitFitGausExpo[i],500);
@@ -773,12 +749,15 @@ int main(int argc, char **argv){
       //splineExpoQueue[f][i] = new TSpline3(Form("splineExpoQueue%d_%d",f,i),limitFitGausExpo[i],500.,ExpoQueue[f][i],300);
       splineExpoQueue[f][i] = new TSpline3(Form("splineExpoQueue%d_%d",f,i),graphExpoQueue[f][i]);
       splineExpoQueue[f][i]->SetLineColor(kCyan);
+      graphExpoQueue[f][i]->SetMarkerColor(kCyan);
+      graphExpoQueue[f][i]->SetMarkerStyle(20);
+      graphExpoQueue[f][i]->Draw("Psame");
       splineExpoQueue[f][i]->Draw("lcsame");
       fOut->cd();
       splineExpoQueue[f][i]->Write(splineExpoQueue[f][i]->GetTitle());
 
 
-      graphDR[f][i] = new TGraph(nBins,xPos,drPos);
+      graphDR[f][i] = new TGraph(nBins_graph,xPos_graph,drPos_graph);
       //splineDR[f][i] = new TSpline3(Form("splineDR%d_%d",f,i),limitFitGausExpo[i],500.,DR[f][i],300);
       splineDR[f][i] = new TSpline3(Form("splineDR%d_%d",f,i),graphDR[f][i]);
       splineDR[f][i]->SetLineColor(kCyan);
