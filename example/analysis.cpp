@@ -26,14 +26,13 @@
 
 #include "LEAF.hh"	
 #include "HKManager.hh"	
-#define WITH_BONSAI
+//#define WITH_BONSAI
 #ifdef WITH_BONSAI
 #include "WCSimBonsai.hh"
 #endif
 
 #define OLD_WCSIM // To be used if WCSim version is older than 1.8 (i.e. without multi vertex)
 #define mPMT // To be used if you are using mPMT
-
 // HK_ASTROANALYSIS is an analysis class computing some informations like n50, or the bonsai-like goodness
 // Ask G. Pronost to have access to this class (you need to be a member of SK or HK collaboration)
 //#define WITH_HK_ASTROANALYSIS
@@ -612,6 +611,7 @@ bool AnalyseEvent(WCSimRootEvent * tEvent, int iEventType) {
 	int   nVertex			= 0; // Number of Vertex in event
 	int   nTrack			= 0; // Number of Track in event
 	int   nRawCherenkovHits	= 0; // Number of Raw Cherenkov hits
+	int   startingCherenkovHitID	= 0; // starting ID of Digitized Cherenkov hits. Usually starts at 0, but if there are two types of PMTs, it does not.
 	int   nDigitizedCherenkovHits	= 0; // Number of Digitized Cherenkov hits
 	double 	fTriggerTime	= 0.;
 
@@ -646,6 +646,7 @@ bool AnalyseEvent(WCSimRootEvent * tEvent, int iEventType) {
 			
 		// Get number of hits
 		
+		startingCherenkovHitID  = digithit_pmtId.size();
 		nDigitizedCherenkovHits = fRootTrigger->GetNcherenkovdigihits();	
 		fTriggerTime            = fRootTrigger->GetTriggerInfo()[2] - fRootTrigger->GetTriggerInfo()[1];
 			
@@ -689,10 +690,10 @@ bool AnalyseEvent(WCSimRootEvent * tEvent, int iEventType) {
 		
 		// Get number of hit
 		rawhit_num = nRawCherenkovHits;
-			
+
 		// Loop on Digitized Hits
 		for(int iDigitHit = 0; iDigitHit < nDigitizedCherenkovHits; iDigitHit++){
-			
+
 			TObject *Hit = (fRootTrigger->GetCherenkovDigiHits())->At(iDigitHit);
 			WCSimRootCherenkovDigiHit *wcDigitHit = dynamic_cast<WCSimRootCherenkovDigiHit*>(Hit);
 
@@ -707,15 +708,16 @@ bool AnalyseEvent(WCSimRootEvent * tEvent, int iEventType) {
 			digithit_dark.push_back(false);
 			digithit_Type.push_back(iEventType);
 		}
-			
+				
 		int iIdx_BS = 0;
-		
+
 		nDigitizedCherenkovHits = digithit_pmtId.size();
 		digithit_num = nDigitizedCherenkovHits;
-			
+
 		// Feed fitter
-		for(int iDigitHit = 0; iDigitHit < nDigitizedCherenkovHits; iDigitHit++){
+		for(int iDigitHit = startingCherenkovHitID; iDigitHit < nDigitizedCherenkovHits; iDigitHit++){
 					
+		  //iDigitHit+=startingCherenkovHitID;
 			times.push_back(digithit_T[iDigitHit]);
 
 			//std::cout << " Add Hit with " << digithit_pmtId[iDigitHit] << " Hybrid: " << iHybrid << std::endl;
