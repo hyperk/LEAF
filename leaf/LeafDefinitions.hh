@@ -1,0 +1,76 @@
+#pragma once
+
+#include <algorithm>
+#include <iostream>
+#include <string>
+#include <vector>
+#include <map>
+#include <thread> 
+#include <mutex>
+
+//* WCSim Headers
+#include "WCSimRootGeom.hh"
+
+//* ROOT Headers
+#include "TFile.h"
+#include "TFitter.h"
+#include "TH1D.h"
+#include "TH2D.h"
+#include "TGraph2D.h"
+#include "TF1.h"
+#include "TMath.h"
+#include "TMinuit.h"
+#include "TObject.h"
+#include "TRandom3.h"
+#include "TSpline.h"
+#include "TPaletteAxis.h"
+
+//* DataModel informations
+#include "Geometry.h"
+#include "HitCollection.h"
+
+struct FitterOutput 
+{
+    int stepOneContainsTrueVtx;
+    double Vtx[4];
+    double NLL;
+    double DNLL;
+    double NLLR;
+
+    int InTime;
+    
+    double True_NLLDiff;
+    double True_TimeDiff;
+    double True_TistDiff;
+
+    double Energy;
+    double TotalCharge;
+    double Dir[3];
+    std::vector<double> SNRList; 
+
+    double firstStepTime;
+    double secondStepTime;
+};
+
+struct DirectionCandidate 
+{
+    double theta;
+    double phi;
+    double DNLL;
+};
+
+struct CandidateOutput 
+{
+    double X;
+    double Y;
+    double Z;
+    double T;
+    double NLL;
+    double SNR;  // SNR value
+};
+
+struct FitPosition 
+{
+    std::vector<double> Vtx;
+    double NLL;
+};

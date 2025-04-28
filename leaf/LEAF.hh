@@ -30,7 +30,6 @@
 // Most of default parameters of method 1 and 2 can be set in LEAF.cc Init() method
 /*****************************************************************************************************/
 
-
 #ifndef LEAF_hh
 #define LEAF_hh
 
@@ -42,10 +41,10 @@
 #include <thread> 
 #include <mutex>
 
-//WCSim Headers
+//* WCSim Headers
 #include "WCSimRootGeom.hh"
 
-//ROOT Headers
+//* ROOT Headers
 #include "TFile.h"
 #include "TFitter.h"
 #include "TH1D.h"
@@ -59,33 +58,22 @@
 #include "TSpline.h"
 #include "TPaletteAxis.h"
 
-//DataModel informations
+//* DataModel informations
 #include "Geometry.h"
 #include "HitCollection.h"
 
-// Number of PMT configuration:
-#define NPMT_CONFIGURATION 	2
+//* LEAF Headers
+#include "Likelihoods.hh"
+#include "LeafInputs.hh"
+#include "LeafConfig.hh"
+#include "LeafSplines.hh"
+#include "LeafUtility.hh"
+#include "LeafDefinitions.hh"
 
-// Hit definition:
-#define NormalPMT		0 // B&L hit
-#define MiniPMT		1 // 3" PMT hit
-#define AllPMT			2
 
-#define VERBOSE 		0
-
-// Verbose level in functions:
-#undef VERBOSE_VTX // In SearchVertex
-#undef VERBOSE_NLL
-
-#define VTX_X			0
-#define VTX_Y			1
-#define VTX_Z			2
-#define VTX_T			3
-
-#define N_THREAD		12 // Default for sukap
-
-// Likelihood:
+void MinuitDirNLL(int& nDim, double* gout, double& NLL, double* par, int flg);
 void MinuitLikelihood(int& nDim, double * gout, double & NLL, double par[], int flg);
+
 void MinimizeVertex_CallThread(	int iStart, int iIte,	
 					std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits,
 					int nCandidates, int tolerance, int verbose, bool likelihood, bool average,
@@ -94,12 +82,10 @@ void MinimizeVertex_CallThread(	int iStart, int iIte,
 void SearchVertex_CallThread(	int iStart, int iIte,
 				int nhits,int tolerance,bool likelihood,double lowerLimit, double upperLimit,int directionality);
 
-inline bool SortOutputVector ( const std::vector<double>& v1, const std::vector<double>& v2 ) { 
-	return v1[4] < v2[4]; 
-} 
-		
-class LEAF {
 
+		
+class LEAF 
+{
 	public:
 		static LEAF*		GetME();
 		void			DeleteME();
@@ -107,193 +93,179 @@ class LEAF {
 		void Initialize(const Geometry* lGeometry);
 		
 		void SetNThread(int iThread=N_THREAD) { fThread=iThread; }
-		
-		struct FitterOutput {
-		
-			double Vtx[4];
-			double NLL;
-			int InTime;
-			
-			double True_NLLDiff;
-			double True_TimeDiff;
-			double True_TistDiff;
-		};
-		
 
-                // Fitter Main Method. Process the whole fit. 
+		//* True Vertex isn't used for the fit, just to get feedback on how well the fit is at different steps
+		void SetTrueVertexInfo(std::vector<double> vtx, double time);
+		
+		// void SetTrueVertexInfo(const std::vector<double>& vtx, double time);
+		
+	    // double ComputeDirNLL(const std::vector<double>& vertexPosition, const double theta_track, const double phi_track, int nhits);
+		// double ComputeDirNLL_NoPDF(const std::vector<double>& vertexPosition, const std::vector<double>& vertexDirection, int nhits);
+		
+		std::vector<double> fFixedVertexPosition;
+		int fNHits;
+	    // TSpline3* fDirectionPDF;
+		
+		//* Fitter Main Method. Process the whole fit. 
 		struct FitterOutput MakeFit(const HitCollection<Hit>* lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT=true);
+	    
+		
+		// std::vector<double> MakeCand(const HitCollection<Hit>* lHitCol, const TimeDelta lTriggerTime, double tw, int ncandidates); 
+		// void SetTrueVertexInfo(double X, double Y, double Z, double T);
+		
 		
 		// NLL
-                // Calculate likelihood function based on input PDF. For now, the function is based on time residuals.
-		double FindNLL_Likelihood(std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality);
-                // Calculate likelihood without using PDF, but just using hits within a given timing window (hits "in-time").
-		double FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality);
-                // Contain the two functions above in one function, where usage of PDF or not can be set through the flag: likelihood = true/false
-		double FindNLL(		std::vector<double> vertexPosition,int nhits, bool likelihood, int verbose, double lowerLimit, double upperLimit, 
-						bool killEdges=false, bool scaleDR=false, int directionality=false);
+		// Calculate likelihood function based on input PDF. For now, the function is based on time residuals.
+		// double FindNLL_Likelihood(std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality);
+		// double FindNLL_Likelihood_Charge(std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality);
+        //         // Calculate likelihood without using PDF, but just using hits within a given timing window (hits "in-time").
+		// double FindNLL_NoLikelihood(std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality);
+		// double FindNLL_NoLikelihood_Energy(std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality);
+        //         // Contain the two functions above in one function, where usage of PDF or not can be set through the flag: likelihood = true/false
+		// double FindNLL(		std::vector<double> vertexPosition,int nhits, bool likelihood, int verbose, double lowerLimit, double upperLimit, 
+		// 				bool killEdges=false, bool scaleDR=false, int directionality=false);
 		
-		void SearchVertex_thread(	int iStart, int iIte,	
-						int nhits, 
-						int tolerance=1, bool likelihood=false, 
-						double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality=false);
-
+		void SearchVertex_thread(int iStart, int iIte, int nhits, int tolerance=1, bool likelihood=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality=false);
 		
-		void MinimizeVertex_thread(	int iStart, int iIte,	
-						std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits,
-						int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false,
-						double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true);
+		void MinimizeVertex_thread(int iStart, int iIte, std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true);
 		
 	private:
-	
+		
 		LEAF();
 		~LEAF();
-		
-		void Init();
-		void LoadSplines();
-		void LoadPMTInfo();
-		void MakeMPMTReferencial(int iPMT);
+
 		void MakePositionList();
 		
-		double GetDistanceOld(std::vector<double> A, std::vector<double> B);
+		//* VERTEX FIRST STEP
+		std::vector< std::vector<double> > SearchVertex(int nhits, int tolerance=1, bool likelihood=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality=false);
 		
-		// Spline functions:
-		double SplineIntegral			(TSpline3 * s, 			double start, double end, 		double stepSize=5e-1);
-		double SplineIntegralAndSubstract	(TSpline3 * s0, TSpline3 * s1, 	double start, double end, 		double stepSize=5e-1);
-		double SplineIntegralExpo		(TSpline3 * s, 			double start, double end, double sigma, double stepSize=5e-1);
-			
-		// NLL
-		void MakeEventInfo(double lowerLimit, double upperLimit);
-
-		double FindNLLDirectionality(std::vector<double> vertexPosition, int nhits, int verbose, double lowerLimit, double upperLimit);
+		std::vector< std::vector<double> > SearchVertex_Main(int nhits, int tolerance=1, bool likelihood=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality=false);
+		std::vector<CandidateOutput> SearchVertex_Main_WithSNR( int nhits, int tolerance, bool likelihood, double lowerLimit, double upperLimit, int directionality);
+		CandidateOutput ComputeCandidateSNR(const std::vector<double>& vertex, double lowerLimit, double upperLimit);
 		
+		std::vector< std::vector<double> > SearchVertexFine(std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality=false);
 		
-		double FindDirectionTheta(std::vector<double> vertex,int tubeNumber, int verbose);
-
-		// SearchVertex functions:
-		std::vector< std::vector<double> > SearchVertex(		
-						int nhits, 
-						int tolerance=1, bool likelihood=false, 
-						double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality=false);
-						
-		std::vector< std::vector<double> > SearchVertex_Main(		
-						int nhits, 
-						int tolerance=1, bool likelihood=false, 
-						double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality=false);
-						
-						
-		std::vector< std::vector<double> > SearchVertexFine(	
-						std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits,  
-						int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, 
-						double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality=false);
+		//* VERTEX SECOND STEP
+		std::vector< std::vector<double> > MinimizeVertex(std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true);
 		
-		// Minimize function:
-		std::vector< std::vector<double> > MinimizeVertex(	
-						std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits,
-						int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false,
-						double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true);
-						
-		std::vector< std::vector<double> > MinimizeVertex_Main(	
-						std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits,
-						int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false,
-						double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true);
-
+		std::vector< std::vector<double> > MinimizeVertex_Main(std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true);
 		
 		void VectorVertexPMT( std::vector<double> vertex, int iPMT, double* dAngles );
-	
-	// Variables:
-	private:
-	
-		struct FitPosition {
-			std::vector<double> Vtx;
-			double NLL;
-		};
-		struct SortingNLL { 
-			bool operator()(FitPosition const &a, FitPosition const &b) const { 
-				return a.NLL < b.NLL;
-			}
-		};
 		
-		struct EventInfo {
-			int hits;
-			double SignaloverNoise;
-			double NoiseIntegral;
-			double SignalIntegral;
-		};
+		//* DIRECTION
+		std::vector<double> FitDirection(const std::vector<double>& fixedVertexPosition, int nhits, int verbose);
+		// double FindDirectionTheta(std::vector<double> vertex,int tubeNumber, int verbose);
+		
+		//* DIRECTION SECOND STEP
+		std::vector<double> MinimizeDirection(const std::vector<double>& fixedVertexPosition, const DirectionCandidate& candidate, int nhits, int verbose);
+		
+		// void Init();
+		// void LoadSplines();
+		// void LoadPMTInfo();
+		// void MakeMPMTReferencial(int iPMT);
+		
+		
+		
+		// double GetDistanceOld(std::vector<double> A, std::vector<double> B);
+		
+		// Spline functions:
+		// double SplineIntegral			(TSpline3 * s, 			double start, double end, 		double stepSize=5e-1);
+		// double SplineIntegralAndSubstract	(TSpline3 * s0, TSpline3 * s1, 	double start, double end, 		double stepSize=5e-1);
+		// double SplineIntegralExpo		(TSpline3 * s, 			double start, double end, double sigma, double stepSize=5e-1);
+		
+		// NLL
+		// void MakeEventInfo(double lowerLimit, double upperLimit);
+		
+		// double FindNLLDirectionality(std::vector<double> vertexPosition, int nhits, int verbose, double lowerLimit, double upperLimit);
+		
+		
+		
+		
+		// Variables:
+		
+		// struct EventInfo 
+		// {
+			// 	int hits;
+			// 	double SignaloverNoise;
+			// 	double NoiseIntegral;
+			// 	double SignalIntegral;
+		// };
 		
 		static LEAF* myFitter;
 
 		// Spline
-		TSpline3 *	fSplineTimePDFQueue[NPMT_CONFIGURATION];
-		TSpline3 *	fSplineTimePDFDarkRate[NPMT_CONFIGURATION];
+		// TSpline3 *	fSplineTimePDFQueue[NPMT_CONFIGURATION];
+		// TSpline3 *	fSplineTimePDFDarkRate[NPMT_CONFIGURATION];
 		
 		// Histo
-		TGraph2D * 	gPMTDirectionality_2D[NPMT_CONFIGURATION][HKAA::kmPMT_Groups];
+		// TGraph2D * 	gPMTDirectionality_2D[NPMT_CONFIGURATION][HKAA::kmPMT_Groups];
 				
 		// TF1
-		TF1 * 		fDistResponsePMT[NPMT_CONFIGURATION];
+		// TF1 * 		fDistResponsePMT[NPMT_CONFIGURATION];
 		
 		
-		double fDarkRate_dir_proba[NPMT_CONFIGURATION][HKAA::kmPMT_Groups];
+		// double fDarkRate_dir_proba[NPMT_CONFIGURATION][HKAA::kmPMT_Groups];
 		
-		static double fSTimePDFLimitsQueueNegative; 
-		static double fSTimePDFLimitsQueuePositive; 
-		double fSTimePDFLimitsQueueNegative_fullTimeWindow;
-		double fSTimePDFLimitsQueuePositive_fullTimeWindow;
-		double fTimeWindowSizeFull;
+		// static double fSTimePDFLimitsQueueNegative; 
+		// static double fSTimePDFLimitsQueuePositive; 
+		// double fSTimePDFLimitsQueueNegative_fullTimeWindow;
+		// double fSTimePDFLimitsQueuePositive_fullTimeWindow;
+		// double fTimeWindowSizeFull;
 		
-		double fMinimizeLimitsNegative;
-		double fMinimizeLimitsPositive;
+		// double fMinimizeLimitsNegative;
+		// double fMinimizeLimitsPositive;
 		
-		double fHitTimeLimitsNegative;
-		double fHitTimeLimitsPositive;
+		// double fHitTimeLimitsNegative;
+		// double fHitTimeLimitsPositive;
 		
 		
 		// Inputs:
-		const Geometry* fGeometry;
-		const HitCollection<Hit>* fHitCollection;
-		TimeDelta fTriggerTime;
-		TimeDelta fTimeCorrection;
+		// const Geometry* fGeometry;
+		// const HitCollection<Hit>* fHitCollection;
+		// const HitCollection<Hit>* fSecondaryHitCollection;
+		// TimeDelta fTriggerTime;
+		// TimeDelta fTimeCorrection;
 		
 		// PMT Informations
-		const std::vector<PMTInfo> *fPMTList;
-		double fDarkRate_ns[NPMT_CONFIGURATION];
+		// const std::vector<PMTInfo> *fPMTList;
+		// double fDarkRate_ns[NPMT_CONFIGURATION];
 		
 		// Detector geometry:
-		double fTankRadius;
-		double fTankHeight;
-		double fTankHalfHeight;
-		double fLightSpeed;
+		// double fTankRadius;
+		// double fTankHeight;
+		// double fTankHalfHeight;
+		// double fLightSpeed;
 		
-		// Fitter parameters:
-		double fIntegrationTimeWindow;
-		bool   fStepByStep;
-		bool   fUseDirectionality;
-		bool   fLimit_mPMT;
-		int    fAveraging;
-		bool   fHighEnergy;
-		double fSearchVtxStep;
-		double fSearchVtxTolerance;
+		// // Fitter parameters:
+		// double fIntegrationTimeWindow;
+		// bool   fStepByStep;	
+		// bool   fUseDirectionality;
+		// bool	DoubleNLL;
+		// bool   fLimit_mPMT;
+		// double KELimitsPos;
+		// double KELimitsNeg;
+		// int    fAveraging;
+		// bool   fHighEnergy;
+		// double fSearchVtxStep;
+		// double fSearchVtxTolerance;
+		// bool DirTakeAll;
 		
 		// Input/Output
-		//std::vector<double> fTrueVtxPos;
-		//std::vector< std::vector<double> > fTrueVtxPosDouble;
-		double fPDFNorm_fullTimeWindow;
-		std::vector< std::vector<double> > fRecoVtxPosFinal;
-		
-		
+		// double fPDFNorm_fullTimeWindow;
 		
 		// Random generator
 		TRandom3 * fRand;					
 		
-		double fLastLowerLimit;
-		double fLastUpperLimit;
-		struct EventInfo fEventInfo[NPMT_CONFIGURATION];
+		// double fLastLowerLimit;
+		// double fLastUpperLimit;
+		// struct EventInfo fEventInfo[NPMT_CONFIGURATION];
 		
 		int fThread;
 		
+		std::vector<double> fTrueVtxPos;
+		std::vector< std::vector<double> > fTrueVtxPosDouble;
+		std::vector< std::vector<double> > fRecoVtxPosFinal;
 		std::vector< std::vector<double> > fPositionList;
-		
-		
 		std::vector< std::vector<double> > fThreadOutput;
 		
 };
