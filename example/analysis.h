@@ -39,12 +39,12 @@
 //-----------------------------------------------------------------------------------------//
 
 int eventId;   // event Id
-int triggerId; // trigger Id (with event Id)
+int nTrigger; // trigger Id (with event Id)
 int usedTriggerId; // trigger Id used for the fit
 
-double TotalQ;
+// double TotalQ;
 	
-double particleDir[3] = {0, 0, 0};
+// double trueDir[3] = {0, 0, 0};
 
 struct FitterAnalysis
 {
@@ -67,9 +67,8 @@ std::vector<double> true_origin_T; // True origin vertex (ns)
 
 std::vector<double> relativeAngle;
 std::vector<double> lf_relativeAngle;
-double lf_Dir[3];
-double lf_Dir_interp[3];
-double lf_Dir_res;
+std::vector<double> lf_Dir;
+std::vector<double> trueDir;
 WCSimRootGeom *geotree = 0; 
 
 // Raw hit
@@ -93,6 +92,7 @@ int fLastRawHit;
 std::vector<int> digithit_pmtId; // List of pmtId
 std::vector<int> digithit_Type;	 // List of pmt Type
 std::vector<double> digithit_T;	 // List of hit times
+std::vector<double> correctedDigithit_T;
 std::vector<bool> hit_is_DR;
 std::vector<double> digithit_Q;	 // List of hit charge'
 std::vector<double> digithit_Angle;	 // List of hit charge'
@@ -103,17 +103,19 @@ int digithit_num;				 // Number of digit hit
 int digithit_num_noDN;			 // Number of digit hit without DarkNoise
 
 // Bonsai output
-float bs_vertex[4]; // Bonsai reconstructed vertex (cm)
-float bs_good[3];	// Bonsai goodness
-float bs_energy;
+// float bs_vertex[4]; // Bonsai reconstructed vertex (cm)
+// float bs_good[3];	// Bonsai goodness
+// float bs_energy;
 
-double fBSTime;
+// double fBSTime;
 double fLFTime;
 
 double lf_spatial_res;
 double lf_time_res;
+double lf_Dir_res;
+double lf_energy_res;
 
-FitterOutput leaf_output;
+// FitterOutput leaf_output;
 FitterAnalysis leaf_output_ana;
 FitterAnalysis bs_output_ana;
 
@@ -140,7 +142,7 @@ int fHit_400 = 0;
 double dWall =0;
 double lf_dWall =0;
 double lf_ToWall =0;
-double goodness;
+// double goodness;
 
 double R = 3242.96; 
 double h = 6701.41;
@@ -159,22 +161,22 @@ int bsnhit[1];
 
 int failAmount;
 int startingCherenkovHitID = 0;	 // starting ID of Digitized Cherenkov hits. Usually starts at 0, but if there are two types of PMTs, it does not.
-double truepos[3];
+std::vector<double> truepos;
 
 double fLfTriggerTime;
 int bestTrigger;
 
 bool failed;
 
-int stepOneHasTrueVtx;
-double firstStepTime;
-double secondStepTime;
+// int stepOneHasTrueVtx;
+// double firstStepTime;
+// double secondStepTime;
 double rawTriggerTime;
 
 //-----------------------------------------------------------------------------------------//
 
-void SetCustomBranch(TTree *fPrimaryTree);
+void SetCustomBranch(TTree *fPrimaryTree, FitterOutput leaf_output);
 void SetCustomBranchInput(TTree *fPrimaryTree);
 void SetGeoBranch(TTree *fGeoTree);
 bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType);
-bool PostLeafAnalysis(WCSimRootEvent * tEvent, int iEventType);
+bool PostLeafAnalysis(WCSimRootEvent * tEvent, int iEventType, FitterOutput leaf_output);
