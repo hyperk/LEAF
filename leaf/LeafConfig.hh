@@ -63,5 +63,8 @@ extern double fMinimizeLimitsPositive;
 
 //* Direction Fit Parameters
 extern bool DirTakeAll;
+extern double theta_step;
+extern double phi_step;
+extern int DirTolerance;
 
 void InitConfig(const Geometry *lGeometry);

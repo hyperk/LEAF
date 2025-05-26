@@ -20,12 +20,11 @@ bool   fStepByStep = false;
 bool   fUseDirectionality = false;
 bool	DoubleNLL = false;
 bool   fLimit_mPMT = true;
-// double KELimitsPos;
-// double KELimitsNeg;
 int    fAveraging = 20;
 bool   fHighEnergy = false;
 double fSearchVtxStep = 300.;
 double fSearchVtxTolerance = 60;
+bool bDirectionnality = false;
 
 //* Step 1 Specific Parameters
 double fHitTimeLimitsNegative = -5;
@@ -37,13 +36,15 @@ double fMinimizeLimitsPositive = 1000;
 
 //* Direction Fit Parameters
 bool DirTakeAll = false;
+double theta_step = 5 * TMath::DegToRad(); 
+double phi_step = 5 * TMath::DegToRad(); 
+int DirTolerance = 50;
 
 void InitConfig(const Geometry *lGeometry)
 {
     fTankRadius = lGeometry->detector_radius;
 	fTankHeight = lGeometry->detector_length;
 	fTankHalfHeight = fTankHeight / 2.;
-
 
     fStepByStep = false; // Step by step mode was not test and is not supported by multithreading
 	fUseDirectionality = false;
@@ -74,18 +75,14 @@ void InitConfig(const Geometry *lGeometry)
 
 	fIntegrationTimeWindow = 50; // in ns //? never Used ???
 	DirTakeAll = false;
+	theta_step = 5 * TMath::DegToRad(); 
+	phi_step = 5 * TMath::DegToRad(); 
+	DirTolerance = 50;
 
-	// Compute light speed:
+	//* Compute light speed:
 	float fCVacuum = 3e8 * 1e2 / 1e9; // speed of light, in centimeter per ns.
 	float fNIndex = 1.373;			  // 1.385;//1.373;//refraction index of water
 	fLightSpeed = fCVacuum / fNIndex;
-
-	/*
-	fTrueVtxPos.clear();
-	fTrueVtxPosDouble.clear();
-	fTrueVtxPos.resize(5,0.);
-	fTrueVtxPosDouble.push_back(fTrueVtxPos);
-	*/
 
 	fPDFNorm_fullTimeWindow = 0.;
 	
@@ -94,7 +91,33 @@ void InitConfig(const Geometry *lGeometry)
 		{"SearchVtxStep", &fSearchVtxStep},
 		{"SearchVtxTolerance", &fSearchVtxTolerance},
 		{"HitTimeLimitsNegative", &fHitTimeLimitsNegative},
-		{"HitTimeLimitsPositive", &fHitTimeLimitsPositive}
+		{"HitTimeLimitsPositive", &fHitTimeLimitsPositive},
+		{"MinimizeLimitsNegative", &fMinimizeLimitsNegative},
+		{"MinimizeLimitsPositive", &fMinimizeLimitsPositive},
+		{"IntegrationTimeWindow", &fIntegrationTimeWindow},
+		{"TimeWindowSizeFull", &fTimeWindowSizeFull},
+		{"STimePDFLimitsQueueNegative", &fSTimePDFLimitsQueueNegative},
+		{"STimePDFLimitsQueuePositive", &fSTimePDFLimitsQueuePositive},
+		{"STimePDFLimitsQueueNegative_fullTimeWindow", &fSTimePDFLimitsQueueNegative_fullTimeWindow},
+		{"STimePDFLimitsQueuePositive_fullTimeWindow", &fSTimePDFLimitsQueuePositive_fullTimeWindow},
+		{"ThetaStep", &theta_step},
+		{"PhiStep", &phi_step}
+	};
+
+	std::map<std::string, int*> envIntVariables = 
+	{
+		{"Averaging", &fAveraging},
+		{"DirTolerance", &DirTolerance}
+	};
+
+	std::map<std::string, bool*> envBoolVariables = 
+	{
+		{"Limit_mPMT", &fLimit_mPMT},
+		{"UseDirectionality", &fUseDirectionality},
+		{"StepByStep", &fStepByStep},
+		{"HighEnergy", &fHighEnergy},
+		{"DoubleNLL", &DoubleNLL},
+		{"DirTakeAll", &DirTakeAll},
 	};
 
 	for (const auto& [envName, variable] : envVariables) 
@@ -104,6 +127,38 @@ void InitConfig(const Geometry *lGeometry)
 		{
 			*variable = std::stod(envValue);
 			std::cout << envName << " is set to " << *variable << std::endl;
+		}
+		else std::cout << "Environment variable " << envName << " is not set. Using default value : "<< *variable << std::endl;
+	}
+
+	for (const auto& [envName, variable] : envIntVariables) 
+	{
+		const char* envValue = std::getenv(envName.c_str());
+		if (envValue != nullptr) 
+		{
+			*variable = std::stoi(envValue);
+			std::cout << envName << " is set to " << *variable << std::endl;
+		}
+		else std::cout << "Environment variable " << envName << " is not set. Using default value : "<< *variable << std::endl;
+	}
+
+	for (const auto& [envName, variable] : envBoolVariables) 
+	{
+		const char* envValue = std::getenv(envName.c_str());
+		if (envValue != nullptr) 
+		{
+			std::string valueStr(envValue);
+			if (valueStr == "true" || valueStr == "1") 
+			{
+				*variable = true;
+				std::cout << envName << " is set to true" << std::endl;
+			} 
+			else if (valueStr == "false" || valueStr == "0") 
+			{
+				*variable = false;
+				std::cout << envName << " is set to false" << std::endl;
+			} 
+			else std::cout << "Environment variable " << envName << " has an invalid value. Using default value : "<< *variable << std::endl;
 		}
 		else std::cout << "Environment variable " << envName << " is not set. Using default value : "<< *variable << std::endl;
 	}
