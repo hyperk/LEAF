@@ -1,8 +1,12 @@
 *.root
 *.o
 *.swp
+*.root
+*.log
 .depend
 leaf/DataModelRootDict*
 leaf/HKAstroAnalysis.*
 leaf/DataModel
 lib/*
+job.sh
+Config.sh
