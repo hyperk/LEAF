@@ -54,7 +54,8 @@ void LoadSplines()
 		fSplines1 = new TFile("${LEAFDIR}/inputs/timePDFNoDR_50000_e10MeV_Hit_720.root","read");//To generate with my code ProduceWSPlots.c		
 		// fSplines = new TFile("${LEAFDIR}/inputs/timePDF_DRnew_Large.root", "read");			  // To generate with my code ProduceWSPlots.c
 		std::cout << "spline 2" << std::endl;
-		fSplines = new TFile("${LEAFDIR}/inputs/timePDFDR_5000_e10MeV_Hit_fiducial.root","read"); //TAHA
+		// fSplines = new TFile("${LEAFDIR}/inputs/timePDFDR_5000_e10MeV_Hit_fiducial.root","read"); //*TAHA
+		fSplines = new TFile("${LEAFDIR}/inputs/timePDF_3M_10T_500000.root","read"); //*NICOLAS
 		// fSplines = new TFile("${LEAFDIR}/inputs/timePDF_3M_10T.root","read");
 		std::cout << "spline 3" << std::endl;
 		fSplines2 = new TFile("${LEAFDIR}/inputs/timePDF_Directionality_DRnew.root", "read"); // To generate with my code ProduceWSPlots.c

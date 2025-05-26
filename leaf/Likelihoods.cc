@@ -1,51 +1,110 @@
 #include "Likelihoods.hh"
 #include "LeafInputs.hh"
 
+//Function to optimize, for MIGRAD
+void MinuitLikelihood(int & /*nDim*/, double * /*gout*/, double &NLL, double par[], int /*flg*/)
+{
+	std::vector<double> vertexPosition(4, 0.); // In centimeters
+	for (int i = 0; i < 4; i++) vertexPosition[i] = par[i];
+	int nhits = par[5];
+	double lowerLimit = par[6];
+	double upperLimit = par[7];
+	double directionality = par[9];
+	// std::vector<double> vertexDirection(3,0.);
+
+	NLL = Likelihoods::Vertex_Time_NLL(fHitCollection, vertexPosition, nhits, lowerLimit, upperLimit, true, false, directionality);
+}
+
+//Function to optimize, for MIGRAD
+void MinuitDirNLL(int& /*nDim*/, double* /*gout*/, double& DNLL, double par[], int /*flg*/) 
+{
+	// Extract theta and phi from parameters
+	double theta = par[0];
+	double phi = par[1];
+	int nhits = static_cast<int>(par[2]);
+
+	// Ensure the vertexPosition vector is properly initialized
+	std::vector<double> vertexPosition(4, 0.0);
+	for (int i = 0; i < 4; i++) vertexPosition[i] = par[i + 3];
+
+	// Ensure theta and phi are within valid ranges
+	if (theta < 0 || theta > TMath::Pi()) 
+	{
+		DNLL = 1e10; // Assign a large NLL to invalid directions
+		return;
+	}
+	if (phi < -TMath::Pi() || phi > TMath::Pi()) 
+	{
+		DNLL = 1e10;
+		return;
+	}
+
+	// Calculate NLL using theta and phi
+	DNLL = Likelihoods::Dir_NLL(fHitCollection, vertexPosition, theta, phi, nhits);
+}
+
+void MinuitJointNLL(int& nDim, double * gout, double & NLL, double par[], int flg)
+{
+	std::vector<double> vertexPosition(4, 0.);
+	for (int i = 0; i < 4; i++) vertexPosition[i] = par[i];
+	double theta = par[4];
+	double phi = par[5];
+	int nhits = par[7];
+	double lowerLimit = par[8];
+	double upperLimit = par[9];
+	// double directionality = par[9];
+
+	// Ensure theta and phi are within valid ranges
+	if (theta < 0 || theta > TMath::Pi()) 
+	{
+		NLL = 1e10; // Assign a large NLL to invalid directions
+		return;
+	}
+	if (phi < -TMath::Pi() || phi > TMath::Pi()) 
+	{
+		NLL = 1e10;
+		return;
+	}
+
+	double VtxNLL = Likelihoods::Vertex_Time_NLL(fHitCollection, vertexPosition, nhits, lowerLimit, upperLimit, true, false, 0);
+	double DirNLL = Likelihoods::Dir_NLL(fHitCollection, vertexPosition, theta, phi, nhits);
+
+	NLL = VtxNLL * DirNLL;
+}
+
 double Likelihoods::Vertex_Time_NLL(const HitCollection<Hit>* lHitCol, std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality)
 {
 	double NLL = 0;
 
 	for (int ihit = 0; ihit < nhits; ihit++)
 	{
-		// Hit lHit = fHitInfo[ihit];
 		Hit lHit = lHitCol->At(ihit);
 
 		int iPMT = lHit.PMT;
-		double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
+		// double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
 		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 
 		int pmtType = Astro_GetPMTType(iPMT);
-		double distance = Astro_GetDistance(lPMTInfo.Position, vertexPosition);
+		// double distance = Astro_GetDistance(lPMTInfo.Position, vertexPosition);
 
-		double tof = distance / fLightSpeed;
-		double residual = hitTime - tof - vertexPosition[3];
-
-		// double test = residual;
-
-		// std::cout << "good tof" << tof << std::endl;
-		// std::cout << "good hitTime" << hitTime << std::endl;
-		// std::cout << "good vertex Time" << vertexPosition[3] << std::endl;
-		// std::cout << "good residual" << residual << std::endl;
+		// double tof = distance / fLightSpeed;
+		// double residual = hitTime - tof - vertexPosition[3];
+		double residual = ComputeResidualTime(vertexPosition, vertexPosition[3], lHitCol->At(ihit));
 
 		residual = ComputeResidualTime(vertexPosition, vertexPosition[3], lHit);
 
-		// std::cout << "good residual " << test << " vs " << residual << std::endl;
-
 		double proba = 0;
 
-		bool condition;
-
-		condition = residual > lowerLimit && residual < upperLimit;
+		bool condition = residual > lowerLimit && residual < upperLimit;
 
 		if (condition)
 		{
-
 			proba = fSplineTimePDFQueue[pmtType]->Eval(residual);
 
 #ifdef VERBOSE_NLL
 			if (VERBOSE >= 3)
 			{
-				std::cout << "hit#" << ihit << ", hit time =" << hitTime << ", vertex time = " << vertexPosition[3] << ", distance PMT vs vertex = " << distance << ", tof=" << tof << std::endl;
+				std::cout << "hit#" << ihit << ", hit time =" << hitTime << ", vertex time = " << vertexPosition[3] << std::endl;
 				std::cout << "Residual=" << residual << ", proba=" << proba << ", pmt type=" << pmtType << std::endl;
 			}
 #endif
@@ -66,8 +125,7 @@ double Likelihoods::Vertex_Time_NLL(const HitCollection<Hit>* lHitCol, std::vect
 				// And add again the DR
 				proba += DR;
 #ifdef VERBOSE_NLL
-				if (VERBOSE >= 3)
-					std::cout << "proba after scaling=" << proba << std::endl;
+				if (VERBOSE >= 3) std::cout << "proba after scaling=" << proba << std::endl;
 #endif
 			}
 		}
@@ -91,25 +149,19 @@ double Likelihoods::Vertex_Time_NLL(const HitCollection<Hit>* lHitCol, std::vect
 #endif
 			}
 		}
-		else
-		{
-			proba = 0;
-		}
+		else proba = 0;
 
 		if (proba < 0)
 		{
 			std::cout << "Error in PDF" << std::endl;
-			if (proba > -1e-1)
-				proba = 0; // Since spline sometimes slightly goes below 0 due to interpolation
+			if (proba > -1e-1) proba = 0; // Since spline sometimes slightly goes below 0 due to interpolation
 			else
 			{
 				std::cout << "Error in " << residual << "ns where proba = " << proba << std::endl;
 				return 0;
 			}
 		}
-
-		if (proba == 0)
-			proba = 1e-20;
+		if (proba == 0) proba = 1e-20;
 		NLL += -TMath::Log(proba);
 	}
 	
@@ -150,14 +202,15 @@ double Likelihoods::Vertex_Score(const HitCollection<Hit>* lHitCol, std::vector<
 		// std::cout << " NLL Hit " << ihit << " " << lHit.PMT << std::endl;
 		int iPMT = lHit.PMT;
 
-		double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
+		// double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
 		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 
 		int pmtType = Astro_GetPMTType(iPMT);
-		double distance = Astro_GetDistance(lPMTInfo.Position, vertexPosition);
+		// double distance = Astro_GetDistance(lPMTInfo.Position, vertexPosition);
 
-		double tof = distance / fLightSpeed;
-		double residual = hitTime - tof - vertexPosition[3];
+		// double tof = distance / fLightSpeed;
+		// double residual = hitTime - tof - vertexPosition[3];
+		double residual = ComputeResidualTime(vertexPosition, vertexPosition[3], lHitCol->At(ihit));
 #ifdef KILLHALF
 		if (pmtType == 1)
 		{
@@ -169,8 +222,6 @@ double Likelihoods::Vertex_Score(const HitCollection<Hit>* lHitCol, std::vector<
 
 		bool bCondition = (residual > fHitTimeLimitsNegative && residual < fHitTimeLimitsPositive) || (pmtType == 1 && !fLimit_mPMT);
 
-		// std::cout << " HIT " << ihit << " Has " <<   bCondition << " " << pmtType << " " << fLimit_mPMT << " " << residual << " ( " << hitTime << " - " << tof << " - " << vertexPosition[3] << " ) "  << distance << " / " << fLightSpeed << " " << lPMTInfo.Position[0] << " "<< lPMTInfo.Position[1] << " "<< lPMTInfo.Position[2] << " " << iPMT << std::endl;
-
 		if (bCondition)
 		{
 			NLL++;
@@ -178,91 +229,34 @@ double Likelihoods::Vertex_Score(const HitCollection<Hit>* lHitCol, std::vector<
 			if (VERBOSE >= 3)
 			{
 				std::cout << "Residual=" << residual << ", pmt type=" << pmtType << std::endl;
-				std::cout << "hit#" << ihit << ", hit time =" << hitTime << ", vertex time = " << vertexPosition[3] << ", distance PMT vs vertex = " << distance << ", tof=" << tof << std::endl;
+				std::cout << "hit#" << ihit << ", hit time =" << hitTime << ", vertex time = " << vertexPosition[3] << std::endl;
 				std::cout << "residual=" << residual << std::endl;
 			}
 #endif
 		}
 	}
 
-	// std::cout << " NLL Final" << NLL << std::endl;
-
-	// std::cout<<"NLL="<<NLL<<std::endl;
-	// if(NLL!=0) NLL=1/NLL;
-
-	if (NLL != 0)
-		NLL = -TMath::Log(NLL);
-	else
-		NLL = 1e15;
-
-	// std::cout<<"NLL="<<NLL<<std::endl;
-
-	return NLL;
-}
-
-double Likelihoods::FindNLL_NoLikelihood_Energy(const HitCollection<Hit>* lHitCol, std::vector<double> vertexPosition, int nhits, double /*lowerLimit*/, double /*upperLimit*/, bool /*killEdges*/, bool /*scaleDR*/, int /*directionality*/)
-{
-	double NLL = 0;
-
-	for (int ihit = 0; ihit < nhits; ihit++)
-	{
-		// Hit lHit = fHitInfo[ihit];
-		Hit lHit = lHitCol->At(ihit);
-
-		// std::cout << " NLL Hit " << ihit << " " << lHit.PMT << std::endl;
-		int iPMT = lHit.PMT;
-		double hitCharge = lHit.Q;
-
-		double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
-		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
-
-		int pmtType = Astro_GetPMTType(iPMT);
-		double distance = Astro_GetDistance(lPMTInfo.Position, vertexPosition);
-
-		double tof = distance / fLightSpeed;
-		double residual = hitTime - tof - vertexPosition[3];
-
-		bool bCondition = (residual > fHitTimeLimitsNegative && residual < fHitTimeLimitsPositive) || (pmtType == 1 && !fLimit_mPMT);
-
-		if (bCondition)
-		{
-			NLL += hitCharge;
-#ifdef VERBOSE_NLL
-			if (VERBOSE >= 3)
-			{
-				std::cout << "Residual=" << residual << ", pmt type=" << pmtType << std::endl;
-				std::cout << "hit#" << ihit << ", hit time =" << hitTime << ", vertex time = " << vertexPosition[3] << ", distance PMT vs vertex = " << distance << ", tof=" << tof << std::endl;
-				std::cout << "residual=" << residual << std::endl;
-			}
-#endif
-		}
-	}
-
-	return (NLL != 0) ? -TMath::Log(NLL) : 1e15;
+	return NLL != 0 ? -TMath::Log(NLL) : 1e15;
 }
 
 double Likelihoods::FindNLL(const HitCollection<Hit>* lHitCol, std::vector<double> vertexPosition, int nhits, bool likelihood, int verbose, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality)
 {
 	double NLL = 0;
 
-	// TStopwatch timer;
-	// timer.Reset();
-	// timer.Start();
-
 	for (int ihit = 0; ihit < nhits; ihit++)
 	{
-		// Hit lHit = fHitInfo[ihit];
 		Hit lHit = lHitCol->At(ihit);
 
 		int iPMT = lHit.PMT;
-		double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
+		// double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
 		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 
 		int pmtType = Astro_GetPMTType(iPMT);
-		double distance = Astro_GetDistance(lPMTInfo.Position, vertexPosition);
+		// double distance = Astro_GetDistance(lPMTInfo.Position, vertexPosition);
 
-		double tof = distance / fLightSpeed;
-		double residual = hitTime - tof - vertexPosition[3];
+		// double tof = distance / fLightSpeed;
+		// double residual = hitTime - tof - vertexPosition[3];
+		double residual = ComputeResidualTime(vertexPosition, vertexPosition[3], lHitCol->At(ihit));
 		double proba;
 #ifdef KILLHALF
 		if (pmtType == 1)
@@ -284,7 +278,7 @@ double Likelihoods::FindNLL(const HitCollection<Hit>* lHitCol, std::vector<doubl
 #ifdef VERBOSE_NLL
 				if (VERBOSE >= 3)
 				{
-					std::cout << "hit#" << ihit << ", hit time =" << hitTime << ", vertex time = " << vertexPosition[3] << ", distance PMT vs vertex = " << distance << ", tof=" << tof << std::endl;
+					std::cout << "hit#" << ihit << ", hit time =" << hitTime << ", vertex time = " << vertexPosition[3] << std::endl;
 					std::cout << "Residual=" << residual << ", proba=" << proba << ", pmt type=" << pmtType << std::endl;
 				}
 #endif
@@ -331,10 +325,8 @@ double Likelihoods::FindNLL(const HitCollection<Hit>* lHitCol, std::vector<doubl
 		else
 		{
 			bool condition;
-			if (pmtType == 0 || (pmtType == 1 && fLimit_mPMT))
-				condition = residual > fHitTimeLimitsNegative && residual < fHitTimeLimitsPositive;
-			else
-				condition = true;
+			if (pmtType == 0 || (pmtType == 1 && fLimit_mPMT)) condition = residual > fHitTimeLimitsNegative && residual < fHitTimeLimitsPositive;
+			else condition = true;
 			if (condition)
 			{
 				NLL++; //= fSplineTimePDFQueue[pmtType]->Eval(residual);
@@ -347,10 +339,8 @@ double Likelihoods::FindNLL(const HitCollection<Hit>* lHitCol, std::vector<doubl
 				}
 #endif
 			}
-			else if (killEdges)
-				continue;
-			else
-				proba = 0;
+			else if (killEdges) continue;
+			else proba = 0;
 		}
 
 		if (likelihood)
@@ -358,16 +348,14 @@ double Likelihoods::FindNLL(const HitCollection<Hit>* lHitCol, std::vector<doubl
 			if (proba < 0)
 			{
 				std::cout << "Error in PDF" << std::endl;
-				if (proba > -1e-1)
-					proba = 0; // Since spline sometimes slightly goes below 0 due to interpolation
+				if (proba > -1e-1) proba = 0; // Since spline sometimes slightly goes below 0 due to interpolation
 				else
 				{
 					std::cout << "Error in " << residual << "ns where proba = " << proba << std::endl;
 					return 0;
 				}
 			}
-			if (proba == 0)
-				proba = 1e-20;
+			if (proba == 0) proba = 1e-20;
 			NLL += -TMath::Log(proba);
 		}
 	}
@@ -375,11 +363,8 @@ double Likelihoods::FindNLL(const HitCollection<Hit>* lHitCol, std::vector<doubl
 	// cout<<"NLL="<<NLL<<endl;HitCollection
 	if (!likelihood)
 	{
-		// if(NLL!=0) NLL=1/NLL;
-		if (NLL != 0)
-			NLL = -TMath::Log(NLL);
-		else
-			NLL = 1e15;
+		if (NLL != 0) NLL = -TMath::Log(NLL);
+		else NLL = 1e15;
 	}
 	// if(VERBOSE>=2) cout<<"NLL="<<NLL<<endl;
 	if (directionality != 0)
@@ -396,29 +381,20 @@ double Likelihoods::FindNLL(const HitCollection<Hit>* lHitCol, std::vector<doubl
 		}
 		else
 		{
-			// NLLdir=findNLLDirectionalityBayes(vertexPosition, nhits, verbose,fHitTimeLimitsNegative,fHitTimeLimitsPositive);
 			NLLdir2 = FindNLLDirectionality(lHitCol, vertexPosition, nhits, verbose, fHitTimeLimitsNegative, fHitTimeLimitsPositive);
 		}
-		if (VERBOSE >= 2)
-			std::cout << "NLL = " << NLL << ", dir (L) = " << TMath::Exp(-NLLdir) << ", dir 2 = " << NLLdir2 << std::endl;
-		if (directionality == 1)
-			NLL += NLLdir2;
-		else if (directionality == 2)
-			NLL = NLLdir2;
+		if (VERBOSE >= 2) std::cout << "NLL = " << NLL << ", dir (L) = " << TMath::Exp(-NLLdir) << ", dir 2 = " << NLLdir2 << std::endl;
+		if (directionality == 1) NLL += NLLdir2;
+		else if (directionality == 2) NLL = NLLdir2;
 	}
-	// timer.Stop();
-	// std::cout << "FindNLL: Total time = " << timer.RealTime() << std::endl;
-	// timer.Reset();
 
 	return NLL;
 }
 
-
-//*DIRECTION
-
 double Likelihoods::ComputeDirNLL_NoPDF(const HitCollection<Hit>* lHitCol, const std::vector<double>& vertexPosition, const std::vector<double>& vertexDirection, int nhits) {
 	double DNLL = 0.;
-    for (int ihit = 0; ihit < nhits; ihit++) {
+    for (int ihit = 0; ihit < nhits; ihit++) 
+	{
         Hit lHit = lHitCol->At(ihit);
         int iPMT = lHit.PMT;
 
@@ -432,9 +408,7 @@ double Likelihoods::ComputeDirNLL_NoPDF(const HitCollection<Hit>* lHitCol, const
 		double vertexdirnorm= pow(vertexDirection[0]*vertexDirection[0]+vertexDirection[1]*vertexDirection[1]+vertexDirection[2]*vertexDirection[2],0.5);
 		double vertexDirNormalized[3];
 
-		for (int j = 0; j<3;j++){
-			vertexDirNormalized[j]=vertexDirection[j]/vertexdirnorm;
-		}
+		for (int j = 0; j<3;j++) vertexDirNormalized[j]=vertexDirection[j]/vertexdirnorm;
 
         // Normalize the vector
         double length = sqrt(dirVector[0] * dirVector[0] + dirVector[1] * dirVector[1] + dirVector[2] * dirVector[2]);
@@ -443,41 +417,36 @@ double Likelihoods::ComputeDirNLL_NoPDF(const HitCollection<Hit>* lHitCol, const
         dirVector[2] /= length;
 		
         // Calculate RelativeAngle (cosine of angle between vectors)
-        double RelativeAngle = dirVector[0] * vertexDirNormalized[0] +
-                               dirVector[1] * vertexDirNormalized[1] +
-                               dirVector[2] * vertexDirNormalized[2];
+        double RelativeAngle = dirVector[0] * vertexDirNormalized[0] + dirVector[1] * vertexDirNormalized[1] + dirVector[2] * vertexDirNormalized[2];
 		double theta = acos(RelativeAngle)*180./TMath::Pi();
 		//std::cout << "theta: " << theta << std::endl;
-        if (theta<46 && theta>38){
-		std::cout << "Got hit! " << theta << std::endl;
-        DNLL += -1;
+        if (theta<46 && theta>38)
+		{
+			std::cout << "Got hit! " << theta << std::endl;
+        	DNLL += -1;
 		} 
 
-
-    if (VERBOSE >= 2) {
-        std::cout << "Direction NLL = " << DNLL << std::endl;
-    }
+		
+		if (VERBOSE >= 2) std::cout << "Direction NLL = " << DNLL << std::endl;
 	}
-	/*if (DNLL<-1){
-	std::cout << "Got smt better than -1: " << DNLL << std::endl;
-	}*/
 	
     return DNLL;
 
 }
 
 //Uses the PDF to find the DirNLL, used mainly for the MIGRAD optimization
-
 double Likelihoods::Dir_NLL(const HitCollection<Hit>* lHitCol, const std::vector<double>& vertexPosition, double theta_track, double phi_track, int nhits) {
     double DNLL = 0;
 
     // Ensure theta and phi are within valid ranges
     // theta in [0, pi], phi in [-pi, pi]
-    if (theta_track < 0 || theta_track > TMath::Pi()) {
+    if (theta_track < 0 || theta_track > TMath::Pi()) 
+	{
         std::cerr << "Error: theta_track is out of range [0, π]." << std::endl;
         return std::numeric_limits<double>::infinity();
     }
-    if (phi_track < -TMath::Pi() || phi_track > TMath::Pi()) {
+    if (phi_track < -TMath::Pi() || phi_track > TMath::Pi()) 
+	{
         std::cerr << "Error: phi_track is out of range [-π, π]." << std::endl;
         return std::numeric_limits<double>::infinity();
     }
@@ -518,29 +487,26 @@ double Likelihoods::Dir_NLL(const HitCollection<Hit>* lHitCol, const std::vector
 			return std::numeric_limits<double>::infinity();
 		}
 
-		// std::cout << "ok for ihit: " << ihit <<  " / " << nhits << std::endl;
-
 		Hit lHit = lHitCol->At(ihit);
 		int iPMT = lHit.PMT;
 
-		double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
+		// double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
 		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		
 		int pmtType = Astro_GetPMTType(iPMT);
-		double distance = Astro_GetDistance(lPMTInfo.Position,vertexPosition);
+		// double distance = Astro_GetDistance(lPMTInfo.Position,vertexPosition);
 		
-		double tof = distance / fLightSpeed;
-		double residual = hitTime - tof - vertexPosition[3];
+		// double tof = distance / fLightSpeed;
+		// double residual = hitTime - tof - vertexPosition[3];
+
+		double residual = ComputeResidualTime(vertexPosition, vertexPosition[3], lHitCol->At(ihit));
 	
 		bool DirCondition = (residual >= -5 && residual <= 15) || (pmtType == 1 && 	!fLimit_mPMT);
 
 
 		if(DirCondition || DirTakeAll)
 		{		
-			// std::cout << "condition ok ihit: " << ihit << std::endl;
-			// Hit lHit = fHitCollection->At(ihit);
 			int iPMT = lHit.PMT;
-			// double hitCharge = lHit.Q;
 			PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 
 			// Ensure lPMTInfo.Position and lPMTInfo.Orientation have the correct size
@@ -549,16 +515,13 @@ double Likelihoods::Dir_NLL(const HitCollection<Hit>* lHitCol, const std::vector
 				std::cerr << "Error: lPMTInfo.Position or lPMTInfo.Orientation is not of size 3." << std::endl;
 				continue;
 			}
-			// std::cout << "pos and orient ok : " << ihit << std::endl;
 
 			double dirVector[3];
 			dirVector[0] = lPMTInfo.Position[0] - vertexPosition[0];
 			dirVector[1] = lPMTInfo.Position[1] - vertexPosition[1];
 			dirVector[2] = lPMTInfo.Position[2] - vertexPosition[2];
 
-			double dirNorm = sqrt(dirVector[0]*dirVector[0] +
-								dirVector[1]*dirVector[1] +
-								dirVector[2]*dirVector[2]);
+			double dirNorm = sqrt(dirVector[0]*dirVector[0] + dirVector[1]*dirVector[1] + dirVector[2]*dirVector[2]);
 			if (dirNorm == 0)
 			{
 				std::cerr << "Error: dirNorm is zero, cannot normalize direction vector." << std::endl;
@@ -633,8 +596,6 @@ double Likelihoods::Dir_NLL(const HitCollection<Hit>* lHitCol, const std::vector
 		
 			if (VERBOSE >= 3) std::cout << "Hit #" << ihit << ", Theta = " << theta << " degrees, Probability = " << proba << std::endl;
     	}
-
-		// std::cout << "iHit done : " << ihit << " / " << nhits << std::endl;
 
 		if (VERBOSE >= 2) std::cout << "Total Direction NLL = " << DNLL << std::endl;
 	}
@@ -739,42 +700,4 @@ double Likelihoods::GoodnessOfFit(const HitCollection<Hit>* lHitCol, std::vector
     double NLLR = NLL_data - NLL_theory;
 
     return NLLR;
-}
-
-double Likelihoods::EstimateBandeWidth(const std::vector<double>& residuals) 
-{
-	double sum = std::accumulate(residuals.begin(), residuals.end(), 0.0);
-	double mean = sum / residuals.size();
-
-	double sq_sum = std::inner_product(residuals.begin(), residuals.end(), residuals.begin(), 0.0);
-	double variance = sq_sum / residuals.size() - mean * mean;
-	double stddev = std::sqrt(variance);
-	return 1.06 * stddev * std::pow(residuals.size(), -1.0 / 5.0);
-}
-
-double Likelihoods::GaussianKernel(double x, double bandwidth) 
-{
-    return std::exp(-0.5 * x * x / (bandwidth * bandwidth)) / (bandwidth * std::sqrt(2.0 * M_PI));
-}
-
-double Likelihoods::KDE_Estimate(const std::vector<double>& residuals, double t_i, double bandwidth) 
-{
-    double sum = 0.0;
-    for (const double& t_j : residuals) sum += GaussianKernel(t_i - t_j, bandwidth);
-    return sum / residuals.size();
-}
-
-double Likelihoods::ComputeResidualTime(std::vector<double> vertexPos, double originTime, Hit lHit)
-{
-	int iPMT = lHit.PMT;
-	double HitT = (fTimeCorrection + lHit.T) / TimeDelta::ns;
-	PMTInfo lPMTInfo = (*fPMTList)[iPMT];
-	double distance = Astro_GetDistance(lPMTInfo.Position, vertexPos);
-
-	double tof = distance / fLightSpeed;
-	// std::cout << "bad tof" << tof << std::endl;
-	// std::cout << "bad hitTime" << HitT << std::endl;
-	// std::cout << "bad vertex Time" << originTime << std::endl;
-	// std::cout << "bad residual" << HitT - tof - originTime << std::endl;
-	return HitT - tof - originTime;
 }

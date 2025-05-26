@@ -20,6 +20,10 @@
 #include "LeafUtility.hh"
 #include "LeafDefinitions.hh"
 
+void MinuitDirNLL(int& nDim, double* gout, double& NLL, double* par, int flg);
+void MinuitLikelihood(int& nDim, double * gout, double & NLL, double par[], int flg);
+void MinuitJointNLL(int& nDim, double * gout, double & NLL, double par[], int flg);
+
 class Likelihoods
 {
 	public:
@@ -31,10 +35,15 @@ class Likelihoods
         }
     };
 
+    template <typename T>
+    struct CompareByNLL {
+        bool operator()(T const &a, T const &b) const {
+            return a.NLL < b.NLL;
+        }
+    };
+
     //* Calculate likelihood without using PDF, but just using hits within a given timing window (hits "in-time").
     static double Vertex_Score(const HitCollection<Hit>* lHitCol, std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality);
-    
-    static double FindNLL_NoLikelihood_Energy(const HitCollection<Hit>* lHitCol, std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality);
     
     //* Contain the two functions above in one function, where usage of PDF or not can be set through the flag: likelihood = true/false
     static double FindNLL(const HitCollection<Hit>* lHitCol, std::vector<double> vertexPosition,int nhits, bool likelihood, int verbose, double lowerLimit, double upperLimit, bool killEdges=false, bool scaleDR=false, int directionality=false);
@@ -48,17 +57,5 @@ class Likelihoods
     static double FindNLLDirectionality(const HitCollection<Hit>* lHitCol, std::vector<double> vertexPosition, int nhits, int verbose, double lowerLimit, double upperLimit);
 
     static double GoodnessOfFit(const HitCollection<Hit>* lHitCol, std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality);
-
-    //* Estimate P_data(t_i) using KDE
-    static double KDE_Estimate(const std::vector<double>& residuals, double t_i, double bandwidth);
-
-    static double EstimateBandeWidth(const std::vector<double>& residuals);
-    
-    private:
-
-    static double ComputeResidualTime(std::vector<double> vertexPos, double originTime, Hit lHitt);
-
-    //* Gaussian kernel function
-    static double GaussianKernel(double x, double bandwidth);
 
 };

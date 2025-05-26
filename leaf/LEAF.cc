@@ -14,42 +14,20 @@ std::mutex mtx;
 
 /*****************************************************************************************************/
 
-void MinuitLikelihood(int & /*nDim*/, double * /*gout*/, double &NLL, double par[], int /*flg*/)
-{
-	// TStopwatch timer;
-	// timer.Reset();
-	// timer.Start();
+// void MinimizeVertex_CallThread(int iStart, int iIte, std::vector<std::vector<double>> initialVertex, double *limits, double stepSize, int nhits, int nCandidates, int tolerance, int verbose, bool likelihood, bool average, double lowerLimit, double upperLimit, int directionality)
+// {
+// 	LEAF::GetME()->MinimizeVertex_thread(iStart, iIte, initialVertex, limits, stepSize, nhits, nCandidates, tolerance, verbose, likelihood, average, lowerLimit, upperLimit, directionality);
+// }
 
-	std::vector<double> vertexPosition(4, 0.); // In centimeters
-	for (int i = 0; i < 4; i++)
-		vertexPosition[i] = par[i];
-	int nhits = par[5];
-	double lowerLimit = par[6];
-	double upperLimit = par[7];
-	double directionality = par[9];
-	std::vector<double> vertexDirection(3,0.);
-
-	NLL = Likelihoods::Vertex_Time_NLL(fHitCollection, vertexPosition, nhits, lowerLimit, upperLimit, true, false, directionality);
-
-	// timer.Stop();7
-	// std::cout << " Likelihood: " << timer.RealTime() << std::endl;
-}
-
-void MinimizeVertex_CallThread(int iStart, int iIte, std::vector<std::vector<double>> initialVertex, double *limits, double stepSize, int nhits, int nCandidates, int tolerance, int verbose, bool likelihood, bool average, double lowerLimit, double upperLimit, int directionality)
-{
-	LEAF::GetME()->MinimizeVertex_thread(iStart, iIte, initialVertex, limits, stepSize, nhits, nCandidates, tolerance, verbose, likelihood, average, lowerLimit, upperLimit, directionality);
-}
-
-void SearchVertex_CallThread(int iStart, int iIte, int nhits, int tolerance, bool likelihood, double lowerLimit, double upperLimit, int directionality)
-{
-	LEAF::GetME()->SearchVertex_thread(iStart, iIte, nhits, tolerance, likelihood, lowerLimit, upperLimit, directionality);
-}
+// void SearchVertex_CallThread(int iStart, int iIte, int nhits, int tolerance, bool likelihood, double lowerLimit, double upperLimit, int directionality)
+// {
+// 	LEAF::GetME()->SearchVertex_thread(iStart, iIte, nhits, tolerance, likelihood, lowerLimit, upperLimit, directionality);
+// }
 /*****************************************************************************************************/
 
 LEAF::LEAF()
 {
 	myFitter = this;
-	fThread = N_THREAD;
 }
 
 LEAF::~LEAF()
@@ -74,213 +52,46 @@ void LEAF::DeleteME()
 /*****************************************************************************************************/
 void LEAF::Initialize(const Geometry *lGeometry)
 {
-	fRand = new TRandom3();
-
 	InitConfig(lGeometry);
 	InitInputs(lGeometry);
 	LoadSplines();
-	this->MakePositionList();
-}
-
-void LEAF::SetTrueVertexInfo(std::vector<double> vtx, double time) 
-{
-
-	fTrueVtxPosDouble.clear();
-	fTrueVtxPos.clear();
-
-	fTrueVtxPos.resize(5,0.);
-
-	fTrueVtxPos[0] = vtx[0];
-	fTrueVtxPos[1] = vtx[1];
-	fTrueVtxPos[2] = vtx[2];
-	fTrueVtxPos[3] = time;
-	fTrueVtxPos[4] = 0.;
-
-	fTrueVtxPosDouble.push_back(fTrueVtxPos);
-}
-
-void LEAF::VectorVertexPMT(std::vector<double> vertex, int iPMT, double *dAngles)
-{
-	// Guillaume 2020/05/20:
-	// mPMT referencial is computed once for all PMT in LoadPMTInfo() and MakeMPMTReferencial(iPMT)
-	// Guillaume 2020/11/20:
-	// Reference is moved to outside LEAF (HKManager or hk-AstroAnalysis)
-
-	PMTInfo lPMTInfo = (*fPMTList)[iPMT];
-	int iPMTTop = lPMTInfo.mPMT_RefTube;
-	PMTInfo lPMTInfoTop = (*fPMTList)[iPMTTop];
-
-	// 5. Now we have our referential, we should just calculate the angles of the PMT to vertex position vector in this referential.
-	// a. calculate the PMT to vertex position vector.
-
-	double dVtx_PMTRef[3];
-
-	dVtx_PMTRef[0] = vertex[0] - lPMTInfoTop.Position[0];
-	dVtx_PMTRef[1] = vertex[1] - lPMTInfoTop.Position[1];
-	dVtx_PMTRef[2] = vertex[2] - lPMTInfoTop.Position[2];
-
-	double dLengthVtx = Astro_GetLength(dVtx_PMTRef);
-	GeoTools::Normalize(dVtx_PMTRef);
-
-	if (VERBOSE >= 3)
-	{
-		std::cout << "Vertex position = " << vertex[0] << ", " << vertex[1] << ", " << vertex[2] << std::endl;
-		std::cout << "Vertex position from PMT = " << dVtx_PMTRef[0] << ", " << dVtx_PMTRef[1] << ", " << dVtx_PMTRef[2] << std::endl;
-	}
-
-	// b. Then extract Theta and Phi:
-	double dCosTheta = Astro_GetScalarProd(dVtx_PMTRef, lPMTInfo.mPMT_RefZ);
-	double dTheta = TMath::ACos(dCosTheta);
-
-	double dPhi = 0.;
-
-	if ((*fPMTList)[iPMT].mPMT_TubeNum == HKAA::kmPMT_TopID)
-	{
-		// Phi is not defined in that case..
-	}
-	else
-	{
-		// We know x=cosPhi x sinTheta and y=sinPhi x sinTheta
-		double dX = Astro_GetScalarProd(dVtx_PMTRef, lPMTInfo.mPMT_RefX);
-		double dY = Astro_GetScalarProd(dVtx_PMTRef, lPMTInfo.mPMT_RefY);
-		double dTanPhi = dY / dX;
-		dPhi = TMath::ATan(dTanPhi);
-
-		// tan is symetric from -pi/2 to +pi/2
-		if (dX == 0)
-		{
-			if (dY < 0)
-				dPhi = -TMath::Pi() / 2.;
-			else
-				dPhi = TMath::Pi() / 2.;
-		}
-		if (dX < 0)
-			dPhi += TMath::Pi(); // With this, angle become defines between -pi/2 to -pi/2 +2pi.
-
-		// We wish to bring this from 0 to 2pi:
-		if (dPhi < 0)
-			dPhi += 2 * TMath::Pi();
-
-		// Actually, we have a symmetry in Phi between [0,pi] and [pi,2pi]. So, we will just define Phi in [0,pi] modulo pi
-		if (dPhi > TMath::Pi())
-			dPhi = TMath::Pi() - (dPhi - TMath::Pi());
-	}
-
-	dAngles[0] = dPhi * 180. / TMath::Pi();
-	dAngles[1] = dTheta * 180. / TMath::Pi();
-	dAngles[2] = dLengthVtx;
-	dAngles[3] = 1; // calculateWeight(dLengthVtx,PMTradius[pmtType],Theta,verbose);
-
-	if (VERBOSE >= 3)
-	{
-		std::cout << "Angles Phi = " << dAngles[0] << ", Theta = " << dAngles[1] << std::endl;
-	}
-}
-
-CandidateOutput LEAF::ComputeCandidateSNR(const std::vector<double>& vertex, double lowerLimit, double upperLimit)
-{
-	CandidateOutput out;
-
-	// Copy the vertex info
-	out.X = vertex[0];
-	out.Y = vertex[1];
-	out.Z = vertex[2];
-	out.T = vertex[3];
-	out.NLL = 0.0; 
-
-	// We'll do a simple approach: count how many hits are in [lower,upper]
-	// for each PMT type, then subtract the dark rate.
-
-	int nHitsTotal = fHitCollection->Size();
-	int inTimeBnL = 0;
-	int inTimemPMT = 0;
-
-	for(int iHit = 0; iHit < nHitsTotal; iHit++) {
-		const Hit& hit = fHitCollection->At(iHit);
-		int iPMT = hit.PMT;
-		int pmtType = Astro_GetPMTType(iPMT); // 0=BnL, 1=mPMT
-
-		double hitTime = (fTimeCorrection + hit.T) / TimeDelta::ns;
-		PMTInfo pInfo = (*fPMTList)[iPMT];
-		double distance = Astro_GetDistance(pInfo.Position, vertex);
-		double tof = distance / fLightSpeed;
-		double residual = hitTime - tof - vertex[3];
-		//std::cout << "residual: " << residual << ", " << "lowerlimit and upperlimit " << lowerLimit << ", " << upperLimit << std::endl; 
-		if(residual >= lowerLimit && residual <= upperLimit)
-		{
-			if(pmtType == 0) {
-			// BnL
-			inTimeBnL++;
-			} else {
-			// mPMT
-			inTimemPMT++;	
-			}
-		}
-	}
-
-	double dt = (upperLimit - lowerLimit);
-
-	// BnL:
-	double darkRateBnL = fTimeWindowSizeFull * fDarkRate_ns[NormalPMT];
-	// average dark over dt:
-	double darkInWindowBnL = (dt / double(fTimeWindowSizeFull)) * darkRateBnL;
-	double signalBnL = std::max(double(inTimeBnL) - darkInWindowBnL, 0.0);
-	//std::cout << "inTimeBnL - darkInWindowBnL : " << inTimeBnL << "-" << darkInWindowBnL << std::endl;
-	out.SNR = (darkInWindowBnL > 1e-9) ? (signalBnL / darkInWindowBnL) : 999.0;
-
-	return out;
-}
-
-void LEAF::MakePositionList()
-{
-	// Make position list for a given step size
-
-	double dStep = fSearchVtxStep;
-	fPositionList.clear();
-
-	for (double time = -50; time < 50; time += (dStep / fLightSpeed))
-	{
-		for (double radius = 0; radius <= fTankRadius; radius += dStep)
-		{
-
-			double perimeter = 2 * TMath::Pi() * radius;
-			int numberOfStepsOnCircle = floor(perimeter / dStep);
-			if (numberOfStepsOnCircle == 0)
-				numberOfStepsOnCircle = 1;
-			double angleStepOnCircle = 2 * TMath::Pi() / numberOfStepsOnCircle;
-
-			for (double angle = 0; angle <= 2 * TMath::Pi(); angle += angleStepOnCircle)
-			{
-
-				for (double height = -fTankHalfHeight; height <= fTankHalfHeight; height += dStep)
-				{
-
-					std::vector<double> tVtxPosition(4, 0.); // In centimeters
-					tVtxPosition[0] = radius * TMath::Cos(angle);
-					tVtxPosition[1] = radius * TMath::Sin(angle);
-					tVtxPosition[2] = height;
-					tVtxPosition[3] = time;
-
-					fPositionList.push_back(tVtxPosition);
-				}
-			}
-		}
-	}
 }
 
 //Creates the candidates list after Coarse grid search, refines the fit, then outputs the best candidate
-//Calls ComputeDirNLL, and MinimizeDirection
-std::vector<double> LEAF::FitDirection(const std::vector<double>& fixedVertexPosition, int nhits, int verbose) {
-    double theta_step = 5 * TMath::DegToRad(); 
-    double phi_step = 5 * TMath::DegToRad();   
+std::vector<double> LEAF::FitDirection(const std::vector<double>& fixedVertexPosition, FitterOutput &fOutput, int nhits) 
+{
+    // double theta_step = 5 * TMath::DegToRad(); 
+    // double phi_step = 5 * TMath::DegToRad(); 
+	double *tLimits = new double[4];  
+	int verbose = VERBOSE;
+	for (int i = 0; i < 4; i++) tLimits[i] = 2 * fSearchVtxStep;
 
-    std::vector<DirectionCandidate> candidates;
+    std::vector<DirectionCandidate> candidates = SearchDirection(fixedVertexPosition, DirTolerance);
+
+	fOutput.stepOneContainsTrueDir = (int)ContainsTrueDir(&candidates, fTrueDir);
+
+    if (verbose >= 2) 
+	{
+        for (unsigned int j = 0; j < candidates.size(); j++) std::cout << "Candidate theta = " << candidates[j].theta * TMath::RadToDeg() << " deg, phi = " << candidates[j].phi * TMath::RadToDeg() << " deg, NLL = " << candidates[j].DNLL << std::endl;
+    }
+
+	DirectionCandidate finalCandidate = MinimizeDirection(fixedVertexPosition, candidates, nhits, tLimits, verbose);
+
+	fOutput.Dir = PolarToCartesianNorm({finalCandidate.theta, finalCandidate.phi});
+	fOutput.DNLL = finalCandidate.DNLL;
+
+    return fOutput.Dir;
+}
+
+std::vector<DirectionCandidate> LEAF::SearchDirection(const std::vector<double>& fixedVertexPosition, int tolerance)
+{
+	std::vector<DirectionCandidate> candidates;
 
     // Grid search over theta and phi
     for (double theta = 0.0; theta <= TMath::Pi(); theta += theta_step) {
         for (double phi = -TMath::Pi(); phi < TMath::Pi(); phi += phi_step) {
             // Compute NLL for this direction
-            double DNLL = Likelihoods::Dir_NLL(fHitCollection ,fixedVertexPosition, theta, phi, nhits);
+            double DNLL = Likelihoods::Dir_NLL(fHitCollection ,fixedVertexPosition, theta, phi, fHitCollection->Size());
 
             // Store the candidate
             DirectionCandidate candidate;
@@ -291,54 +102,22 @@ std::vector<double> LEAF::FitDirection(const std::vector<double>& fixedVertexPos
         }
     }
 
-    std::sort(candidates.begin(), candidates.end(), [](const DirectionCandidate& a, const DirectionCandidate& b) {
+    std::sort(candidates.begin(), candidates.end(), [](const DirectionCandidate& a, const DirectionCandidate& b) 
+	{
         return a.DNLL < b.DNLL;
     });
 
-	unsigned int num_candidates_to_refine = 50; 
-    if (candidates.size() < num_candidates_to_refine) {
-        num_candidates_to_refine = candidates.size();
-    }
+	// Select the best candidates based on tolerance
+	while((int)candidates.size() > tolerance) candidates.pop_back();
 
-    if (verbose >= 2) {
-        for (unsigned int j = 0; j < num_candidates_to_refine; j++) {
-            std::cout << "Candidate theta = " << candidates[j].theta * TMath::RadToDeg()
-                      << " deg, phi = " << candidates[j].phi * TMath::RadToDeg()
-                      << " deg, NLL = " << candidates[j].DNLL << std::endl;
-        }
-    }
-
-    std::vector<double> best_direction_params(2); // theta and phi
-    double best_NLL = std::numeric_limits<double>::max();
-
-    for (unsigned int i = 0; i < num_candidates_to_refine; ++i) {
-        // Refine each candidate using minimization
-        std::vector<double> refined_params = MinimizeDirection(fixedVertexPosition, candidates[i], nhits, verbose);
-
-        // Compute NLL for refined direction
-        double theta = refined_params[0];
-        double phi = refined_params[1];
-
-        double refined_NLL = Likelihoods::Dir_NLL(fHitCollection ,fixedVertexPosition, theta, phi, nhits);
-
-        if (refined_NLL < best_NLL) {
-            best_NLL = refined_NLL;
-            best_direction_params = refined_params;
-        }
-    }
-
-    return best_direction_params; // Returns [theta, phi]
+	return candidates;
 }
 
 //MIGRAD Optimization
-std::vector<double> LEAF::MinimizeDirection(
-    const std::vector<double>& fixedVertexPosition,
-    const DirectionCandidate& candidate,
-    int nhits,
-    int verbose
-) {
+DirectionCandidate LEAF::MinimizeDirection(const std::vector<double>& fixedVertexPosition, std::vector<DirectionCandidate>& candidates, int nhits,  double *limits, int verbose) 
+{
     // Create a minimizer
-    TFitter* minimizer = new TFitter(2); // 2 parameters: theta, phi
+    TFitter* minimizer = new TFitter(7); // 2 parameters: theta, phi
     TMinuit* minuit = minimizer->GetMinuit();
 
     double arglist[10];
@@ -347,71 +126,61 @@ std::vector<double> LEAF::MinimizeDirection(
     minimizer->ExecuteCommand("SET PRINTOUT", &p1, 1);
     minuit->SetErrorDef(1);
 
-    if (verbose < 2) {
-        minuit->mnexcm("SET NOWarnings", 0, 0, err);
-    }
+    if (verbose < 2) minuit->mnexcm("SET NOWarnings", 0, 0, err);
 
     arglist[0] = 2;
     minuit->mnexcm("SET STR", arglist, 1, err);
     minimizer->SetFCN(MinuitDirNLL);
 
-    // Set initial parameters and bounds
-    minimizer->SetParameter(0, "theta", candidate.theta, 2*M_PI/180, 0.0, TMath::Pi());
-    minimizer->SetParameter(1, "phi", candidate.phi, 2*M_PI/180, -TMath::Pi(), TMath::Pi());
+	for (int icand = 0; icand < (int)candidates.size(); icand++)
+	{
+		// Set initial parameters and bounds
+		minimizer->SetParameter(0, "theta", candidates[icand].theta, 2*M_PI/180, 0.0, TMath::Pi());
+		minimizer->SetParameter(1, "phi", candidates[icand].phi, 2*M_PI/180, -TMath::Pi(), TMath::Pi());
+		minimizer->SetParameter(2, "nhits", nhits, nhits, nhits - 1, nhits + 1);
+		minimizer->SetParameter(3, "vertex0", fixedVertexPosition[0], 5e-1, -limits[0], limits[0]);
+		minimizer->SetParameter(4, "vertex1", fixedVertexPosition[1], 5e-1, -limits[1], limits[1]);
+		minimizer->SetParameter(5, "vertex2", fixedVertexPosition[2], 5e-1, -limits[2], limits[2]);
+		minimizer->SetParameter(6, "vertex3", fixedVertexPosition[3], 5e-1 / fLightSpeed, -limits[3] / fLightSpeed, limits[3] / fLightSpeed);
+		
+		minimizer->FixParameter(2);
+		minimizer->FixParameter(3);
+		minimizer->FixParameter(4);
+		minimizer->FixParameter(5);
+		minimizer->FixParameter(6);
 
-    // Store fixed vertex position and number of hits in member variables
-    fFixedVertexPosition = fixedVertexPosition;
-    fNHits = nhits;
+		// Store fixed vertex position and number of hits in member variables
+		// fFixedVertexPosition = fixedVertexPosition;
+		// fNHits = nhits;
 
-    // Minimize
-    arglist[0] = 1e9; // Maximum number of function evaluations
-    arglist[1] = 1e-1; // Tolerance
-    minimizer->ExecuteCommand("MIGRAD", arglist, 2 );
+		// Minimize
+		arglist[0] = 1e9; // Maximum number of function evaluations
+		arglist[1] = 1e-1; // Tolerance
+		minimizer->ExecuteCommand("MIGRAD", arglist, 2 );
 
-    // Retrieve results
-    std::vector<double> optimizedParameters(2);
-    optimizedParameters[0] = minimizer->GetParameter(0); // theta
-    optimizedParameters[1] = minimizer->GetParameter(1); // phi
+		// Retrieve results
+		std::vector<double> optimizedParameters(2);
+		candidates[icand].theta = minimizer->GetParameter(0); // theta
+		candidates[icand].phi = minimizer->GetParameter(1); // phi
 
+		minuit = minimizer->GetMinuit();
+		double fmin, fedm, errdef;
+		int npar, nparx, istat;
+		minuit->mnstat(fmin, fedm, errdef, npar, nparx, istat);
+
+		candidates[icand].DNLL = fmin;
+	}
+
+	std::sort(candidates.begin(), candidates.end(), [](const DirectionCandidate& a, const DirectionCandidate& b) 
+	{
+        return a.DNLL < b.DNLL;
+    });
     // Optional: Print the refined parameters
-    if (verbose >= 2) {
-        std::cout << "After refinement: theta = " << optimizedParameters[0] * TMath::RadToDeg()
-                  << " deg, phi = " << optimizedParameters[1] * TMath::RadToDeg() << " deg" << std::endl;
-    }
+    // if (verbose >= 2) std::cout << "After refinement: theta = " << optimizedParameters[0] * TMath::RadToDeg() << " deg, phi = " << optimizedParameters[1] * TMath::RadToDeg() << " deg" << std::endl;
 
     delete minimizer;
-
-    return optimizedParameters; // Returns [theta, phi]
+    return candidates[0]; // Returns [theta, phi]
 }
-
-
-//Function to optimize, for MIGRAD
-void MinuitDirNLL(int& /*nDim*/, double* /*gout*/, double& DNLL, double par[], int /*flg*/) {
-    LEAF* leaf = LEAF::GetME();
-
-    // Extract theta and phi from parameters
-    double theta = par[0];
-    double phi = par[1];
-
-    // Ensure theta and phi are within valid ranges
-    if (theta < 0 || theta > TMath::Pi()) {
-        DNLL = 1e10; // Assign a large NLL to invalid directions
-        return;
-    }
-    if (phi < -TMath::Pi() || phi > TMath::Pi()) {
-        DNLL = 1e10;
-        return;
-    }
-
-    // Use fixed vertex position and number of hits stored in the LEAF instance
-    const std::vector<double>& vertexPosition = leaf->fFixedVertexPosition;
-    int nhits = leaf->fNHits;
-
-    // Calculate NLL using theta and phi
-    DNLL = Likelihoods::Dir_NLL(fHitCollection, vertexPosition, theta, phi, nhits);
-}
-
-//* DIRECTION END
 
 /*****************************************************************************************************/
 
@@ -439,7 +208,6 @@ std::vector<std::vector<double>> LEAF::SearchVertex(int nhits, int tolerance, bo
 		std::cout << "Number of hits for coarse grid search = " << nhits << std::endl;
 	for (unsigned int iPos = 0; iPos < fPositionList.size(); iPos++)
 	{
-
 		struct FitPosition hPos;
 		hPos.Vtx = fPositionList[iPos];
 		hPos.NLL = 0;
@@ -467,7 +235,6 @@ std::vector<std::vector<double>> LEAF::SearchVertex(int nhits, int tolerance, bo
 #ifdef VERBOSE_VTX
 		std::cout << " Remove end: " << tVtxContainer.back().NLL << " (first " << tVtxContainer[0].NLL << ") " << tVtxContainer.size() << std::endl;
 #endif
-		// std::cout << " Remove end: " << tVtxContainer.back().NLL << " (first " << tVtxContainer[0].NLL << ") " << tVtxContainer.size() << std::endl;
 		tVtxContainer.pop_back();
 	}
 
@@ -494,14 +261,12 @@ std::vector<std::vector<double>> LEAF::SearchVertex(int nhits, int tolerance, bo
 
 	clock_t timeEnd = clock();
 
-	// if(VERBOSE)
 	std::cout << "SearchVertex: Time it took for the loop = " << (timeEndLoop - timeStart) / 1e6 << ", time total = " << (timeEnd - timeStart) / 1e6 << " " << fPositionList.size() << std::endl;
 
 	return tReconstructedVertexPosition;
-	// return tBestReconstructedVertexPosition;
 }
 
-std::vector<CandidateOutput> LEAF::SearchVertex_Main_WithSNR(int nhits, int tolerance, bool likelihood, double lowerLimit, double upperLimit, int directionality)
+std::vector<VtxCandidate> LEAF::SearchVertex_Main(int nhits, int tolerance, bool likelihood, double lowerLimit, double upperLimit, int directionality)
 {
 // 1) Launch threads just like in SearchVertex_Main.
 	std::vector<std::thread> lThreadList;
@@ -513,18 +278,16 @@ std::vector<CandidateOutput> LEAF::SearchVertex_Main_WithSNR(int nhits, int tole
 	for(int iStart=0; iStart<(int)fPositionList.size(); iStart+=iCand_Step)
 	{
 		std::thread tThrd(
-		SearchVertex_CallThread,
-		iStart, iCand_Step,
-		nhits, tolerance,
-		likelihood, lowerLimit, upperLimit, directionality
+			&LEAF::SearchVertex_thread,
+			LEAF::GetME(),
+			iStart, iCand_Step,
+			nhits, tolerance,
+			likelihood, lowerLimit, upperLimit, directionality
 		);
 		lThreadList.push_back(std::move(tThrd));
 	}
 
-	for(auto &th: lThreadList)
-	{
-		if(th.joinable()) th.join();
-	}
+	for(auto &th: lThreadList) if(th.joinable()) th.join();
 
 	// 2) collect partial results from fThreadOutput.
 	mtx.lock();
@@ -534,13 +297,10 @@ std::vector<CandidateOutput> LEAF::SearchVertex_Main_WithSNR(int nhits, int tole
 
 	// 3) Sort by NLL and keep 'tolerance' number of candidates
 	std::sort(lOutputFinal.begin(), lOutputFinal.end(), SortOutputVector);
-	while((int)lOutputFinal.size() > tolerance)
-	{
-		lOutputFinal.pop_back();
-	}
+	while((int)lOutputFinal.size() > tolerance) lOutputFinal.pop_back();
 
-	//4) Now build a vector of CandidateOutput.
-	std::vector<CandidateOutput> finalList;
+	//4) Now build a vector of VtxCandidate.
+	std::vector<VtxCandidate> finalList;
 	finalList.reserve(lOutputFinal.size());
 
 	for(auto &cand : lOutputFinal)
@@ -560,73 +320,11 @@ std::vector<CandidateOutput> LEAF::SearchVertex_Main_WithSNR(int nhits, int tole
 		vtx[3] = vt;
 
 		// 5) Per-candidate SNR.
-		CandidateOutput cOut = this->ComputeCandidateSNR(vtx, lowerLimit, upperLimit);
+		VtxCandidate cOut = ComputeCandidateSNR(vtx, lowerLimit, upperLimit);
 		cOut.NLL = nll; // store the NLL from the coarse search.
 		finalList.push_back(cOut);
 	}
 	return finalList;
-}
-
-std::vector<std::vector<double>> LEAF::SearchVertex_Main(int nhits, int tolerance, bool likelihood, double lowerLimit, double upperLimit, int directionality)
-{
-	std::vector<std::thread> lThreadList;
-	std::vector<std::vector<double>> lOutputFinal;
-
-	int iCand_Step = (int)fPositionList.size() / fThread;
-	if (iCand_Step < 1) iCand_Step = 1;
-
-	for (int iStart = 0; iStart < (int)fPositionList.size(); iStart += iCand_Step)
-	{
-		std::thread tThrd(SearchVertex_CallThread, iStart, iCand_Step,
-						  nhits, tolerance, likelihood, lowerLimit, upperLimit, directionality);
-
-		lThreadList.push_back(std::move(tThrd));
-	}
-
-	for (unsigned int iIdx = 0; iIdx < lThreadList.size(); iIdx++)
-	{
-		// Wait thread
-		if (lThreadList[iIdx].joinable())
-			lThreadList[iIdx].join();
-	}
-
-	// Check if mutex is already lock, if not -> lock
-	// We don't want simultaneous modification of the common output
-	mtx.lock();
-	lOutputFinal = fThreadOutput;
-	fThreadOutput.clear();
-	mtx.unlock();
-
-	std::sort(lOutputFinal.begin(), lOutputFinal.end(), SortOutputVector);
-
-	while ((int)lOutputFinal.size() > tolerance) lOutputFinal.pop_back();
-
-	// print the score of the best verticess
-	// for (unsigned int iPos = 0; iPos < lOutputFinal.size(); iPos++)
-	// {
-	// 	std::cout << "i = " << iPos << " NLL = " << lOutputFinal[iPos][4] << ", vertex = " << lOutputFinal[iPos][0] << ", " << lOutputFinal[iPos][1] << ", " << lOutputFinal[iPos][2] << ", " << lOutputFinal[iPos][3] << std::endl;
-	// 	//print the residual times
-	// 	for (int ihit = 0; ihit < nhits; ihit++)
-	// 	{
-	// 		// Hit lHit = fHitInfo[ihit];
-	// 		Hit lHit = fHitCollection->At(ihit);
-
-	// 		int iPMT = lHit.PMT;
-	// 		double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
-	// 		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
-
-	// 		int pmtType = Astro_GetPMTType(iPMT);
-	// 		double distance = Astro_GetDistance(lPMTInfo.Position, lOutputFinal[iPos]);
-
-	// 		double tof = distance / fLightSpeed;
-	// 		double residual = hitTime - tof - lOutputFinal[iPos][3];
-	// 		// std::cout << "hit#" << ihit << ", hit time =" << hitTime << ", vertex time = " << lOutputFinal[iPos][3] << ", distance PMT vs vertex = " << distance << ", tof=" << tof << std::endl;
-	// 		std::cout << "Residual=" << residual << std::endl;
-	// 	}
-	// }
-
-	// std::cout << " SearchVtx main " << tolerance << " " << lOutputFinal.size() << std::endl;
-	return lOutputFinal;
 }
 
 // Coarse search of the vertex. It will search in a cylinder having the radius = tankRadius and a height tankHeight.
@@ -657,23 +355,14 @@ void LEAF::SearchVertex_thread(int iStart, int iIte, int nhits, int tolerance, b
 		hPos.NLL = 0;
 		// std::cout << " Thread2 " << iPos << " " << iPos-iStart << " " << iEnd <<  std::endl;
 
-		if (likelihood)
-			hPos.NLL = Likelihoods::Vertex_Time_NLL(fHitCollection, hPos.Vtx, nhits, lowerLimit, upperLimit, false, false, directionality);
-		else
-			hPos.NLL = Likelihoods::Vertex_Score(fHitCollection, hPos.Vtx, nhits, lowerLimit, upperLimit, false, false, directionality);
-
-		// std::cout << " Thread3 " << iPos << " " << iPos-iStart << " " << iEnd <<  std::endl;
-		// hPos.NLL += fRand->Uniform(0,1e-5);//Here only not to have exactly the same value for 2NLL, and be removed from map
+		if (likelihood) hPos.NLL = Likelihoods::Vertex_Time_NLL(fHitCollection, hPos.Vtx, nhits, lowerLimit, upperLimit, false, false, directionality);
+		else hPos.NLL = Likelihoods::Vertex_Score(fHitCollection, hPos.Vtx, nhits, lowerLimit, upperLimit, false, false, directionality);
 
 		tVtxContainer.push_back(hPos);
 	}
 
 	std::sort(tVtxContainer.begin(), tVtxContainer.end(), Likelihoods::SortingNLL());
-	while ((int)tVtxContainer.size() > tolerance)
-	{
-		// std::cout << " Remove end: " << tVtxContainer.back().NLL << " (first " << tVtxContainer[0].NLL << ") " << tVtxContainer.size() << std::endl;
-		tVtxContainer.pop_back();
-	}
+	while ((int)tVtxContainer.size() > tolerance) tVtxContainer.pop_back();
 
 	// Check if mutex is already lock, if not -> lock
 	// We don't want simultaneous modification of the common output
@@ -818,8 +507,7 @@ std::vector<std::vector<double>> LEAF::SearchVertexFine(std::vector<std::vector<
 // here is the function where minimization gonna take place. The loop is inside this function
 std::vector<std::vector<double>> LEAF::MinimizeVertex(std::vector<std::vector<double>> initialVertex, double *limits, double stepSize, int nhits, int nCandidates, int tolerance, int verbose, bool /*likelihood*/, bool /*average*/, double lowerLimit, double upperLimit, int directionality)
 {
-	if (VERBOSE >= 2)
-		std::cout << "Minimizer" << std::endl;
+	if (VERBOSE >= 2) std::cout << "Minimizer" << std::endl;
 	// 2. How to set the search?
 	// double stepSize = 0.5;//in m
 	// double * reconstructedVertexPosition = new double[4];
@@ -840,10 +528,7 @@ std::vector<std::vector<double>> LEAF::MinimizeVertex(std::vector<std::vector<do
 	minimizer->ExecuteCommand("SET PRINTOUT", &p1, 1); // quiet mode
 	minuit->SetErrorDef(1);
 	// minuit->SetPrintLevel(-1); // quiet mode
-	if (VERBOSE < 2)
-	{
-		minuit->mnexcm("SET NOWarnings", 0, 0, err);
-	}
+	if (VERBOSE < 2) minuit->mnexcm("SET NOWarnings", 0, 0, err);
 	arglist[0] = 2;
 	minuit->mnexcm("SET STR", arglist, 1, err); // set strategy sets the number of derivative estimated. in the present case (2), this is the highest number of it with a counter-balance: very slow!
 	minimizer->SetFCN(MinuitLikelihood);		// here is function to minimize
@@ -979,27 +664,13 @@ std::vector<std::vector<double>> LEAF::MinimizeVertex_Main(std::vector<std::vect
 	int iCand_Step = nCandidates / fThread;
 	if (iCand_Step < 1) iCand_Step = 1;
 
-	std::cout << "iCand_Step " << iCand_Step << std::endl;
-	std::cout << "nCandidates " << nCandidates << std::endl;
-	std::cout << "initialVertex " << initialVertex[0][0] << " " << initialVertex[0][1] << " " << initialVertex[0][2] << " " << initialVertex[0][3] << std::endl;
-	std::cout << "limits " << limits[0] << " " << limits[1] << " " << limits[2] << " " << limits[3] << std::endl;
-	std::cout << "stepSize " << stepSize << std::endl;
-	std::cout << "nhits " << nhits << std::endl;
-	std::cout << "tolerance " << tolerance << std::endl;
-	std::cout << "verbose " << verbose << std::endl;
-	std::cout << "likelihood " << likelihood << std::endl;
-	std::cout << "average " << average << std::endl;
-	std::cout << "lowerLimit " << lowerLimit << std::endl;
-	std::cout << "upperLimit " << upperLimit << std::endl;
-	std::cout << "directionality " << directionality << std::endl;
-	std::cout << "fThread " << fThread << std::endl;
-	std::cout << "fLightSpeed " << fLightSpeed << std::endl;
-	std::cout << "fAveraging " << fAveraging << std::endl;
-
-
 	for (int iStart = 0; iStart < nCandidates; iStart += iCand_Step)
 	{
-		std::thread tThrd(MinimizeVertex_CallThread, iStart, iCand_Step,
+		// std::thread tThrd(MinimizeVertex_CallThread, iStart, iCand_Step,
+		// 				  initialVertex, limits, stepSize, nhits, nCandidates,
+		// 				  tolerance, verbose, likelihood, average, lowerLimit, upperLimit, directionality);
+
+		std::thread tThrd(&LEAF::MinimizeVertex_thread, LEAF::GetME(), iStart, iCand_Step,
 						  initialVertex, limits, stepSize, nhits, nCandidates,
 						  tolerance, verbose, likelihood, average, lowerLimit, upperLimit, directionality);
 
@@ -1035,8 +706,6 @@ void LEAF::MinimizeVertex_thread(
 {
 	int iEnd = (iIte + iStart);
 	if (iEnd > nCandidates) iEnd = nCandidates;
-
-	// Set local TGraph2D
 
 	std::vector<struct FitPosition> tVtxContainer;
 
@@ -1151,86 +820,27 @@ void LEAF::MinimizeVertex_thread(
 	mtx.unlock();
 }
 
-// void LEAF::SetTrueVertexInfo(double X, double Y, double Z, double T)
-// {
-// 	fTrueVtxPos.clear();
-// 	fTrueVtxPos.push_back(X);
-// 	fTrueVtxPos.push_back(Y);
-// 	fTrueVtxPos.push_back(Z);
-// 	fTrueVtxPos.push_back(T);
-// }
-
-
-struct FitterOutput LEAF::MakeFit(const HitCollection<Hit> *lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT)
+void LEAF::FitVertex(FitterOutput &fOutput)
 {
-	fHitCollection = lHitCol;
-	// fSecondaryHitCollection = lSecondaryHitCol;
-	fTriggerTime = lTriggerTime;
-	fTimeCorrection = fHitCollection->timestamp - fTriggerTime;
-	// Get Hits total
-
-	// int iHitsTotal = fHitInfo.size();
-	int iHitsTotal = fHitCollection->Size();
-
-	if (fPositionList.size() == 0) this->MakePositionList();
-
-	bool bDirectionnality = false;
-	if (bMultiPMT) bDirectionnality = fUseDirectionality;
-
-	// Proceed to the fit.
 	double *tLimits = new double[4];
-
-	struct FitterOutput fOutput;
-	
-	fOutput.SNRList = std::vector<double>(); 
-	fOutput.Vtx[0]		= 0.;
-	fOutput.Vtx[1]		= 0.;
-	fOutput.Vtx[2]		= 0.;
-	fOutput.Vtx[3]		= 0.;
-	fOutput.NLL		= 0.;
-	fOutput.Energy = 0.;
-	fOutput.TotalCharge = 0.;
-	fOutput.InTime		= 0;
-	fOutput.Dir[3] 		= 0.;
-	fOutput.True_NLLDiff	= 0;
-	fOutput.True_TimeDiff	= 0;
-	fOutput.True_TistDiff	= 0;
-	
-	fLastLowerLimit = 0.;
-	fLastUpperLimit = 0.;
-	
-	if(iHitsTotal <= 0) return fOutput;
+	int iHitsTotal = fHitCollection->Size();
+	std::vector< std::vector<double> > fRecoVtxPosFinal;
 
 	TStopwatch timer;
 	timer.Reset();
 	timer.Start();
 
-	// 2.a. Coarse vertex search from scratch
-	// std::vector< std::vector<double> > tRecoVtxPos = this->SearchVertex(iHitsTotal,fSearchVtxTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false);
-
-	
-	double dStepSize = fSearchVtxStep; // in centimeters
-
-	//*OLD
-	// std::vector<std::vector<double>> tRecoVtxPos = this->SearchVertex_Main(iHitsTotal, fSearchVtxTolerance, false, fSTimePDFLimitsQueueNegative, fSTimePDFLimitsQueuePositive, false);
-
-	//*TAHA
-	std::vector<CandidateOutput> tRecoVtxPosCand = this->SearchVertex_Main_WithSNR(iHitsTotal,fSearchVtxTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false);
+	std::vector<VtxCandidate> tRecoVtxPosCand = this->SearchVertex_Main(iHitsTotal,fSearchVtxTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false);
 	std::vector<std::vector<double>> tRecoVtxPos;
 	std::vector<double> SNRList; 
 
-	// Extract only the vertex positions from the CandidateOutput structure
-	for (const auto& cand : tRecoVtxPosCand) {
+	// Extract only the vertex positions from the VtxCandidate structure
+	for (const auto& cand : tRecoVtxPosCand) 
+	{
 		tRecoVtxPos.push_back({cand.X, cand.Y, cand.Z, cand.T, cand.NLL});
 		SNRList.push_back(cand.SNR); // Store corresponding SNR
 	}
 
-	// for(int i=0;i<tRecoVtxPos.size();i++)
-	// {
-	// 	std::cout<<"Candidate vertex = "<<tRecoVtxPos[i][0]<<", x = "<<tRecoVtxPos[i][1]<<", y = "<<tRecoVtxPos[i][2]<<", z="<<tRecoVtxPos[i][3]<<std::endl;
-	// }
-
-	
 	std::vector<double> trueVertexPosition(4);
 	trueVertexPosition[0] = fTrueVtxPos[0]; // x
 	trueVertexPosition[1] = fTrueVtxPos[1]; // y
@@ -1238,7 +848,7 @@ struct FitterOutput LEAF::MakeFit(const HitCollection<Hit> *lHitCol, const TimeD
 	trueVertexPosition[3] = fTrueVtxPos[3]; // t
 
 
-	if(ContainsTrueVtx(&tRecoVtxPos, fTrueVtxPos))
+	if(ContainsTrueVtx(&tRecoVtxPosCand, fTrueVtxPos))
 		fOutput.stepOneContainsTrueVtx = 1;
 
 	if (VERBOSE >= 2)
@@ -1251,23 +861,18 @@ struct FitterOutput LEAF::MakeFit(const HitCollection<Hit> *lHitCol, const TimeD
 	fOutput.firstStepTime = timer.RealTime();
 	std::cout << "SearchVertex took: " << timer.RealTime() << std::endl;
 
-	////////////////////////////////////////
-
 	double dStepSizeFinal = 10;
 	int iToleranceFinal = 1;
-	if (fStepByStep)
+	if (fStepByStep) //* Not used and not tested
 	{
 		// 2.b. Refined vertex search around candidate found previously
 		//  -> Commented since ages, removed on 2020/11/20
 
-		//* Not used and not tested
-
 		// 2.c. More refined vertex search around candidate found previously
 		double dStepSizeFine2 = 100;
 		int iToleranceFine2 = 20;
-		for (int i = 0; i < 4; i++)
-			tLimits[i] = dStepSize; // particleStart[i]*1e-2;//onversion to meter
-		std::vector<std::vector<double>> tRecoVtxPosFine2 = this->SearchVertexFine(tRecoVtxPos, tLimits, dStepSizeFine2, iHitsTotal, fSearchVtxTolerance, iToleranceFine2, VERBOSE, true, false, fSTimePDFLimitsQueueNegative, fSTimePDFLimitsQueuePositive, bDirectionnality);
+		for (int i = 0; i < 4; i++) tLimits[i] = fSearchVtxStep; // particleStart[i]*1e-2;//onversion to meter
+		std::vector<std::vector<double>> tRecoVtxPosFine2 = this->SearchVertexFine(tRecoVtxPos, tLimits, dStepSizeFine2, iHitsTotal, fSearchVtxTolerance, iToleranceFine2, VERBOSE, true, false, fSTimePDFLimitsQueueNegative, fSTimePDFLimitsQueuePositive, fUseDirectionality);
 		//////////////////////////////////////////
 
 		// 2.d. Final refined vertex search around candidate found previously
@@ -1275,7 +880,7 @@ struct FitterOutput LEAF::MakeFit(const HitCollection<Hit> *lHitCol, const TimeD
 		int iToleranceFine3 = 1;
 		for (int i = 0; i < 4; i++)
 			tLimits[i] = dStepSizeFine2; // particleStart[i]*1e-2;//onversion to meter
-		std::vector<std::vector<double>> tRecoVtxPosFine3 = this->SearchVertexFine(tRecoVtxPosFine2, tLimits, dStepSizeFine3, iHitsTotal, iToleranceFine2, iToleranceFine3, VERBOSE, true, false, fSTimePDFLimitsQueueNegative, fSTimePDFLimitsQueuePositive, bDirectionnality);
+		std::vector<std::vector<double>> tRecoVtxPosFine3 = this->SearchVertexFine(tRecoVtxPosFine2, tLimits, dStepSizeFine3, iHitsTotal, iToleranceFine2, iToleranceFine3, VERBOSE, true, false, fSTimePDFLimitsQueueNegative, fSTimePDFLimitsQueuePositive, fUseDirectionality);
 		if (VERBOSE == 1)
 		{
 			for (int a = 0; a < iToleranceFine3; a++)
@@ -1285,7 +890,7 @@ struct FitterOutput LEAF::MakeFit(const HitCollection<Hit> *lHitCol, const TimeD
 
 		for (int i = 0; i < 4; i++)
 			tLimits[i] = 100; // dStepSizeFine2;//particleStart[i]*1e-2;//onversion to meter
-		fRecoVtxPosFinal = this->MinimizeVertex(tRecoVtxPosFine3, tLimits, dStepSizeFinal, iHitsTotal, iToleranceFine3, iToleranceFinal, VERBOSE, true, false, fMinimizeLimitsNegative, fMinimizeLimitsPositive, bDirectionnality);
+		fRecoVtxPosFinal = this->MinimizeVertex(tRecoVtxPosFine3, tLimits, dStepSizeFinal, iHitsTotal, iToleranceFine3, iToleranceFinal, VERBOSE, true, false, fMinimizeLimitsNegative, fMinimizeLimitsPositive, fUseDirectionality);
 		if (VERBOSE >= 1)
 		{
 			for (int a = 0; a < iToleranceFinal; a++)
@@ -1299,24 +904,27 @@ struct FitterOutput LEAF::MakeFit(const HitCollection<Hit> *lHitCol, const TimeD
 		timer.Reset();
 		timer.Start();
 		
-		for (int i = 0; i < 4; i++) tLimits[i] = 2 * dStepSize;
+		for (int i = 0; i < 4; i++) tLimits[i] = 2 * fSearchVtxStep;
 
-		// fRecoVtxPosFinal = this->MinimizeVertex(tRecoVtxPos,tLimits,dStepSizeFinal,iHitsTotal,fSearchVtxTolerance,iToleranceFinal,VERBOSE,true,false,fMinimizeLimitsNegative,fMinimizeLimitsPositive,bDirectionnality);
-		fRecoVtxPosFinal = this->MinimizeVertex_Main(tRecoVtxPos, tLimits, dStepSizeFinal, iHitsTotal, fSearchVtxTolerance, iToleranceFinal, VERBOSE, true, false, fMinimizeLimitsNegative, fMinimizeLimitsPositive, bDirectionnality);
+		// fRecoVtxPosFinal = this->MinimizeVertex(tRecoVtxPos,tLimits,dStepSizeFinal,iHitsTotal,fSearchVtxTolerance,iToleranceFinal,VERBOSE,true,false,fMinimizeLimitsNegative,fMinimizeLimitsPositive,fUseDirectionality);
+		fRecoVtxPosFinal = this->MinimizeVertex_Main(tRecoVtxPos, tLimits, dStepSizeFinal, iHitsTotal, fSearchVtxTolerance, iToleranceFinal, VERBOSE, true, false, fMinimizeLimitsNegative, fMinimizeLimitsPositive, fUseDirectionality);
 
 		timer.Stop();
 		fOutput.secondStepTime = timer.RealTime();
 		std::cout << "Minimizer took: " << timer.RealTime() << std::endl;
-
-		// if(CorrectCandiate(&tRecoVtxPos,(&fRecoVtxPosFinal[0])))
-		// 	fOutput.stepOneContainsTrueVtx = 2;
 	}
 
+	fOutput.Vtx[0] = fRecoVtxPosFinal[0][0];
+	fOutput.Vtx[1] = fRecoVtxPosFinal[0][1];
+	fOutput.Vtx[2] = fRecoVtxPosFinal[0][2];
+	fOutput.Vtx[3] = fRecoVtxPosFinal[0][3];
+	fOutput.NLL = fRecoVtxPosFinal[0][4];
+	// fOutput->NLLR = Likelihoods::GoodnessOfFit(fHitCollection, fRecoVtxPosFinal[0], iHitsTotal, fMinimizeLimitsNegative, fMinimizeLimitsPositive, true, false, fUseDirectionality );
+	fOutput.SNRList = SNRList;
+}
 
-	
-	// 3.a. Test the NLL of the true vertex to compare with reco
-	//  -> Commented since ages, removed on 2020/11/20
-	
+void LEAF::FitEnergy(FitterOutput &fOutput)
+{
 	int iInTime = 0;
 	double totalPE = 0;  
 	double totalPECorr = 0;
@@ -1326,7 +934,7 @@ struct FitterOutput LEAF::MakeFit(const HitCollection<Hit> *lHitCol, const TimeD
 	double c = -2.01675;
 	double d = 1.81755;
 	
-	for (int ihit = 0; ihit < iHitsTotal; ihit++)
+	for (unsigned int ihit = 0; ihit < fHitCollection->Size(); ihit++)
 	{
 		// Hit lHit = fHitInfo[ihit];
 		Hit lHit = fHitCollection->At(ihit);
@@ -1335,73 +943,229 @@ struct FitterOutput LEAF::MakeFit(const HitCollection<Hit> *lHitCol, const TimeD
 		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		
 		double PMTOrientation[3];
-		for(int j = 0; j<3; j++){
-			PMTOrientation[j] = lPMTInfo.Orientation[j];
-		}
+		for(int j = 0; j<3; j++) PMTOrientation[j] = lPMTInfo.Orientation[j];
 		double dirVector[3];
-		dirVector[0] = -(trueVertexPosition[0] - lPMTInfo.Position[0]);
-		dirVector[1] = -(trueVertexPosition[1] - lPMTInfo.Position[1]);
-		dirVector[2] = -(trueVertexPosition[2] - lPMTInfo.Position[2]);
+		dirVector[0] = -(fTrueVtxPos[0] - lPMTInfo.Position[0]);
+		dirVector[1] = -(fTrueVtxPos[1] - lPMTInfo.Position[1]);
+		dirVector[2] = -(fTrueVtxPos[2] - lPMTInfo.Position[2]);
 		GeoTools::Normalize(PMTOrientation);
 		GeoTools::Normalize(dirVector);
-		double cosPMThitAngle = abs(dirVector[0] * PMTOrientation[0] +
-			dirVector[1] * PMTOrientation[1] +
-			dirVector[2] * PMTOrientation[2]);
-			// double PMThitAngle = acos(cosPMThitAngle);
+		double cosPMThitAngle = abs(dirVector[0] * PMTOrientation[0] + dirVector[1] * PMTOrientation[1] + dirVector[2] * PMTOrientation[2]);
 		double Ftheta = a + b*cosPMThitAngle + c*(pow(cosPMThitAngle,2)) + d*(pow(cosPMThitAngle,3));
 		
 		totalPECorr += lHit.Q*Ftheta/(cosPMThitAngle/**sin(PMThitAngle)*/); 
 		totalPE += lHit.Q;
-		// double distance = Astro_GetDistance(lPMTInfo.Position,fRecoVtxPosFinal[0]);
 		
-		double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
-		double distance = Astro_GetDistance(lPMTInfo.Position, fRecoVtxPosFinal[0]);
-		double tof = distance / fLightSpeed;
-		double residual = hitTime - tof - fRecoVtxPosFinal[0][3];
+		// double hitTime = (fTimeCorrection + lHit.T) / TimeDelta::ns;
+		// double distance = Astro_GetDistance(lPMTInfo.Position, fOutput.Vtx);
+		// double tof = distance / fLightSpeed;
+		// double residual = hitTime - tof - fOutput.Vtx[3];
+		double residual = ComputeResidualTime(fOutput.Vtx, fOutput.Vtx[3], fHitCollection->At(ihit));
 		if (residual > fSTimePDFLimitsQueueNegative && residual < fSTimePDFLimitsQueuePositive) iInTime++;
 	}
 	
+	fOutput.InTime 	= iInTime;
 	double energyEstimate = totalPECorr ;
 	fOutput.TotalCharge = totalPE;
 	fOutput.Energy = energyEstimate;
-	// Fill Output
-	fOutput.Vtx[0] 	= fRecoVtxPosFinal[0][0];
-	fOutput.Vtx[1] 	= fRecoVtxPosFinal[0][1];
-	fOutput.Vtx[2] 	= fRecoVtxPosFinal[0][2];
-	fOutput.Vtx[3]   	= (fRecoVtxPosFinal[0][3] - fTimeCorrection) / TimeDelta::ns;
-	fOutput.NLL 		= fRecoVtxPosFinal[0][4];
-	fOutput.NLLR = Likelihoods::GoodnessOfFit(fHitCollection, fRecoVtxPosFinal[0], iHitsTotal, fMinimizeLimitsNegative, fMinimizeLimitsPositive, true, false, bDirectionnality );
-	fOutput.SNRList = SNRList;
-	std::cout << SNRList[0] << std::endl;
-	std::vector<double> fittedVertexPosition(4);
-	fittedVertexPosition[0] = fRecoVtxPosFinal[0][0]; // x
-	fittedVertexPosition[1] = fRecoVtxPosFinal[0][1]; // y
-	fittedVertexPosition[2] = fRecoVtxPosFinal[0][2]; // z
-	fittedVertexPosition[3] = (fRecoVtxPosFinal[0][3] - fTimeCorrection) / TimeDelta::ns; // t
+
+}
+
+std::vector<JointFitCandidate> LEAF::SearchVertexAndDir(FitterOutput &fOutput)
+{
+	TStopwatch timer;
+	timer.Reset();
+	timer.Start();
+
+	std::vector<JointFitCandidate> Candidates = std::vector<JointFitCandidate>();
+
+	std::vector<VtxCandidate> tVtxCandidates = this->SearchVertex_Main(fHitCollection->Size(),fSearchVtxTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false);
 	
-	int verbose = VERBOSE;
-	std::vector<double> fitDirectionParams = FitDirection(fittedVertexPosition, iHitsTotal, verbose);
+	fOutput.stepOneContainsTrueVtx = (int)ContainsTrueVtx(&tVtxCandidates, fTrueVtxPos);
 	
-	// After obtaining best_direction_params from FitDirection
-	double theta = fitDirectionParams[0];
-	double phi = fitDirectionParams[1];
-	double xyz[3];
-	xyz[0] = sin(theta) * cos(phi);
-	xyz[1] = sin(theta) * sin(phi);
-	xyz[2] = cos(theta);
-	GeoTools::Normalize(xyz);
+	for(int i=0; i<(int)tVtxCandidates.size(); i++)
+	{
+		std::vector<double> vtx = {tVtxCandidates[i].X, tVtxCandidates[i].Y, tVtxCandidates[i].Z, tVtxCandidates[i].T};
+		std::vector<DirectionCandidate> tDirCandidates = this->SearchDirection(vtx, DirTolerance);
+		for(int j=0; j<(int)tDirCandidates.size(); j++)
+		{
+			JointFitCandidate candidate;
+			candidate.VtxPart = tVtxCandidates[i];
+			candidate.DirPart = tDirCandidates[j];
+			// double DNLL = Likelihoods::Dir_NLL(fHitCollection ,candidate.Vtx, theta, phi, fHitCollection->Size());
+			// double VNLL = Likelihoods::Vertex_Score(fHitCollection, candidate.Vtx, fHitCollection->Size(), fMinimizeLimitsNegative, fMinimizeLimitsPositive, true, false, fUseDirectionality);
+			candidate.NLL = candidate.DirPart.DNLL * candidate.VtxPart.NLL;
+			Candidates.push_back(candidate);
+		}
+	}
 
-	fOutput.Dir[0] = xyz[0];
-	fOutput.Dir[1] = xyz[1];
-	fOutput.Dir[2] = xyz[2];
+	std::sort(Candidates.begin(), Candidates.end(), Likelihoods::CompareByNLL<JointFitCandidate>{});
 
-	std::vector<double> dirVector(fOutput.Dir, fOutput.Dir + 3);
-	std::cout << "DIRECTION OUTPUT IS :" << fOutput.Dir[0] << "," << fOutput.Dir[1] << "," << fOutput.Dir[2] << std::endl;
+	while ((int)Candidates.size() > fSearchVtxTolerance) Candidates.pop_back();
 
-	// Compute DirNLL
-	fOutput.DNLL = Likelihoods::Dir_NLL(fHitCollection, trueVertexPosition, theta,phi, iHitsTotal);
+	std::vector<DirectionCandidate> dirCandidates = std::vector<DirectionCandidate>();
+	for(int i=0; i<(int)Candidates.size(); i++) dirCandidates.push_back(Candidates[i].DirPart);
+	fOutput.stepOneContainsTrueDir = (int)ContainsTrueDir(&dirCandidates, fTrueDir);
 
-	fOutput.InTime 	= iInTime;
-	// std::cout << " Final vertex " << fOutput.Vtx[0] << " " << fOutput.Vtx[1] << " " << fOutput.Vtx[2] << " Time " << fOutput.Vtx[3] << std::endl;
+	timer.Stop();
+	fOutput.firstStepTime = timer.RealTime();
+
+	return Candidates;
+}
+
+JointFitCandidate LEAF::MinimizeVertexAndDir(std::vector<JointFitCandidate> initialCandidates, FitterOutput &fOutput)
+{
+	TStopwatch timer;
+	timer.Reset();
+	timer.Start();
+
+	double stepSize = 10;
+	int nhits = fHitCollection->Size();
+	double *limits = new double[4];
+	for (int i = 0; i < 4; i++) limits[i] = 2 * fSearchVtxStep;
+
+	std::vector<struct JointFitCandidate> tContainer;
+
+	TFitter *minimizer = new TFitter(12);
+	TMinuit *minuit = minimizer->GetMinuit();
+
+	double arglist[20];
+	int err = 0;
+	double p1 = VERBOSE - 1;
+	minimizer->ExecuteCommand("SET PRINTOUT", &p1, 1); // quiet mode
+	minuit->SetErrorDef(1);
+	if (VERBOSE < 2) minuit->mnexcm("SET NOWarnings", 0, 0, err);
+	arglist[0] = 2;
+	minuit->mnexcm("SET STR", arglist, 1, err); // set strategy sets the number of derivative estimated. in the present case (2), this is the highest number of it with a counter-balance: very slow!
+	minimizer->SetFCN(MinuitJointNLL);		// here is function to minimize
+
+	double Mig[2] = {1e6, 1e0}; // maxcalls and tolerance
+
+	minimizer->SetParameter(0, "vertex0", 0, stepSize, -limits[0], limits[0]);
+	minimizer->SetParameter(1, "vertex1", 0, stepSize, -limits[1], limits[1]);
+	minimizer->SetParameter(2, "vertex2", 0, stepSize, -limits[2], limits[2]);
+	minimizer->SetParameter(3, "vertex3", 0, stepSize / fLightSpeed, -limits[3] / fLightSpeed, limits[3] / fLightSpeed);
+	minimizer->SetParameter(4, "theta", 0, 2*M_PI/180, 0.0, TMath::Pi());
+	minimizer->SetParameter(5, "phi", 0, 2*M_PI/180, -TMath::Pi(), TMath::Pi());
+
+	minimizer->SetParameter(6, "PMTConfiguration", 0, 0, 0, 0); // Useless now
+	minimizer->SetParameter(7, "nhits", nhits, nhits, nhits - 1, nhits + 1);
+	minimizer->SetParameter(8, "lowerLimit", fSTimePDFLimitsQueueNegative, 5e-1, -7, -2);
+	minimizer->SetParameter(9, "upperLimit", fSTimePDFLimitsQueuePositive, 5e-1, 2, 10);
+	minimizer->SetParameter(10, "expoSigma", 100, 5, 0, 1e3);
+	minimizer->SetParameter(11, "thread", 0, 0, 0, 0);
+	minimizer->FixParameter(6);
+	minimizer->FixParameter(7);
+	minimizer->FixParameter(8);
+	minimizer->FixParameter(9);
+	minimizer->FixParameter(10);
+	minimizer->FixParameter(11);
+
+	for (int icand = 0; icand < (int)initialCandidates.size(); icand++)
+	{
+		minimizer->SetParameter(0, "vertex0", initialCandidates[icand].VtxPart.X, stepSize, initialCandidates[icand].VtxPart.X - limits[0], initialCandidates[icand].VtxPart.X + limits[0]);
+		minimizer->SetParameter(1, "vertex1", initialCandidates[icand].VtxPart.Y, stepSize, initialCandidates[icand].VtxPart.Y - limits[1], initialCandidates[icand].VtxPart.Y + limits[1]);
+		minimizer->SetParameter(2, "vertex2", initialCandidates[icand].VtxPart.Z, stepSize, initialCandidates[icand].VtxPart.Z - limits[2], initialCandidates[icand].VtxPart.Z + limits[2]);
+		minimizer->SetParameter(3, "vertex3", initialCandidates[icand].VtxPart.T, stepSize / fLightSpeed, initialCandidates[icand].VtxPart.T - limits[3] / fLightSpeed, initialCandidates[icand].VtxPart.T + limits[3] / fLightSpeed);
+		minimizer->SetParameter(4, "theta", initialCandidates[icand].DirPart.theta, 2*M_PI/180, 0.0, TMath::Pi());
+		minimizer->SetParameter(5, "phi", initialCandidates[icand].DirPart.phi, 2*M_PI/180, -TMath::Pi(), TMath::Pi());
+
+		minimizer->ExecuteCommand("MIGRAD", Mig, 2);
+
+		JointFitCandidate tCandReco;
+
+		tCandReco.VtxPart.X = minimizer->GetParameter(0);
+		tCandReco.VtxPart.Y = minimizer->GetParameter(1);
+		tCandReco.VtxPart.Z = minimizer->GetParameter(2);
+		tCandReco.VtxPart.T = minimizer->GetParameter(3);
+		tCandReco.DirPart.theta = minimizer->GetParameter(4);
+		tCandReco.DirPart.phi = minimizer->GetParameter(5);
+
+		// Get minuit
+		double fmin, fedm, errdef;
+		int npar, nparx, istat;
+		minuit->mnstat(fmin, fedm, errdef, npar, nparx, istat);
+		tCandReco.NLL = fmin;
+
+		tContainer.push_back(tCandReco);
+	}
+
+	std::sort(tContainer.begin(), tContainer.end(), Likelihoods::CompareByNLL<JointFitCandidate>{});
+
+	delete minimizer;
+
+	timer.Stop();
+	fOutput.secondStepTime = timer.RealTime();
+
+	return tContainer[0];
+}
+
+void LEAF::LoadHitCollection(const HitCollection<Hit> *lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT)
+{
+	fHitCollection = lHitCol;
+	fTriggerTime = lTriggerTime;
+	fTimeCorrection = fHitCollection->timestamp - fTriggerTime;
+	if (fPositionList.size() == 0) MakePositionList();
+	fUseDirectionality = bMultiPMT ? fUseDirectionality : false;
+}
+
+struct FitterOutput LEAF::NewOutuput()
+{
+	struct FitterOutput fOutput;
+	fOutput.SNRList = std::vector<double>(); 
+	fOutput.Vtx = std::vector<double>(4);
+	fOutput.Dir = std::vector<double>(3);
+	fOutput.NLL		= 0.;
+	fOutput.Energy = 0.;
+	fOutput.TotalCharge = 0.;
+	fOutput.InTime		= 0;
+	fOutput.True_NLLDiff	= 0;
+	fOutput.True_TimeDiff	= 0;
+	fOutput.True_TistDiff	= 0;
+	return fOutput;
+}
+
+struct FitterOutput LEAF::MakeSequentialFit(const HitCollection<Hit> *lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT)
+{
+	LoadHitCollection(lHitCol, lTriggerTime, bMultiPMT);
+	
+	struct FitterOutput fOutput = NewOutuput();
+	if(fHitCollection->Size() <= 0) return fOutput;
+	
+	//* Vertex
+	FitVertex(fOutput);
+
+	//* Goodness of fit
+	fOutput.NLLR = Likelihoods::GoodnessOfFit(fHitCollection, fOutput.Vtx, fHitCollection->Size(), fMinimizeLimitsNegative, fMinimizeLimitsPositive, true, false, fUseDirectionality); //* Goodness of Fit
+	
+	//* Direction
+	FitDirection(fOutput.Vtx, fOutput, fHitCollection->Size());
+
+	//* Energy
+	FitEnergy(fOutput);
+
+	return fOutput;
+}
+
+struct FitterOutput LEAF::MakeJointFit(const HitCollection<Hit> *lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT)
+{
+	LoadHitCollection(lHitCol, lTriggerTime, bMultiPMT);
+
+	struct FitterOutput fOutput = NewOutuput();
+	if(fHitCollection->Size() <= 0) return fOutput;
+
+	std::vector<JointFitCandidate> Candidates = SearchVertexAndDir(fOutput);
+	JointFitCandidate finalCandidate = MinimizeVertexAndDir(Candidates, fOutput);
+
+	fOutput.Vtx = {finalCandidate.VtxPart.X, finalCandidate.VtxPart.Y, finalCandidate.VtxPart.Z, finalCandidate.VtxPart.T};
+	fOutput.Dir = PolarToCartesianNorm({finalCandidate.DirPart.theta, finalCandidate.DirPart.phi});
+	fOutput.NLL = finalCandidate.NLL;
+	fOutput.DNLL = Likelihoods::Dir_NLL(fHitCollection, fOutput.Vtx, finalCandidate.DirPart.theta, finalCandidate.DirPart.phi , fHitCollection->Size());
+
+	fOutput.NLLR = Likelihoods::GoodnessOfFit(fHitCollection, fOutput.Vtx, fHitCollection->Size(), fMinimizeLimitsNegative, fMinimizeLimitsPositive, true, false, fUseDirectionality); //* Goodness of Fit
+	
+	//* Energy
+	FitEnergy(fOutput);
+
 	return fOutput;
 }

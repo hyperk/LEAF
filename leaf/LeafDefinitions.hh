@@ -32,7 +32,8 @@
 struct FitterOutput 
 {
     int stepOneContainsTrueVtx;
-    double Vtx[4];
+    int stepOneContainsTrueDir;
+    std::vector<double> Vtx;
     double NLL;
     double DNLL;
     double NLLR;
@@ -45,7 +46,7 @@ struct FitterOutput
 
     double Energy;
     double TotalCharge;
-    double Dir[3];
+    std::vector<double> Dir;
     std::vector<double> SNRList; 
 
     double firstStepTime;
@@ -59,7 +60,7 @@ struct DirectionCandidate
     double DNLL;
 };
 
-struct CandidateOutput 
+struct VtxCandidate 
 {
     double X;
     double Y;
@@ -67,6 +68,15 @@ struct CandidateOutput
     double T;
     double NLL;
     double SNR;  // SNR value
+};
+
+struct JointFitCandidate
+{
+    VtxCandidate VtxPart;
+    DirectionCandidate DirPart;
+    // std::vector<double> Vtx;
+    // std::vector<double> Dir;
+    double NLL;
 };
 
 struct FitPosition 
