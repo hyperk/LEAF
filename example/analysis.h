@@ -48,7 +48,7 @@ int usedTriggerId; // trigger Id used for the fit
 
 struct FitterAnalysis
 {
-	double Wall;
+	// double Wall;
 	// double Good;
 	int n50[3];
 	double dir[3][3];
@@ -96,6 +96,8 @@ std::vector<double> correctedDigithit_T;
 std::vector<bool> hit_is_DR;
 std::vector<double> digithit_Q;	 // List of hit charge'
 std::vector<double> digithit_Angle;	 // List of hit charge'
+std::vector<double> digithit_Angle_NLL; // todo delete this
+std::vector<double> digithit_NormAngle;	 // List of hit charge'
 std::vector<double> digithit_NeighborsDist;  // List of hit charge'
 std::vector<int> Charge_PMT;
 std::vector<double> hit_residual; // List of residual times
@@ -113,6 +115,8 @@ double fLFTime;
 double lf_spatial_res;
 double lf_time_res;
 double lf_Dir_res;
+double lf_Quick_Dir_res;
+double lf_MyDir_res;
 double lf_energy_res;
 
 // FitterOutput leaf_output;
@@ -120,11 +124,13 @@ FitterAnalysis leaf_output_ana;
 FitterAnalysis bs_output_ana;
 
 int Hit_ID;
+int Hit_ID_20;
 int Hit_ID_50;
 int Hit_ID_200;
 int Hit_ID_400;
 
 int Hit_mPMT;
+int Hit_mPMT_20;
 int Hit_mPMT_50;
 int Hit_mPMT_200;
 int Hit_mPMT_400;
@@ -134,12 +140,17 @@ int Hit_OD_50;
 int Hit_OD_200;
 int Hit_OD_400;
 
+int hit_5_15ns; //between -5 and 15ns
+int hit_50ns;
+
 int fHit = 0;
+int fHit_20 = 0;
 int fHit_50 = 0;
 int fHit_200 = 0;
 int fHit_400 = 0;
 
 double dWall =0;
+double toWall =0;
 double lf_dWall =0;
 double lf_ToWall =0;
 // double goodness;
@@ -150,6 +161,12 @@ double h = 6701.41;
 double maxHitAngle = 190.0;
 double N_Neighbors = 5;
 double maxDistanceToNeighbors = 8000.0;
+
+double corrections;
+double correctionAmount;
+double totalChargeMean;
+double totalChargeAmounts;
+double EnergyRatio;
 
 WCSimRootGeom *fLeafGeometry;
 
@@ -169,8 +186,8 @@ int bestTrigger;
 bool failed;
 
 // int stepOneHasTrueVtx;
-// double firstStepTime;
-// double secondStepTime;
+// double Vtx_Search_ComputeTime;
+// double Vtx_Minimize_ComputeTime;
 double rawTriggerTime;
 
 //-----------------------------------------------------------------------------------------//

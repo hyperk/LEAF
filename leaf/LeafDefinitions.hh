@@ -49,8 +49,19 @@ struct FitterOutput
     std::vector<double> Dir;
     std::vector<double> SNRList; 
 
-    double firstStepTime;
-    double secondStepTime;
+    std::vector<double> MyDir;
+    std::vector<double> Quick_Dir;
+
+    std::vector<double> VtxHitHangles;
+    std::vector<double> AngleCorrections;
+
+    double Leaf_ComputeTime;
+    double Vtx_Search_ComputeTime;
+    double Vtx_Minimize_ComputeTime;
+    double Dir_Quick_Search_ComputeTime;
+    double Dir_Search_ComputeTime;
+    double Dir_Minimize_ComputeTime;
+    double Energy_Fit_ComputeTime;
 };
 
 struct DirectionCandidate 
