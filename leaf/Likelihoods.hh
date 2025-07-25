@@ -54,6 +54,8 @@ class Likelihoods
 	
     static double ComputeDirNLL_NoPDF(const HitCollection<Hit>* lHitCol, const std::vector<double>& vertexPosition, const std::vector<double>& vertexDirection, int nhits);
 
+    static double AngleNLL(const HitCollection<Hit>* lHitCol, std::vector<double> vertexPosition, std::vector<double> vertexDirection);
+
     static double FindNLLDirectionality(const HitCollection<Hit>* lHitCol, std::vector<double> vertexPosition, int nhits, int verbose, double lowerLimit, double upperLimit);
 
     static double GoodnessOfFit(const HitCollection<Hit>* lHitCol, std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality);

@@ -55,12 +55,13 @@ void Normalize(double a[3])
 	}
 }
 
-void Normalize(std::vector<double>& vector)
+std::vector<double>& Normalize(std::vector<double>& vector)
 {
 	if (vector.size() < 3) throw std::invalid_argument("Vector must be of size at least 3 to be normalized");
 	double length = sqrt(vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2]);
 	if (length == 0) throw std::invalid_argument("Cannot normalize a zero-length vector.");
 	for (int i = 0; i < 3; ++i) vector[i] /= length;
+	return vector;
 }
 
 double calculateDistance(const std::vector<double>& A, const std::vector<double>& B) 
@@ -135,7 +136,7 @@ double ComputeResidualTime(std::vector<double> vertexPos, double originTime, Hit
 	return HitT - tof - originTime;
 }
 
-VtxCandidate ComputeCandidateSNR(const std::vector<double>& vertex, double lowerLimit, double upperLimit)
+VtxCandidate CreateCandidate(const std::vector<double>& vertex, double lowerLimit, double upperLimit, bool computeSNR)
 {
 	VtxCandidate out;
 
@@ -146,46 +147,48 @@ VtxCandidate ComputeCandidateSNR(const std::vector<double>& vertex, double lower
 	out.T = vertex[3];
 	out.NLL = 0.0; 
 
-	// We'll do a simple approach: count how many hits are in [lower,upper]
-	// for each PMT type, then subtract the dark rate.
-
-	int nHitsTotal = fHitCollection->Size();
-	int inTimeBnL = 0;
-	int inTimemPMT = 0;
-
-	for(int iHit = 0; iHit < nHitsTotal; iHit++) {
-		const Hit& hit = fHitCollection->At(iHit);
-		int iPMT = hit.PMT;
-		int pmtType = Astro_GetPMTType(iPMT); // 0=BnL, 1=mPMT
-
-		double hitTime = (fTimeCorrection + hit.T) / TimeDelta::ns;
-		PMTInfo pInfo = (*fPMTList)[iPMT];
-		double distance = Astro_GetDistance(pInfo.Position, vertex);
-		double tof = distance / fLightSpeed;
-		double residual = hitTime - tof - vertex[3];
-		//std::cout << "residual: " << residual << ", " << "lowerlimit and upperlimit " << lowerLimit << ", " << upperLimit << std::endl; 
-		if(residual >= lowerLimit && residual <= upperLimit)
-		{
-			if(pmtType == 0) {
-			// BnL
-			inTimeBnL++;
-			} else {
-			// mPMT
-			inTimemPMT++;	
+	if(computeSNR)
+	{
+		// We'll do a simple approach: count how many hits are in [lower,upper]
+		// for each PMT type, then subtract the dark rate.
+	
+		int nHitsTotal = fHitCollection->Size();
+		int inTimeBnL = 0;
+		int inTimemPMT = 0;
+	
+		for(int iHit = 0; iHit < nHitsTotal; iHit++) {
+			const Hit& hit = fHitCollection->At(iHit);
+			int iPMT = hit.PMT;
+			int pmtType = Astro_GetPMTType(iPMT); // 0=BnL, 1=mPMT
+	
+			double hitTime = (fTimeCorrection + hit.T) / TimeDelta::ns;
+			PMTInfo pInfo = (*fPMTList)[iPMT];
+			double distance = Astro_GetDistance(pInfo.Position, vertex);
+			double tof = distance / fLightSpeed;
+			double residual = hitTime - tof - vertex[3];
+			//std::cout << "residual: " << residual << ", " << "lowerlimit and upperlimit " << lowerLimit << ", " << upperLimit << std::endl; 
+			if(residual >= lowerLimit && residual <= upperLimit)
+			{
+				if(pmtType == 0) {
+				// BnL
+				inTimeBnL++;
+				} else {
+				// mPMT
+				inTimemPMT++;	
+				}
 			}
 		}
+	
+		double dt = (upperLimit - lowerLimit);
+	
+		// BnL:
+		double darkRateBnL = fTimeWindowSizeFull * fDarkRate_ns[NormalPMT];
+		// average dark over dt:
+		double darkInWindowBnL = (dt / double(fTimeWindowSizeFull)) * darkRateBnL;
+		double signalBnL = std::max(double(inTimeBnL) - darkInWindowBnL, 0.0);
+		//std::cout << "inTimeBnL - darkInWindowBnL : " << inTimeBnL << "-" << darkInWindowBnL << std::endl;
+		out.SNR = (darkInWindowBnL > 1e-9) ? (signalBnL / darkInWindowBnL) : 999.0;
 	}
-
-	double dt = (upperLimit - lowerLimit);
-
-	// BnL:
-	double darkRateBnL = fTimeWindowSizeFull * fDarkRate_ns[NormalPMT];
-	// average dark over dt:
-	double darkInWindowBnL = (dt / double(fTimeWindowSizeFull)) * darkRateBnL;
-	double signalBnL = std::max(double(inTimeBnL) - darkInWindowBnL, 0.0);
-	//std::cout << "inTimeBnL - darkInWindowBnL : " << inTimeBnL << "-" << darkInWindowBnL << std::endl;
-	out.SNR = (darkInWindowBnL > 1e-9) ? (signalBnL / darkInWindowBnL) : 999.0;
-
 	return out;
 }
 
@@ -265,4 +268,70 @@ void VectorVertexPMT(std::vector<double> vertex, int iPMT, double *dAngles)
 	{
 		std::cout << "Angles Phi = " << dAngles[0] << ", Theta = " << dAngles[1] << std::endl;
 	}
+}
+
+// std::vector<double> ProjectPointToCylinder(std::vector<double> point, double R, double H) 
+// {
+// 	std::vector<double> dummy;
+// 	return dummy;
+// }
+
+std::vector<double> ProjectPointToCylinder(std::vector<double> point, double R, double H) 
+{
+    double x = point[0];
+    double y = point[1];
+    double z = point[2];
+    double halfHeight = H / 2.0;
+
+    // Distance from the z-axis
+    double r_xy = std::sqrt(x * x + y * y);
+
+    // --- Project to side surface ---
+    double x_side, y_side;
+    if (r_xy == 0.0)
+	{
+        x_side = R;
+        y_side = 0.0; // Arbitrary direction
+    }
+	else 
+	{
+        x_side = x * R / r_xy;
+        y_side = y * R / r_xy;
+    }
+    double z_side = std::clamp(z, -halfHeight, halfHeight);
+
+    // --- Project to top cap (z = +halfHeight) ---
+    double z_top = halfHeight;
+    double x_top = x, y_top = y;
+    double r_top = std::sqrt(x * x + y * y);
+    if (r_top > R && r_top != 0.0) 
+	{
+        x_top = x * R / r_top;
+        y_top = y * R / r_top;
+    }
+
+    // --- Project to bottom cap (z = -halfHeight) ---
+    double z_bottom = -halfHeight;
+    double x_bottom = x, y_bottom = y;
+    double r_bottom = std::sqrt(x * x + y * y);
+    if (r_bottom > R && r_bottom != 0.0) 
+	{
+        x_bottom = x * R / r_bottom;
+        y_bottom = y * R / r_bottom;
+    }
+
+    // --- Compute squared distances to each projection ---
+    auto dist2 = [](double dx, double dy, double dz) 
+	{
+        return dx * dx + dy * dy + dz * dz;
+    };
+
+    double d2_side   = dist2(x - x_side,   y - y_side,   z - z_side);
+    double d2_top    = dist2(x - x_top,    y - y_top,    z - z_top);
+    double d2_bottom = dist2(x - x_bottom, y - y_bottom, z - z_bottom);
+
+    // --- Return closest projection ---
+    if (d2_side <= d2_top && d2_side <= d2_bottom) return {x_side, y_side, z_side};
+    else if (d2_top <= d2_bottom) return {x_top, y_top, z_top};
+    else return {x_bottom, y_bottom, z_bottom};
 }

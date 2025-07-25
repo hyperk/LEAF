@@ -11,8 +11,9 @@ void MinuitLikelihood(int & /*nDim*/, double * /*gout*/, double &NLL, double par
 	double upperLimit = par[7];
 	double directionality = par[9];
 	// std::vector<double> vertexDirection(3,0.);
-
-	NLL = Likelihoods::Vertex_Time_NLL(fHitCollection, vertexPosition, nhits, lowerLimit, upperLimit, true, false, directionality);
+	double timeNLL = Likelihoods::Vertex_Time_NLL(fHitCollection, vertexPosition, nhits, lowerLimit, upperLimit, true, false, directionality);
+	double angleNLL = Likelihoods::AngleNLL(fHitCollection, vertexPosition, fTrueDir);
+	NLL = timeNLL;
 }
 
 //Function to optimize, for MIGRAD
@@ -556,7 +557,9 @@ double Likelihoods::Dir_NLL(const HitCollection<Hit>* lHitCol, const std::vector
 
 			// Evaluate your PDF at theta
 			// std::cout << "before pdf : " << ihit << std::endl;
-			double proba = fDirectionPDF->Eval(cos_relative_angle)/*sin(theta)*/;
+			// double proba = fDirectionPDF->Eval(cos_relative_angle)/*sin(theta)*/; //* if cos spline
+			// double proba = fDirectionPDF->Eval(cos_relative_angle); //* Taha
+			double proba = fHitAnglePDF->Eval(theta); //* Nicolas
 			// std::cout << "after pdf : " << ihit << std::endl;
 
 			// Correct for PMT orientation if necessary
@@ -600,6 +603,33 @@ double Likelihoods::Dir_NLL(const HitCollection<Hit>* lHitCol, const std::vector
 		if (VERBOSE >= 2) std::cout << "Total Direction NLL = " << DNLL << std::endl;
 	}
     return DNLL;
+}
+
+double Likelihoods::AngleNLL(const HitCollection<Hit>* lHitCol, std::vector<double> vertexPosition, std::vector<double> vertexDirection)
+{
+	double NLL = 0;
+
+	int nhits = lHitCol->Size();
+	
+	for (int ihit = 0; ihit < nhits; ihit++) 
+	{
+		//* compute angle
+		Hit lHit = lHitCol->At(ihit);
+		int iPMT = lHit.PMT;
+		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
+		std::vector<double> toPMT = std::vector<double>(3);
+		for(int j = 0; j < 3; j++) toPMT[j] = lPMTInfo.Position[j] - vertexPosition[j];
+		Normalize(toPMT);
+		Normalize(vertexDirection);
+		double dotP = dot(toPMT, vertexDirection);
+		dotP = std::max(-1.0, std::min(1.0, dotP)); // Ensure dot product is within valid range for acos
+		double angle = std::acos(dotP) * 180 / TMath::Pi();
+		// std::cout<<"angle : " << angle << " on pdf : " << fHitAnglePDF->Eval(angle) << std::endl;
+		// NLL += -TMath::Log(std::max(1e-20, fDirectionPDF->Eval(dotP))); //? Taha
+		NLL += -TMath::Log(std::max(1e-20, fHitAnglePDF->Eval(angle))); //? Nicolas
+	}
+
+	return NLL;
 }
 
 

@@ -41,6 +41,7 @@ struct EventInfo
 extern TSpline3 *	fSplineTimePDFQueue[NPMT_CONFIGURATION];
 extern TSpline3 *	fSplineTimePDFDarkRate[NPMT_CONFIGURATION];
 extern TSpline3* fDirectionPDF;
+extern TSpline3* fHitAnglePDF;
 
 // Histo
 extern TGraph2D * 	gPMTDirectionality_2D[NPMT_CONFIGURATION][HKAA::kmPMT_Groups];

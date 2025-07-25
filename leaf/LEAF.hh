@@ -116,7 +116,10 @@ class LEAF
 		std::vector< std::vector<double> > MinimizeVertex_Main(std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true);
 		
 		//* DIRECTION
-		std::vector<double> FitDirection(const std::vector<double>& fixedVertexPosition, FitterOutput &fOutput, int nhits);
+		std::vector<double> FitDirection(const std::vector<double>& fixedVertexPosition, FitterOutput &fOutput, int nhits, bool searchPrior = false);
+
+		std::vector<double> FitDirectionQuick(const std::vector<double>& fixedVertexPosition, FitterOutput &fOutput);
+		std::vector<double> FitDirectionQuick_bis(const std::vector<double>& fixedVertexPosition, FitterOutput &fOutput);
 
 		std::vector<DirectionCandidate> SearchDirection(const std::vector<double>& fixedVertexPosition, int tolerance);
 		
@@ -131,8 +134,6 @@ class LEAF
 		
 		static LEAF* myFitter;
 
-		// std::vector< std::vector<double> > fTrueVtxPosDouble;
-		// std::vector< std::vector<double> > fRecoVtxPosFinal;
 		std::vector< std::vector<double> > fThreadOutput;
 		
 };

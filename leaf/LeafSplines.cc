@@ -3,6 +3,7 @@
 TSpline3 *	fSplineTimePDFQueue[NPMT_CONFIGURATION];
 TSpline3 *	fSplineTimePDFDarkRate[NPMT_CONFIGURATION];
 TSpline3* fDirectionPDF;
+TSpline3* fHitAnglePDF;
 TGraph2D * 	gPMTDirectionality_2D[NPMT_CONFIGURATION][HKAA::kmPMT_Groups];
 TF1 * 		fDistResponsePMT[NPMT_CONFIGURATION];
 
@@ -42,7 +43,7 @@ double SplineIntegralExpo(TSpline3 *s, double start, double end, double sigma, d
 void LoadSplines()
 {
 	std::cout << "Loading splines..." << std::endl;
-	TFile *fSplines, *fSplines2, *fSplines1;
+	TFile *fSplines, *fSplines2, *fSplines1, *fSplineAngleFile;
 	if (fHighEnergy)
 	{
 		fSplines = new TFile("${LEAFDIR}/inputs/timePDF_HE.root", "read"); // To generate with my code ProduceWSPlots.c
@@ -54,12 +55,14 @@ void LoadSplines()
 		fSplines1 = new TFile("${LEAFDIR}/inputs/timePDFNoDR_50000_e10MeV_Hit_720.root","read");//To generate with my code ProduceWSPlots.c		
 		// fSplines = new TFile("${LEAFDIR}/inputs/timePDF_DRnew_Large.root", "read");			  // To generate with my code ProduceWSPlots.c
 		std::cout << "spline 2" << std::endl;
-		// fSplines = new TFile("${LEAFDIR}/inputs/timePDFDR_5000_e10MeV_Hit_fiducial.root","read"); //*TAHA
-		fSplines = new TFile("${LEAFDIR}/inputs/timePDF_3M_10T_500000.root","read"); //*NICOLAS
+		fSplines = new TFile("${LEAFDIR}/inputs/timePDFDR_5000_e10MeV_Hit_fiducial.root","read"); //*TAHA
+		// fSplines = new TFile("${LEAFDIR}/inputs/timePDF_3M_10T_500000.root","read"); //*NICOLAS
 		// fSplines = new TFile("${LEAFDIR}/inputs/timePDF_3M_10T.root","read");
 		std::cout << "spline 3" << std::endl;
 		fSplines2 = new TFile("${LEAFDIR}/inputs/timePDF_Directionality_DRnew.root", "read"); // To generate with my code ProduceWSPlots.c
 		// fSplines2 = new TFile("${LEAFDIR}/inputs/timePDF_Directionality_DRnew.root","read");//To generate with my code ProduceWSPlots.c
+		std::cout<< "angle spline" << std::endl;
+		fSplineAngleFile = new TFile("${LEAFDIR}/inputs/Hit_Angle_PDF.root", "read");
 	}
 
 	std::cout << "spline file read" << std::endl;
@@ -84,6 +87,11 @@ void LoadSplines()
 		std::cerr << "Error: Splines file is not opened." << std::endl;
 		exit(1);
 	}
+	if (!fSplineAngleFile || !fSplineAngleFile->IsOpen())
+	{
+		std::cerr << "Error: Angle spline file is not opened." << std::endl;
+		exit(1);
+	}
 
 	// std::cout << "splines files loaded" << std::endl;
 
@@ -96,11 +104,14 @@ void LoadSplines()
 		fSplineTimePDFQueue[pmtType]    = (TSpline3*) fSplines->Get(Form("splineExpoQueue%d_%d",0,pmtType));
 		fSplineTimePDFDarkRate[pmtType] = (TSpline3*) fSplines->Get(Form("splineDR%d_%d",0,pmtType));
 		fDirectionPDF = (TSpline3*) fSplines1->Get(Form("ChargeProfileCos_PDF_spline_pmtType0"));
+		// fDirectionPDF = (TSpline3*) fSplineAngleFile->Get("Hit_Angle_Spline");
 		if (!fDirectionPDF) 
 		{
 			std::cerr << "Error: fDirectionPDF is not loaded properly." << std::endl;
 			exit(1);
 		}
+		fHitAnglePDF = (TSpline3*) fSplineAngleFile->Get("Hit_Angle_Spline");
+		// fHitAnglePDF = (TSpline3*) fSplines1->Get(Form("ChargeProfileCos_PDF_spline_pmtType0"));
 
 		std::cout << "process spline" << std::endl;
 		// std::cout << "ok ?" << std::endl;

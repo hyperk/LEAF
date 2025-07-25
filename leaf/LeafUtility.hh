@@ -23,7 +23,7 @@ double Distance3D(std::vector<double> point1, std::vector<double> point2);
 		
 void Normalize(double a[3]);
 
-void Normalize(std::vector<double>& vector);
+std::vector<double>& Normalize(std::vector<double>& vector);
 
 double dot(const std::vector<double>& A, const std::vector<double>& B);
 
@@ -50,6 +50,8 @@ double ComputeResidualTime(std::vector<double> vertexPos, double originTime, Hit
 double GaussianKernel(double x, double bandwidth);
 
 //* Signal noise ratio
-VtxCandidate ComputeCandidateSNR(const std::vector<double>& vertex, double lowerLimit, double upperLimit);
+VtxCandidate CreateCandidate(const std::vector<double>& vertex, double lowerLimit, double upperLimit, bool computeSNR);
 
 void VectorVertexPMT(std::vector<double> vertex, int iPMT, double* dAngles );
+
+std::vector<double> ProjectPointToCylinder(std::vector<double> point, double R, double H);
