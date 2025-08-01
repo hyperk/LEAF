@@ -55,13 +55,14 @@ struct FitterOutput
     std::vector<double> VtxHitHangles;
     std::vector<double> AngleCorrections;
 
-    double Leaf_ComputeTime;
-    double Vtx_Search_ComputeTime;
-    double Vtx_Minimize_ComputeTime;
-    double Dir_Quick_Search_ComputeTime;
-    double Dir_Search_ComputeTime;
-    double Dir_Minimize_ComputeTime;
-    double Energy_Fit_ComputeTime;
+  //Add informations about computation time in the output:
+  double Leaf_ComputeTime;//Total leaf computational time
+  double Vtx_Search_ComputeTime;//Vertex coarse grid search computational time
+  double Vtx_Minimize_ComputeTime;//Vertex MINUIT minimisation computational time
+  double Dir_Quick_Search_ComputeTime;//Direction using unit vectors from vector to PMTT - computational time
+  double Dir_Search_ComputeTime;//Direction coarse grid search computational time
+  double Dir_Minimize_ComputeTime;//Direction MINUIT minimisation computational time
+  double Energy_Fit_ComputeTime;//Energy finder computational time
 };
 
 struct DirectionCandidate 
