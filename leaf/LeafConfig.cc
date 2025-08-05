@@ -13,6 +13,9 @@ double fSTimePDFLimitsQueueNegative_fullTimeWindow = 0.;
 double fSTimePDFLimitsQueuePositive_fullTimeWindow = 0.;
 double fPDFNorm_fullTimeWindow = 0.;
 
+double fDirectionPDF_maxResidual = 15.0;
+double fDirectionPDF_minResidual = -5.0;
+
 //* Overall Fit Parameters
 double fTimeWindowSizeFull = 1500.;
 double fIntegrationTimeWindow = 50.;
@@ -100,6 +103,8 @@ void InitConfig(const Geometry *lGeometry)
 		{"STimePDFLimitsQueuePositive", &fSTimePDFLimitsQueuePositive},
 		{"STimePDFLimitsQueueNegative_fullTimeWindow", &fSTimePDFLimitsQueueNegative_fullTimeWindow},
 		{"STimePDFLimitsQueuePositive_fullTimeWindow", &fSTimePDFLimitsQueuePositive_fullTimeWindow},
+		{"DirectionPDF_maxResidual", &fDirectionPDF_maxResidual},
+		{"DirectionPDF_minResidual", &fDirectionPDF_minResidual},
 		{"ThetaStep", &theta_step},
 		{"PhiStep", &phi_step}
 	};

@@ -39,6 +39,9 @@ extern double fSTimePDFLimitsQueuePositive;
 extern double fSTimePDFLimitsQueueNegative_fullTimeWindow;
 extern double fSTimePDFLimitsQueuePositive_fullTimeWindow;
 
+extern double fDirectionPDF_maxResidual;
+extern double fDirectionPDF_minResidual;
+
 //* Overall Fit Parameters
 extern double fTimeWindowSizeFull;
 extern double fIntegrationTimeWindow;

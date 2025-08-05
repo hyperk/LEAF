@@ -141,7 +141,7 @@ std::vector<double> LEAF::FitDirectionQuick(const std::vector<double>& fixedVert
 	std::vector<double> lf_Dir(3, 0.0);
 	for(long unsigned int i = 0; i < toHitVectors.size(); i++)
 	{
-		if(residuals[i] < 15 && residuals[i] > -5) for(int j = 0; j < 3; j++) lf_Dir[j] += toHitVectors[i][j];
+		if(residuals[i] < fDirectionPDF_maxResidual && residuals[i] > fDirectionPDF_minResidual) for(int j = 0; j < 3; j++) lf_Dir[j] += toHitVectors[i][j];
 	}
 
 	fOutput.Dir = Normalize(lf_Dir);
