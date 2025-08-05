@@ -335,3 +335,17 @@ std::vector<double> ProjectPointToCylinder(std::vector<double> point, double R, 
     else if (d2_top <= d2_bottom) return {x_top, y_top, z_top};
     else return {x_bottom, y_bottom, z_bottom};
 }
+
+std::vector<double> VectorToHitNorm(const std::vector<double>& from, Hit lHitt)
+{
+	std::vector<double> toHit(3, 0.0);
+	std::vector<double> hitPos(3, 0.0);
+	int iPMT = lHitt.PMT;
+	PMTInfo lPMTInfo = (*fPMTList)[iPMT];
+	for (int j = 0; j < 3; j++) hitPos[j] = lPMTInfo.Position[j];
+	for (int j = 0; j < 3; j++) toHit[j] = hitPos[j] - from[j];
+
+	Normalize(toHit);
+
+	return toHit;
+}

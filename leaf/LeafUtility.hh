@@ -29,6 +29,8 @@ double dot(const std::vector<double>& A, const std::vector<double>& B);
 
 double calculateDistance(const std::vector<double>& A, const std::vector<double>& B);
 
+std::vector<double> VectorToHitNorm(const std::vector<double>& from, Hit lHitt);
+
 std::vector<double> PolarToCartesianNorm(std::vector<double> polarVector);
 
 std::vector<double> CartesianToPolarNorm(const std::vector<double>& cartVector);
