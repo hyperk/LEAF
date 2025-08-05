@@ -6,6 +6,9 @@ void MinuitLikelihood(int & /*nDim*/, double * /*gout*/, double &NLL, double par
 {
 	std::vector<double> vertexPosition(4, 0.); // In centimeters
 	for (int i = 0; i < 4; i++) vertexPosition[i] = par[i];
+	std::vector<double> eventDirection(3, 0.);
+	for (int i = 0; i < 3; i++) eventDirection[i] = par[i + 10];
+	// double dirThreshold = par[13];
 	int nhits = par[5];
 	double lowerLimit = par[6];
 	double upperLimit = par[7];
@@ -502,7 +505,7 @@ double Likelihoods::Dir_NLL(const HitCollection<Hit>* lHitCol, const std::vector
 
 		double residual = ComputeResidualTime(vertexPosition, vertexPosition[3], lHitCol->At(ihit));
 	
-		bool DirCondition = (residual >= -5 && residual <= 15) || (pmtType == 1 && 	!fLimit_mPMT);
+		bool DirCondition = (residual >= fDirectionPDF_minResidual && residual <= fDirectionPDF_maxResidual) || (pmtType == 1 && 	!fLimit_mPMT);
 
 
 		if(DirCondition || DirTakeAll)

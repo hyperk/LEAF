@@ -86,7 +86,7 @@ class LEAF
 	    
 		void SearchVertex_thread(int iStart, int iIte, int nhits, int tolerance=1, bool likelihood=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality=false);
 		
-		void MinimizeVertex_thread(int iStart, int iIte, std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true);
+		void MinimizeVertex_thread(int iStart, int iIte, std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true, std::vector<double>* fDirection_Filter = nullptr, float FilterThreshold = 180);
 		
 	private:
 		
@@ -97,10 +97,8 @@ class LEAF
 
 		void LoadHitCollection(const HitCollection<Hit> *lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT);
 
-
-  //##### VERTEX FITTER #####
-
-  void FitVertex(FitterOutput &fOutput);
+		//* VERTEX
+		void FitVertex(FitterOutput &fOutput, std::vector<double>* fDirection_Filter = nullptr, float FilterThreshold = 180);
 		
 		//? Coarse GRID Search Raw version, not parallelized, slow
 		std::vector< std::vector<double> > SearchVertex(int nhits, int tolerance=1, bool likelihood=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality=false);
@@ -114,14 +112,11 @@ class LEAF
 		//? LLH Minimization Raw version, not parallelized, slow
 		std::vector< std::vector<double> > MinimizeVertex(std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true);
 		
-		//? LLH Minimization Parallelized version
-		std::vector< std::vector<double> > MinimizeVertex_Main(std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true);
-
-
-  
-		//##### DIRECTION FITTER #####
-
-  std::vector<double> FitDirection(const std::vector<double>& fixedVertexPosition, FitterOutput &fOutput, int nhits, bool searchPrior = false);
+		//? Second Step Parallelized version
+		std::vector< std::vector<double> > MinimizeVertex_Main(std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true, std::vector<double>* fDirection_Filter = nullptr, float FilterThreshold = 180);
+		
+		//* DIRECTION
+		std::vector<double> FitDirection(const std::vector<double>& fixedVertexPosition, FitterOutput &fOutput, int nhits, bool searchPrior = false);
 
   // Determine direction using the sum of all unit vectors from vertex to PMTs.
 		std::vector<double> FitDirectionQuick(const std::vector<double>& fixedVertexPosition, FitterOutput &fOutput);

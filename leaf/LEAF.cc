@@ -794,7 +794,7 @@ std::vector<std::vector<double>> LEAF::MinimizeVertex(std::vector<std::vector<do
 	// return tBestReconstructedVertexPosition;
 }
 
-std::vector<std::vector<double>> LEAF::MinimizeVertex_Main(std::vector<std::vector<double>> initialVertex, double *limits, double stepSize, int nhits, int nCandidates, int tolerance, int verbose, bool likelihood, bool average, double lowerLimit, double upperLimit, int directionality)
+std::vector<std::vector<double>> LEAF::MinimizeVertex_Main(std::vector<std::vector<double>> initialVertex, double *limits, double stepSize, int nhits, int nCandidates, int tolerance, int verbose, bool likelihood, bool average, double lowerLimit, double upperLimit, int directionality, std::vector<double>* fDirection_Filter, float FilterThreshold)
 {
 	std::vector<std::thread> lThreadList;
 	std::vector<std::vector<double>> lOutputFinal;
@@ -810,7 +810,7 @@ std::vector<std::vector<double>> LEAF::MinimizeVertex_Main(std::vector<std::vect
 
 		std::thread tThrd(&LEAF::MinimizeVertex_thread, LEAF::GetME(), iStart, iCand_Step,
 						  initialVertex, limits, stepSize, nhits, nCandidates,
-						  tolerance, verbose, likelihood, average, lowerLimit, upperLimit, directionality);
+						  tolerance, verbose, likelihood, average, lowerLimit, upperLimit, directionality, fDirection_Filter, FilterThreshold);
 
 		lThreadList.push_back(std::move(tThrd));
 	}
@@ -840,7 +840,7 @@ std::vector<std::vector<double>> LEAF::MinimizeVertex_Main(std::vector<std::vect
 void LEAF::MinimizeVertex_thread(
 	int iStart, int iIte,
 	std::vector<std::vector<double>> initialVertex, double *limits, double stepSize, int nhits,
-	int nCandidates, int tolerance, int verbose, bool /*likelihood*/, bool /*average*/, double lowerLimit, double upperLimit, int directionality)
+	int nCandidates, int tolerance, int verbose, bool /*likelihood*/, bool /*average*/, double lowerLimit, double upperLimit, int directionality, std::vector<double>* fDirection_Filter, float FilterThreshold)
 {
 	int iEnd = (iIte + iStart);
 	if (iEnd > nCandidates) iEnd = nCandidates;
@@ -848,7 +848,7 @@ void LEAF::MinimizeVertex_thread(
 	std::vector<struct FitPosition> tVtxContainer;
 
 	mtx.lock();
-	TFitter *minimizer = new TFitter(8); // 4=nb de params?
+	TFitter *minimizer = new TFitter(14); // 4=nb de params?
 	mtx.unlock();
 	TMinuit *minuit = minimizer->GetMinuit();
 
@@ -877,6 +877,10 @@ void LEAF::MinimizeVertex_thread(
 	minimizer->SetParameter(7, "upperLimit", upperLimit, 5e-1, 2, 10);
 	minimizer->SetParameter(8, "expoSigma", 100, 5, 0, 1e3);
 	minimizer->SetParameter(9, "directionality", directionality, 1, 0, 2);
+	minimizer->SetParameter(10, "dir_x", 0, 0, -1, 1);
+	minimizer->SetParameter(11, "dir_y", 0, 0, -1, 1);
+	minimizer->SetParameter(12, "dir_z", 0, 0, -1, 1);
+	minimizer->SetParameter(13, "dir_threshold", 0, 0, 0, 0);
 	minimizer->FixParameter(4);
 	minimizer->FixParameter(5);
 	minimizer->FixParameter(6);
@@ -886,7 +890,6 @@ void LEAF::MinimizeVertex_thread(
 
 	for (int icand = iStart; icand < iEnd; icand++)
 	{
-
 		minimizer->SetParameter(0, "vertex0", initialVertex[icand][0], stepSize, initialVertex[icand][0] - limits[0], initialVertex[icand][0] + limits[0]);
 		minimizer->SetParameter(1, "vertex1", initialVertex[icand][1], stepSize, initialVertex[icand][1] - limits[1], initialVertex[icand][1] + limits[1]);
 		minimizer->SetParameter(2, "vertex2", initialVertex[icand][2], stepSize, initialVertex[icand][2] - limits[2], initialVertex[icand][2] + limits[2]);
@@ -898,12 +901,24 @@ void LEAF::MinimizeVertex_thread(
 		minimizer->SetParameter(7, "upperLimit", upperLimit, 5e-1, 2, 10);
 		minimizer->SetParameter(8, "expoSigma", 100, 5, 0, 1e3);
 		minimizer->SetParameter(9, "directionality", directionality, 1, 0, 2);
+
+		if(fDirection_Filter != nullptr && fDirection_Filter->size() > 2)
+		{
+			minimizer->SetParameter(10, "dir_x", (*fDirection_Filter)[0], 5e-1, (*fDirection_Filter)[0] - 1, (*fDirection_Filter)[0] + 1);
+			minimizer->SetParameter(11, "dir_y", (*fDirection_Filter)[1], 5e-1, (*fDirection_Filter)[1] - 1, (*fDirection_Filter)[1] + 1);
+			minimizer->SetParameter(12, "dir_z", (*fDirection_Filter)[2], 5e-1, (*fDirection_Filter)[2] - 1, (*fDirection_Filter)[2] + 1);
+		}
+		minimizer->SetParameter(13, "dir_threshold", FilterThreshold, 5e-1, FilterThreshold - 1, FilterThreshold + 1);
 		minimizer->FixParameter(4);
 		minimizer->FixParameter(5);
 		minimizer->FixParameter(6);
 		minimizer->FixParameter(7);
 		minimizer->FixParameter(8);
 		minimizer->FixParameter(9);
+		minimizer->FixParameter(10);
+		minimizer->FixParameter(11);
+		minimizer->FixParameter(12);
+		minimizer->FixParameter(13);
 
 		minimizer->ExecuteCommand("MIGRAD", Mig, 2);
 
@@ -958,7 +973,7 @@ void LEAF::MinimizeVertex_thread(
 	mtx.unlock();
 }
 
-void LEAF::FitVertex(FitterOutput &fOutput)
+void LEAF::FitVertex(FitterOutput &fOutput, std::vector<double>* fDirection_Filter, float FilterThreshold)
 {
 	double *tLimits = new double[4];
 	int iHitsTotal = fHitCollection->Size();
@@ -970,6 +985,8 @@ void LEAF::FitVertex(FitterOutput &fOutput)
 
 	std::vector<VtxCandidate> tRecoVtxPosCand = this->SearchVertex_Main(iHitsTotal,fSearchVtxTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false);
 	std::vector<std::vector<double>> tRecoVtxPos;
+
+	// std::cout << "time after search in FitVertex is: " << timer.RealTime() << std::endl;
 	// std::vector<double> SNRList; 
 
 	// Extract only the vertex positions from the VtxCandidate structure
@@ -1039,7 +1056,7 @@ void LEAF::FitVertex(FitterOutput &fOutput)
 		for (int i = 0; i < 4; i++) tLimits[i] = 2 * fSearchVtxStep;
 
 		// fRecoVtxPosFinal = this->MinimizeVertex(tRecoVtxPos,tLimits,dStepSizeFinal,iHitsTotal,fSearchVtxTolerance,iToleranceFinal,VERBOSE,true,false,fMinimizeLimitsNegative,fMinimizeLimitsPositive,fUseDirectionality);
-		fRecoVtxPosFinal = this->MinimizeVertex_Main(tRecoVtxPos, tLimits, dStepSizeFinal, iHitsTotal, fSearchVtxTolerance, iToleranceFinal, VERBOSE, true, false, fMinimizeLimitsNegative, fMinimizeLimitsPositive, fUseDirectionality);
+		fRecoVtxPosFinal = this->MinimizeVertex_Main(tRecoVtxPos, tLimits, dStepSizeFinal, iHitsTotal, fSearchVtxTolerance, iToleranceFinal, VERBOSE, true, false, fMinimizeLimitsNegative, fMinimizeLimitsPositive, fUseDirectionality,  fDirection_Filter, FilterThreshold);
 
 		timer.Stop();
 		fOutput.Vtx_Minimize_ComputeTime = timer.RealTime();
