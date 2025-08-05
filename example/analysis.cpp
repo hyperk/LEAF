@@ -375,6 +375,10 @@ int main(int argc, char **argv)
 		true_origin_Y.clear();
 		true_origin_Z.clear();
 		true_origin_T.clear();
+		leaf_Vertex.clear();
+		leaf_Dir.clear();
+		leaf_MyDir.clear();
+		leaf_QuickDir.clear();
 				
 		digithit_pmtId.clear();
 		digithit_T.clear();
@@ -571,6 +575,7 @@ int main(int argc, char **argv)
 		/****************************************************************************************/
 		if(validEvent)
 		{
+			std::cout << " output vertex at last : " << leaf_output.Vtx[0] << " " << leaf_output.Vtx[1] << " " << leaf_output.Vtx[2] << " " << leaf_output.Vtx[3] << std::endl;
 			fPrimaryTree->Fill();
 			iWrite += 1;
 		}
@@ -586,6 +591,35 @@ int main(int argc, char **argv)
 
 	delete fPrimaryTree;
 	delete fOutputFile;
+
+	// gInterpreter->GenerateDictionary("vector<double>", "vector");
+
+	// TFile *fReInputFile = TFile::Open(sOutputFile.c_str());
+	// if (!fReInputFile || fReInputFile->IsZombie()) {
+	// 	std::cerr << "Error: Could not open output file " << sOutputFile << std::endl;
+	// } else {
+	// 	TTree *reTree = nullptr;
+	// 	fReInputFile->GetObject("Reduced", reTree);
+	// 	if (!reTree) {
+	// 		std::cerr << "Error: Could not find TTree 'Reduced' in file " << sOutputFile << std::endl;
+	// 	} else {
+	// 		std::vector<double> *ReVertex = nullptr;
+	// 		reTree->SetBranchAddress("lf_vertex", &ReVertex);
+	// 		if (reTree->GetEntries() > 0) {
+	// 			reTree->GetEntry(0);
+	// 			if (ReVertex && ReVertex->size() >= 4) {
+	// 				std::cout << "reVertex : " << ReVertex->at(0) << " " << ReVertex->at(1) << " " << ReVertex->at(2) << " " << ReVertex->at(3) << std::endl;
+	// 			} else {
+	// 				std::cerr << "Error: 'lf_vertex' branch is missing or does not have enough elements." << std::endl;
+	// 			}
+	// 		} else {
+	// 			std::cerr << "Error: TTree 'Reduced' has no entries." << std::endl;
+	// 		}
+	// 	}
+	// 	fReInputFile->Close();
+	// 	delete fReInputFile;
+	// }
+
 
 	return 1;
 }
@@ -623,7 +657,7 @@ void SetCustomBranch(TTree *fPrimaryTree, FitterOutput leaf_output)
 	fPrimaryTree->Branch("hit_5_15ns", &hit_5_15ns, "hit_5_15ns/I");
 	fPrimaryTree->Branch("hit_50ns", &hit_50ns, "hit_50ns/I");
 
-	fPrimaryTree->Branch("lf_vertex", &leaf_output.Vtx, "lf_vertex[4]/D");
+	fPrimaryTree->Branch("lf_vertex", &leaf_Vertex);
 	fPrimaryTree->Branch("lf_NLL", &leaf_output.NLL, "lf_NLL/D");
 	fPrimaryTree->Branch("lf_intime", &leaf_output.InTime, "lf_intime/I");
 	fPrimaryTree->Branch("lf_good", &leaf_output.NLLR, "lf_good/D");
@@ -633,9 +667,11 @@ void SetCustomBranch(TTree *fPrimaryTree, FitterOutput leaf_output)
 	fPrimaryTree->Branch("lf_dirKS", &leaf_output_ana.dirKS, "lf_dirKS[3]/D");
 	fPrimaryTree->Branch("lf_ctime", &fLFTime, "lf_ctime/D"); // Computation time
 	fPrimaryTree->Branch("lf_energy", &leaf_output.Energy, "lf_energy/D");
-	fPrimaryTree->Branch("lf_Dir", &leaf_output.Dir,"lf_Dir[3]/D");
-	fPrimaryTree->Branch("lf_MyDir", &leaf_output.MyDir,"lf_MyDir[3]/D");
-	fPrimaryTree->Branch("lf_Quick_Dir", &leaf_output.Quick_Dir,"lf_Quick_Dir[3]/D");
+	fPrimaryTree->Branch("lf_Dir", &leaf_Dir);
+	fPrimaryTree->Branch("lf_MyDir", &leaf_MyDir);
+	fPrimaryTree->Branch("lf_Quick_Dir", &leaf_QuickDir);
+	fPrimaryTree->Branch("lf_Dir_NLL", &leaf_output.DNLL, "lf_Dir_NLL/D");
+	fPrimaryTree->Branch("lf_MyDir_DNLL", &leaf_output.myDNLL, "lf_MyDir_DNLL/D");
 	fPrimaryTree->Branch("lf_DWall", &lf_dWall, "DWall/D");
 	fPrimaryTree->Branch("lf_ToWall", &lf_ToWall, "lf_ToWall/D");
 
@@ -1026,6 +1062,13 @@ bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType)
 bool PostLeafAnalysis(WCSimRootEvent * tEvent, int iEventType, FitterOutput leaf_output)
 {
 	if (!(true_origin_X.size() > 0 && true_origin_Y.size() > 0 && true_origin_Z.size() > 0)) return false;
+
+	for(int j=0;j<4;j++) leaf_Vertex.push_back(leaf_output.Vtx[j]);
+	for(int j=0;j<3;j++) leaf_Dir.push_back(leaf_output.Dir[j]);
+	for(int j=0;j<3;j++) leaf_MyDir.push_back(leaf_output.MyDir[j]);
+	for(int j=0;j<3;j++) leaf_QuickDir.push_back(leaf_output.Quick_Dir[j]);
+
+	std::cout << " output vertex : " << leaf_output.Vtx[0] << " " << leaf_output.Vtx[1] << " " << leaf_output.Vtx[2] << " " << leaf_output.Vtx[3] << std::endl;
 
 	// double correctionSum = 0;
 	// for (long unsigned int i = 0; i < leaf_output.AngleCorrections.size(); i++)

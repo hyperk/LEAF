@@ -64,6 +64,10 @@ std::vector<double> true_origin_X; // True origin vertex (cm)
 std::vector<double> true_origin_Y; // True origin vertex (cm)
 std::vector<double> true_origin_Z; // True origin vertex (cm)
 std::vector<double> true_origin_T; // True origin vertex (ns)
+std::vector<double> leaf_Vertex; // the estimated vertex
+std::vector<double> leaf_Dir; // the estimated direction
+std::vector<double> leaf_MyDir; // direction with one prior that is the the quick direction
+std::vector<double> leaf_QuickDir; // quick computed directions form to hit vectors
 
 std::vector<double> relativeAngle;
 std::vector<double> lf_relativeAngle;
