@@ -15,7 +15,7 @@ void MinuitLikelihood(int & /*nDim*/, double * /*gout*/, double &NLL, double par
 	double directionality = par[9];
 	// std::vector<double> vertexDirection(3,0.);
 	double timeNLL = Likelihoods::Vertex_Time_NLL(fHitCollection, vertexPosition, nhits, lowerLimit, upperLimit, true, false, directionality);
-	double angleNLL = Likelihoods::AngleNLL(fHitCollection, vertexPosition, fTrueDir);
+	// double angleNLL = Likelihoods::AngleNLL(fHitCollection, vertexPosition, fTrueDir);
 	NLL = timeNLL;
 }
 
@@ -96,6 +96,13 @@ double Likelihoods::Vertex_Time_NLL(const HitCollection<Hit>* lHitCol, std::vect
 		double residual = ComputeResidualTime(vertexPosition, vertexPosition[3], lHitCol->At(ihit));
 
 		residual = ComputeResidualTime(vertexPosition, vertexPosition[3], lHit);
+
+		// std::vector<double> toHit = VectorToHitNorm(vertexPosition, lHit);
+		// if(dot(fTrueDir, toHit) < cos(90 * TMath::DegToRad()))
+		// if(dot(fTrueDir, toHit) < 0)
+		// {
+		// 	continue; //! Skip this hit if it's not in the same hemisphere
+		// }
 
 		double proba = 0;
 
@@ -504,7 +511,7 @@ double Likelihoods::Dir_NLL(const HitCollection<Hit>* lHitCol, const std::vector
 		// double residual = hitTime - tof - vertexPosition[3];
 
 		double residual = ComputeResidualTime(vertexPosition, vertexPosition[3], lHitCol->At(ihit));
-	
+
 		bool DirCondition = (residual >= fDirectionPDF_minResidual && residual <= fDirectionPDF_maxResidual) || (pmtType == 1 && 	!fLimit_mPMT);
 
 

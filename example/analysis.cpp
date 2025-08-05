@@ -388,7 +388,7 @@ int main(int argc, char **argv)
 		relativeAngle.clear();
 		lf_relativeAngle.clear();
 		hit_residual.clear();
-		digithit_Angle_NLL.clear();
+		// digithit_Angle_NLL.clear();
 
 		rawhit_num = 0;
 		digithit_num = 0;
@@ -673,7 +673,7 @@ void SetCustomBranch(TTree *fPrimaryTree, FitterOutput leaf_output)
 	fPrimaryTree->Branch("DigiHitResidual", &hit_residual);
 	fPrimaryTree->Branch("Charge_PMT", &Charge_PMT);
 
-	fPrimaryTree->Branch("digithit_Angle_NLL", &digithit_Angle_NLL);
+	// fPrimaryTree->Branch("digithit_Angle_NLL", &digithit_Angle_NLL);
 	fPrimaryTree->Branch("EnergyRatio", &EnergyRatio,"EnergyRatio/D");
 }
 
@@ -782,7 +782,11 @@ bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType)
 
 				true_particleId.push_back(wcTrack->GetIpnu());
 				true_energy.push_back(wcTrack->GetE());
-				true_origin_T.push_back(wcTrack->GetTime());
+				true_origin_T.push_back(fRootTrigger->GetVtx(3));
+				// true_origin_T.push_back(wcTrack->GetTime());
+
+				// std::cout << "true origin T = " << true_origin_T[0] << std::endl;
+				// std::cout << "true origin xyz " << true_origin_X[0] << " " << true_origin_Y[0] << " " << true_origin_Z[0] << std::endl;
 			}
 
 			// Send True Position to LEAF for check
@@ -928,11 +932,14 @@ bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType)
 			hit_residual.push_back(hitResidual);
 		}
 
-		for(int j=0;j<hit_residual.size();j++)
+		for(long unsigned int j=0;j<hit_residual.size();j++)
 		{
-			if(hit_residual[j] < 5 || hit_residual[j] > -15) hit_5_15ns++;
-			if(hit_residual[j] < 50 || hit_residual[j] > -50) hit_50ns++;
+			// std::cout << "residual : " << hit_residual[j] << std::endl;
+ 			if(hit_residual[j] < 15 && hit_residual[j] > -5) hit_5_15ns++;
+			if(hit_residual[j] < 50 && hit_residual[j] > -50) hit_50ns++;
 		}
+
+		// std::cout << hit_50ns << " hits in 50 ns window, " << hit_5_15ns << " hits in 5-15 ns window ";
 
 		for(int j=0;j<3;j++) lf_Dir[j] /= AllQ;
 		Normalize(lf_Dir);
@@ -945,6 +952,8 @@ bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType)
 
 		nDigitizedCherenkovHits = digithit_pmtId.size();
 		digithit_num = nDigitizedCherenkovHits - startingCherenkovHitID;
+
+		// std::cout << digithit_num << " digitized hits in total" << std::endl;
 
 		// Feed fitter
 		for (int iDigitHit = startingCherenkovHitID; iDigitHit < nDigitizedCherenkovHits; iDigitHit++)
@@ -1019,11 +1028,11 @@ bool PostLeafAnalysis(WCSimRootEvent * tEvent, int iEventType, FitterOutput leaf
 	if (!(true_origin_X.size() > 0 && true_origin_Y.size() > 0 && true_origin_Z.size() > 0)) return false;
 
 	// double correctionSum = 0;
-	for (long unsigned int i = 0; i < leaf_output.AngleCorrections.size(); i++)
-	{
-		corrections += leaf_output.AngleCorrections[i];
-		correctionAmount+=1;
-	}
+	// for (long unsigned int i = 0; i < leaf_output.AngleCorrections.size(); i++)
+	// {
+	// 	corrections += leaf_output.AngleCorrections[i];
+	// 	correctionAmount+=1;
+	// }
 
 	totalChargeMean += leaf_output.Energy / leaf_output.TotalCharge;
 	totalChargeAmounts += 1;
@@ -1044,14 +1053,16 @@ bool PostLeafAnalysis(WCSimRootEvent * tEvent, int iEventType, FitterOutput leaf
 	lf_ToWall = calculateToWall(R, h,leaf_output.Vtx, leaf_output.Dir);
 	lf_spatial_res = calculateDistance(true_vertex, leaf_output.Vtx);
 	lf_time_res = abs(leaf_output.Vtx[3]-true_origin_T[0]);
-	lf_Dir_res = TMath::ACos(dot(leaf_output.Dir, trueDir))*180./TMath::Pi();
-	lf_Quick_Dir_res = TMath::ACos(dot(leaf_output.Quick_Dir, trueDir))*180./TMath::Pi();
-	lf_MyDir_res = TMath::ACos(dot(leaf_output.MyDir, trueDir))*180./TMath::Pi();
+
+	if(leaf_output.Dir.size() == 3) lf_Dir_res = TMath::ACos(dot(leaf_output.Dir, trueDir))*180./TMath::Pi();
+	if(leaf_output.MyDir.size() == 3) lf_MyDir_res = TMath::ACos(dot(leaf_output.MyDir, trueDir))*180./TMath::Pi();
+	if(leaf_output.Quick_Dir.size() == 3) lf_Quick_Dir_res = TMath::ACos(dot(leaf_output.Quick_Dir, trueDir))*180./TMath::Pi();
+
 	lf_energy_res = abs(leaf_output.Energy - true_energy[0]);
 
 	// if(!(lf_dWall < 600 && lf_ToWall < 850 && lf_ToWall <= 40 + lf_dWall * 2)) return false;
 
-	digithit_Angle_NLL = leaf_output.VtxHitHangles;
+	// digithit_Angle_NLL = leaf_output.VtxHitHangles;
 	
 	// TotalQ+=leaf_output.Energy;
 

@@ -36,6 +36,7 @@ struct FitterOutput
     std::vector<double> Vtx;
     double NLL;
     double DNLL;
+    double myDNLL;
     double NLLR;
 
     int InTime;
@@ -51,9 +52,6 @@ struct FitterOutput
 
     std::vector<double> MyDir;
     std::vector<double> Quick_Dir;
-
-    std::vector<double> VtxHitHangles;
-    std::vector<double> AngleCorrections;
 
   //Add informations about computation time in the output:
   double Leaf_ComputeTime;//Total leaf computational time

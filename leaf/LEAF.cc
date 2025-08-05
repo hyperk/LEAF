@@ -421,7 +421,7 @@ std::vector<VtxCandidate> LEAF::SearchVertex_Main(int nhits, int tolerance, bool
 		lThreadList.push_back(std::move(tThrd));
 	}
 
-	std::cout << "time after vtx search thread : " << timer.RealTime() << std::endl;
+	// std::cout << "time after vtx search threads in SearchVertex_Main : " << timer.RealTime() << std::endl;
 
 	for(auto &th: lThreadList) if(th.joinable()) th.join();
 
@@ -461,7 +461,7 @@ std::vector<VtxCandidate> LEAF::SearchVertex_Main(int nhits, int tolerance, bool
 		finalList.push_back(cOut);
 	}
 
-	std::cout << "time at end of vertex search : " << timer.RealTime() << std::endl;
+	// std::cout << "time at end of vertex search in SearchVertex_Main : " << timer.RealTime() << std::endl;
 	return finalList;
 }
 
@@ -476,6 +476,10 @@ void LEAF::SearchVertex_thread(int iStart, int iIte, int nhits, int tolerance, b
 	// double stepSize = 0.5;//in m
 
 	std::vector<struct FitPosition> tVtxContainer;
+
+	TStopwatch timer;
+	timer.Reset();
+	timer.Start();
 
 	if (fPositionList.size() == 0)
 		std::cout << " Position list not filled " << std::endl;
@@ -519,6 +523,8 @@ void LEAF::SearchVertex_thread(int iStart, int iIte, int nhits, int tolerance, b
 		fThreadOutput.push_back(vPos);
 	}
 	mtx.unlock();
+
+	// std::cout << "thread took : " << timer.RealTime() << std::endl;
 }
 
 // Fine grid search of the vertex. It will search in a box this time, and not a cylinder as searchVertex is doing. It is useful when we have one or several first candidate vertices. Therefore, this code is generally run after serachVertex.
@@ -1071,22 +1077,22 @@ void LEAF::FitVertex(FitterOutput &fOutput, std::vector<double>* fDirection_Filt
 	// fOutput->NLLR = Likelihoods::GoodnessOfFit(fHitCollection, fRecoVtxPosFinal[0], iHitsTotal, fMinimizeLimitsNegative, fMinimizeLimitsPositive, true, false, fUseDirectionality );
 	// fOutput.SNRList = SNRList;
 
-	fOutput.VtxHitHangles = std::vector<double>();
+	// fOutput.VtxHitHangles = std::vector<double>();
 
-	for (unsigned int ihit = 0; ihit < fHitCollection->Size(); ihit++) 
-	{
+	// for (unsigned int ihit = 0; ihit < fHitCollection->Size(); ihit++) 
+	// {
 		//* compute angle
-		Hit lHit = fHitCollection->At(ihit);
-		int iPMT = lHit.PMT;
-		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
-		std::vector<double> toPMT = std::vector<double>(3);
-		for(int j = 0; j < 3; j++) toPMT[j] = lPMTInfo.Position[j] - fRecoVtxPosFinal[0][j];
-		Normalize(toPMT);
-		Normalize(fTrueDir);
-		double dotP = dot(toPMT, fTrueDir);
-		double angle = std::acos(std::max(-1.0, std::min(1.0, dotP))) * 180 / TMath::Pi();
-		fOutput.VtxHitHangles.push_back(angle);
-	}
+		// Hit lHit = fHitCollection->At(ihit);
+		// int iPMT = lHit.PMT;
+		// PMTInfo lPMTInfo = (*fPMTList)[iPMT];
+		// std::vector<double> toPMT = std::vector<double>(3);
+		// for(int j = 0; j < 3; j++) toPMT[j] = lPMTInfo.Position[j] - fRecoVtxPosFinal[0][j];
+		// Normalize(toPMT);
+		// Normalize(fTrueDir);
+		// double dotP = dot(toPMT, fTrueDir);
+		// double angle = std::acos(std::max(-1.0, std::min(1.0, dotP))) * 180 / TMath::Pi();
+		// fOutput.VtxHitHangles.push_back(angle);
+	// }
 }
 
 void LEAF::FitEnergy(FitterOutput &fOutput)
@@ -1126,7 +1132,6 @@ void LEAF::FitEnergy(FitterOutput &fOutput)
 		totalPECorr += lHit.Q;
 		// std::cout << "corr: " << Ftheta / cosPMThitAngle << std::endl;
 		totalPE += lHit.Q;
-		fOutput.AngleCorrections.push_back(Ftheta / cosPMThitAngle);
 		double residual = ComputeResidualTime(fOutput.Vtx, fOutput.Vtx[3], fHitCollection->At(ihit));
 		if (residual > fSTimePDFLimitsQueueNegative && residual < fSTimePDFLimitsQueuePositive) iInTime++;
 	}
@@ -1289,6 +1294,7 @@ struct FitterOutput LEAF::NewOutuput()
 	fOutput.Vtx = std::vector<double>(4);
 	fOutput.Dir = std::vector<double>(3);
 	fOutput.NLL		= 0.;
+	fOutput.DNLL	= 0.;
 	fOutput.Energy = 0.;
 	fOutput.TotalCharge = 0.;
 	fOutput.InTime		= 0;
@@ -1296,8 +1302,7 @@ struct FitterOutput LEAF::NewOutuput()
 	fOutput.True_TimeDiff	= 0;
 	fOutput.True_TistDiff	= 0;
 
-	fOutput.AngleCorrections = std::vector<double>();
-	fOutput.VtxHitHangles = std::vector<double>();
+	// fOutput.VtxHitHangles = std::vector<double>();
 	return fOutput;
 }
 
@@ -1322,6 +1327,7 @@ struct FitterOutput LEAF::MakeSequentialFit(const HitCollection<Hit> *lHitCol, c
 	FitDirectionQuick(fOutput.Vtx, fOutput);
 	FitDirection(fOutput.Vtx, fOutput, fHitCollection->Size(), true);
 	fOutput.MyDir = fOutput.Dir;
+	fOutput.myDNLL = fOutput.DNLL;
 	FitDirection(fOutput.Vtx, fOutput, fHitCollection->Size(), false);
 	// FitDirectionQuick_bis(fOutput.Vtx, fOutput);
 
@@ -1338,6 +1344,10 @@ struct FitterOutput LEAF::MakeJointFit(const HitCollection<Hit> *lHitCol, const 
 {
 	LoadHitCollection(lHitCol, lTriggerTime, bMultiPMT);
 
+	TStopwatch timer;
+	timer.Reset();
+	timer.Start();
+
 	struct FitterOutput fOutput = NewOutuput();
 	if(fHitCollection->Size() <= 0) return fOutput;
 
@@ -1353,6 +1363,9 @@ struct FitterOutput LEAF::MakeJointFit(const HitCollection<Hit> *lHitCol, const 
 	
 	//* Energy
 	FitEnergy(fOutput);
+
+	timer.Stop();
+	fOutput.Leaf_ComputeTime = timer.RealTime();
 
 	return fOutput;
 }
