@@ -22,9 +22,7 @@
 #include "WCSimRootGeom.hh"
 #include "Geometry.h"
 
-// extern constexpr float fCVacuum = 3e8 * 1e2 / 1e9; // speed of light, in centimeter per ns.
-// extern constexpr float fNIndex = 1.373;		
-// extern constexpr double fLightSpeed = fCVacuum / fNIndex;
+//**** all these parameters will be loaded automatically from the config if they are defined here AND in the tables of the .cc */
 
 //* Geometry & Constants
 extern double fTankRadius;

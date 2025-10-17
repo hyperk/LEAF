@@ -64,12 +64,11 @@ void MakePositionList()
 
 void SetTrueVertexInfo(std::vector<double> vtx, double time) 
 {
-	fTrueVtxPos = std::vector<double>(5, 0.);
+	fTrueVtxPos = std::vector<double>(4, 0.);
 	fTrueVtxPos[0] = vtx[0];
 	fTrueVtxPos[1] = vtx[1];
 	fTrueVtxPos[2] = vtx[2];
 	fTrueVtxPos[3] = time;
-	fTrueVtxPos[4] = 0.;
 }
 
 void SetTrueDirInfo(std::vector<double> trueDir)

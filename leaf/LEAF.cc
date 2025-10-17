@@ -14,17 +14,6 @@ std::mutex mtx;
 
 /*****************************************************************************************************/
 
-// void MinimizeVertex_CallThread(int iStart, int iIte, std::vector<std::vector<double>> initialVertex, double *limits, double stepSize, int nhits, int nCandidates, int tolerance, int verbose, bool likelihood, bool average, double lowerLimit, double upperLimit, int directionality)
-// {
-// 	LEAF::GetME()->MinimizeVertex_thread(iStart, iIte, initialVertex, limits, stepSize, nhits, nCandidates, tolerance, verbose, likelihood, average, lowerLimit, upperLimit, directionality);
-// }
-
-// void SearchVertex_CallThread(int iStart, int iIte, int nhits, int tolerance, bool likelihood, double lowerLimit, double upperLimit, int directionality)
-// {
-// 	LEAF::GetME()->SearchVertex_thread(iStart, iIte, nhits, tolerance, likelihood, lowerLimit, upperLimit, directionality);
-// }
-/*****************************************************************************************************/
-
 LEAF::LEAF()
 {
 	myFitter = this;
@@ -49,16 +38,20 @@ void LEAF::DeleteME()
 	if (myFitter) delete myFitter;
 }
 
+FitterOutput LEAF::fOutput;
+FitterOutputProps LEAF::fOutputProps;
+
 /*****************************************************************************************************/
 void LEAF::Initialize(const Geometry *lGeometry)
 {
 	InitConfig(lGeometry);
 	InitInputs(lGeometry);
 	LoadSplines();
+	fOutput = NewOutuput();
 }
 
 //Creates the candidates list after Coarse grid search, refines the fit, then outputs the best candidate
-std::vector<double> LEAF::FitDirection(const std::vector<double>& fixedVertexPosition, FitterOutput &fOutput, int nhits, bool searchPrior) 
+std::vector<double> LEAF::FitDirection(const std::vector<double>& fixedVertexPosition, int nhits, bool searchPrior) 
 {
 	//* Init
 	TStopwatch timer;
@@ -73,7 +66,7 @@ std::vector<double> LEAF::FitDirection(const std::vector<double>& fixedVertexPos
 	if(searchPrior)
 	{
 		//* Only one candidate, chosen wisely by computing a mean hit direction for hits within a specified residual time window
-		std::vector<double> dirPriorCart = FitDirectionQuick(fixedVertexPosition, fOutput);
+		std::vector<double> dirPriorCart = FitDirectionQuick(fixedVertexPosition);
 		std::vector<double> dirPrior = CartesianToPolarNorm(dirPriorCart);
 		DirectionCandidate priorCandidate;
 		priorCandidate.theta = dirPrior[0];
@@ -84,13 +77,13 @@ std::vector<double> LEAF::FitDirection(const std::vector<double>& fixedVertexPos
 
 	// std::cout << "nb direction candidates : " << candidates.size() << std::endl;
 
-	fOutput.Dir_Search_ComputeTime = timer.RealTime();
+	fOutputProps.Dir_Search_ComputeTime = timer.RealTime();
 	TStopwatch timer2;
 	timer2.Reset();
 	timer2.Start();
 
 	//? To be removed for real data where true dir is not known, no impact on the fit
-	fOutput.stepOneContainsTrueDir = (int)ContainsTrueDir(&candidates, fTrueDir); //* a quick check to see if the step one works (one of the candidate is near the true direction)
+	// fOutput.stepOneContainsTrueDir = (int)ContainsTrueDir(&candidates, fTrueDir); //* a quick check to see if the step one works (one of the candidate is near the true direction)
 
     if (verbose >= 2) 
 	{
@@ -102,12 +95,12 @@ std::vector<double> LEAF::FitDirection(const std::vector<double>& fixedVertexPos
 	fOutput.Dir = PolarToCartesianNorm({finalCandidate.theta, finalCandidate.phi});
 	fOutput.DNLL = finalCandidate.DNLL;
 
-	fOutput.Dir_Minimize_ComputeTime = timer2.RealTime();
+	fOutputProps.Dir_Minimize_ComputeTime = timer2.RealTime();
 
     return fOutput.Dir;
 }
 
-std::vector<double> LEAF::FitDirectionQuick(const std::vector<double>& fixedVertexPosition, FitterOutput &fOutput)
+std::vector<double> LEAF::FitDirectionQuick(const std::vector<double>& fixedVertexPosition)
 {
 	// Quick fit implementation
 
@@ -146,71 +139,7 @@ std::vector<double> LEAF::FitDirectionQuick(const std::vector<double>& fixedVert
 
 	fOutput.Dir = Normalize(lf_Dir);
 	fOutput.Quick_Dir = Normalize(lf_Dir);
-	fOutput.Dir_Quick_Search_ComputeTime = timer.RealTime();
-	return fOutput.Dir;
-}
-
-std::vector<double> LEAF::FitDirectionQuick_bis(const std::vector<double>& fixedVertexPosition, FitterOutput &fOutput)
-{
-	// Quick fit implementation
-
-	std::vector<std::vector<double>> pmtPositions;
-	std::vector<double> pmtCharges;
-	std::vector<double> residuals;
-	const std::vector<double>& UsedVertex = fixedVertexPosition;
-
-	// std::vector<double> maxPos(3, 0.0);
-	// std::vector<double> minPos(3, 0.0);
-
-	for(unsigned int i = 0; i < fHitCollection->Size(); i++)
-	{
-		std::vector<double> pmtPosition;
-		std::vector<double> toHit;
-		
-		Hit lHit = fHitCollection->At(i);
-		
-		int iPMT = lHit.PMT;
-		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
-
-		for(int j = 0; j < 3 ; j++) pmtPosition.push_back(lPMTInfo.Position[j]);
-		pmtPositions.push_back(pmtPosition);
-		pmtCharges.push_back(lHit.Q);
-
-		residuals.push_back(ComputeResidualTime(UsedVertex, UsedVertex[3], lHit));
-
-		// for(int j = 0; j < 3 ; j++)
-		// {
-		// 	if(pmtPosition[j] > maxPos[j]) maxPos[j] = pmtPosition[j];
-		// 	if(pmtPosition[j] < minPos[j]) minPos[j] = pmtPosition[j];
-		// } 
-	}
-
-	// std::cout << "max Pos : ";
-	// for (size_t i = 0; i < maxPos.size(); ++i) std::cout << maxPos[i] << " ";
-	// std::cout << std::endl;
-	// std::cout << "min Pos : ";
-	// for (size_t i = 0; i < minPos.size(); ++i) std::cout << minPos[i] << " ";
-	// std::cout << std::endl;
-
-	double sumCharge = 0.0;
-	std::vector<double> meanPos(3, 0.0);
-	for(long unsigned int i = 0; i < pmtPositions.size(); i++)
-	{
-		if(residuals[i] < 10 && residuals[i] > -10)
-		{
-			for(int j = 0; j < 3; j++) meanPos[j] += pmtPositions[i][j] * pmtCharges[i];
-			sumCharge += pmtCharges[i];
-		}
-	}
-	if (sumCharge > 0) for(int j = 0; j < 3; j++) meanPos[j] /= sumCharge;
-
-	// Project mean Pos on the tank walls
-	std::vector<double> projection = ProjectPointToCylinder(meanPos, fTankRadius, fTankHeight);
-
-	std::vector<double> lf_Dir(3, 0.0);
-	for(int j = 0; j < 3; j++) lf_Dir[j] = projection[j] - UsedVertex[j];
-
-	fOutput.Dir = Normalize(lf_Dir);
+	fOutputProps.Dir_Quick_Search_ComputeTime = timer.RealTime();
 	return fOutput.Dir;
 }
 
@@ -279,10 +208,6 @@ DirectionCandidate LEAF::MinimizeDirection(const std::vector<double>& fixedVerte
 		minimizer->FixParameter(4);
 		minimizer->FixParameter(5);
 		minimizer->FixParameter(6);
-
-		// Store fixed vertex position and number of hits in member variables
-		// fFixedVertexPosition = fixedVertexPosition;
-		// fNHits = nhits;
 
 		// Minimize
 		arglist[0] = 1e9; // Maximum number of function evaluations
@@ -441,27 +366,11 @@ std::vector<VtxCandidate> LEAF::SearchVertex_Main(int nhits, int tolerance, bool
 
 	for(auto &cand : lOutputFinal)
 	{
-		// cand = [ x, y, z, t, NLL ]
-		// double vx = cand[0];
-		// double vy = cand[1];
-		// double vz = cand[2];
-		// double vt = cand[3];
-		// double nll= cand[4];
-
-		// Build a 4-vector.
-		// std::vector<double> vtx(4);
-		// vtx[0] = vx;
-		// vtx[1] = vy;
-		// vtx[2] = vz;
-		// vtx[3] = vt;
-
-		// 5) Per-candidate SNR.
 		VtxCandidate cOut = CreateCandidate(cand, lowerLimit, upperLimit, false);
 		cOut.NLL = cand[4]; // store the NLL from the coarse search.
 		finalList.push_back(cOut);
 	}
 
-	// std::cout << "time at end of vertex search in SearchVertex_Main : " << timer.RealTime() << std::endl;
 	return finalList;
 }
 
@@ -472,9 +381,6 @@ std::vector<VtxCandidate> LEAF::SearchVertex_Main(int nhits, int tolerance, bool
 // The number of output vertices can be chosen using "tolerance".
 void LEAF::SearchVertex_thread(int iStart, int iIte, int nhits, int tolerance, bool likelihood, double lowerLimit, double upperLimit, int directionality)
 {
-	// 2. How to set the search?
-	// double stepSize = 0.5;//in m
-
 	std::vector<struct FitPosition> tVtxContainer;
 
 	TStopwatch timer;
@@ -495,7 +401,6 @@ void LEAF::SearchVertex_thread(int iStart, int iIte, int nhits, int tolerance, b
 		struct FitPosition hPos;
 		hPos.Vtx = fPositionList[iPos];
 		hPos.NLL = 0;
-		// std::cout << " Thread2 " << iPos << " " << iPos-iStart << " " << iEnd <<  std::endl;
 
 		if (likelihood) hPos.NLL = Likelihoods::Vertex_Time_NLL(fHitCollection, hPos.Vtx, nhits, lowerLimit, upperLimit, false, false, directionality);
 		else hPos.NLL = Likelihoods::Vertex_Score(fHitCollection, hPos.Vtx, nhits, lowerLimit, upperLimit, false, false, directionality);
@@ -509,7 +414,6 @@ void LEAF::SearchVertex_thread(int iStart, int iIte, int nhits, int tolerance, b
 	// Check if mutex is already lock, if not -> lock
 	// We don't want simultaneous modification of the common output
 	mtx.lock();
-	// std::vector< std::vector<double> > tReconstructedVertexPosition;
 	for (unsigned int iPos = 0; iPos < tVtxContainer.size(); iPos++)
 	{
 		std::vector<double> vPos(5, 0.);
@@ -523,8 +427,6 @@ void LEAF::SearchVertex_thread(int iStart, int iIte, int nhits, int tolerance, b
 		fThreadOutput.push_back(vPos);
 	}
 	mtx.unlock();
-
-	// std::cout << "thread took : " << timer.RealTime() << std::endl;
 }
 
 // Fine grid search of the vertex. It will search in a box this time, and not a cylinder as searchVertex is doing. It is useful when we have one or several first candidate vertices. Therefore, this code is generally run after serachVertex.
@@ -535,9 +437,6 @@ void LEAF::SearchVertex_thread(int iStart, int iIte, int nhits, int tolerance, b
 std::vector<std::vector<double>> LEAF::SearchVertexFine(std::vector<std::vector<double>> initialVertex, double *limits, double stepSize, int nhits, int nCandidates, int tolerance, int verbose, bool likelihood, bool average, double lowerLimit, double upperLimit, int directionality)
 {
 	if (verbose) std::cout << "Start fine search, use directionality? " << directionality << std::endl;
-	// 2. How to set the search?
-	// double stepSize = 0.5;//in m
-	// double * reconstructedVertexPosition = new double[4];
 	std::vector<double> tBestReconstructedVertexPosition;
 	double minNLL = 1e15;
 	clock_t timeStart = clock();
@@ -667,7 +566,6 @@ std::vector<std::vector<double>> LEAF::MinimizeVertex(std::vector<std::vector<do
 
 	double arglist[20];
 	int err = 0;
-	// arglist[0]=0;
 	double p1 = verbose - 1;
 	minimizer->ExecuteCommand("SET PRINTOUT", &p1, 1); // quiet mode
 	minuit->SetErrorDef(1);
@@ -678,7 +576,6 @@ std::vector<std::vector<double>> LEAF::MinimizeVertex(std::vector<std::vector<do
 	minimizer->SetFCN(MinuitLikelihood);		// here is function to minimize
 
 	double Mig[2] = {1e6, 1e0}; // maxcalls and tolerance
-	// double Imp2[1]={10000};
 
 	minimizer->SetParameter(0, "vertex0", 0, stepSize, -limits[0], limits[0]);
 	minimizer->SetParameter(1, "vertex1", 0, stepSize, -limits[1], limits[1]);
@@ -689,8 +586,6 @@ std::vector<std::vector<double>> LEAF::MinimizeVertex(std::vector<std::vector<do
 	minimizer->SetParameter(5, "nhits", nhits, nhits, nhits - 1, nhits + 1);
 	minimizer->SetParameter(6, "lowerLimit", lowerLimit, 5e-1, -7, -2);
 	minimizer->SetParameter(7, "upperLimit", upperLimit, 5e-1, 2, 10);
-	// minimizer->SetParameter(8,"scaling factor",1,1,0,1e3);
-	// minimizer->SetParameter(8,"signal pe",1,1,0,1e3);
 	minimizer->SetParameter(8, "expoSigma", 100, 5, 0, 1e3);
 	minimizer->SetParameter(9, "directionality", directionality, 1, 0, 2);
 	minimizer->SetParameter(10, "thread", 0, 0, 0, 0);
@@ -810,10 +705,6 @@ std::vector<std::vector<double>> LEAF::MinimizeVertex_Main(std::vector<std::vect
 
 	for (int iStart = 0; iStart < nCandidates; iStart += iCand_Step)
 	{
-		// std::thread tThrd(MinimizeVertex_CallThread, iStart, iCand_Step,
-		// 				  initialVertex, limits, stepSize, nhits, nCandidates,
-		// 				  tolerance, verbose, likelihood, average, lowerLimit, upperLimit, directionality);
-
 		std::thread tThrd(&LEAF::MinimizeVertex_thread, LEAF::GetME(), iStart, iCand_Step,
 						  initialVertex, limits, stepSize, nhits, nCandidates,
 						  tolerance, verbose, likelihood, average, lowerLimit, upperLimit, directionality, fDirection_Filter, FilterThreshold);
@@ -953,12 +844,8 @@ void LEAF::MinimizeVertex_thread(
 	}
 
 	std::sort(tVtxContainer.begin(), tVtxContainer.end(), Likelihoods::SortingNLL());
-	while ((int)tVtxContainer.size() > tolerance) 
-	{
-		// std::cout << " Remove end: " << tVtxContainer.back().NLL << " (first " << tVtxContainer[0].NLL << ") " << tVtxContainer.size() << std::endl;
-		tVtxContainer.pop_back();
-	}
-
+	while ((int)tVtxContainer.size() > tolerance) tVtxContainer.pop_back();
+	
 	// Check if mutex is already lock, if not -> lock
 	// We don't want simultaneous modification of the common output
 	mtx.lock();
@@ -979,7 +866,7 @@ void LEAF::MinimizeVertex_thread(
 	mtx.unlock();
 }
 
-void LEAF::FitVertex(FitterOutput &fOutput, std::vector<double>* fDirection_Filter, float FilterThreshold)
+void LEAF::FitVertex(std::vector<double>* fDirection_Filter, float FilterThreshold)
 {
 	double *tLimits = new double[4];
 	int iHitsTotal = fHitCollection->Size();
@@ -992,19 +879,11 @@ void LEAF::FitVertex(FitterOutput &fOutput, std::vector<double>* fDirection_Filt
 	std::vector<VtxCandidate> tRecoVtxPosCand = this->SearchVertex_Main(iHitsTotal,fSearchVtxTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false);
 	std::vector<std::vector<double>> tRecoVtxPos;
 
-	// std::cout << "time after search in FitVertex is: " << timer.RealTime() << std::endl;
-	// std::vector<double> SNRList; 
-
 	// Extract only the vertex positions from the VtxCandidate structure
 	for (const auto& cand : tRecoVtxPosCand) 
 	{
 		tRecoVtxPos.push_back({cand.X, cand.Y, cand.Z, cand.T, cand.NLL});
-		// SNRList.push_back(cand.SNR); // Store corresponding SNR
 	}
-
-	//* was removed for computation time
-	// if(ContainsTrueVtx(&tRecoVtxPosCand, fTrueVtxPos))
-	// 	fOutput.stepOneContainsTrueVtx = 1;
 
 	if (VERBOSE >= 2)
 	{
@@ -1013,7 +892,7 @@ void LEAF::FitVertex(FitterOutput &fOutput, std::vector<double>* fDirection_Filt
 	}
 
 	timer.Stop();
-	fOutput.Vtx_Search_ComputeTime = timer.RealTime();
+	fOutputProps.Vtx_Search_ComputeTime = timer.RealTime();
 	// std::cout << "SearchVertex took: " << timer.RealTime() << std::endl;
 
 	double dStepSizeFinal = 10;
@@ -1061,12 +940,10 @@ void LEAF::FitVertex(FitterOutput &fOutput, std::vector<double>* fDirection_Filt
 		
 		for (int i = 0; i < 4; i++) tLimits[i] = 2 * fSearchVtxStep;
 
-		// fRecoVtxPosFinal = this->MinimizeVertex(tRecoVtxPos,tLimits,dStepSizeFinal,iHitsTotal,fSearchVtxTolerance,iToleranceFinal,VERBOSE,true,false,fMinimizeLimitsNegative,fMinimizeLimitsPositive,fUseDirectionality);
 		fRecoVtxPosFinal = this->MinimizeVertex_Main(tRecoVtxPos, tLimits, dStepSizeFinal, iHitsTotal, fSearchVtxTolerance, iToleranceFinal, VERBOSE, true, false, fMinimizeLimitsNegative, fMinimizeLimitsPositive, fUseDirectionality,  fDirection_Filter, FilterThreshold);
 
 		timer.Stop();
-		fOutput.Vtx_Minimize_ComputeTime = timer.RealTime();
-		// std::cout << "Minimizer took: " << timer.RealTime() << std::endl;
+		fOutputProps.Vtx_Minimize_ComputeTime = timer.RealTime();
 	}
 
 	fOutput.Vtx[0] = fRecoVtxPosFinal[0][0];
@@ -1074,30 +951,10 @@ void LEAF::FitVertex(FitterOutput &fOutput, std::vector<double>* fDirection_Filt
 	fOutput.Vtx[2] = fRecoVtxPosFinal[0][2];
 	fOutput.Vtx[3] = fRecoVtxPosFinal[0][3];
 	fOutput.NLL = fRecoVtxPosFinal[0][4];
-	// fOutput->NLLR = Likelihoods::GoodnessOfFit(fHitCollection, fRecoVtxPosFinal[0], iHitsTotal, fMinimizeLimitsNegative, fMinimizeLimitsPositive, true, false, fUseDirectionality );
-	// fOutput.SNRList = SNRList;
-
-	// fOutput.VtxHitHangles = std::vector<double>();
-
-	// for (unsigned int ihit = 0; ihit < fHitCollection->Size(); ihit++) 
-	// {
-		//* compute angle
-		// Hit lHit = fHitCollection->At(ihit);
-		// int iPMT = lHit.PMT;
-		// PMTInfo lPMTInfo = (*fPMTList)[iPMT];
-		// std::vector<double> toPMT = std::vector<double>(3);
-		// for(int j = 0; j < 3; j++) toPMT[j] = lPMTInfo.Position[j] - fRecoVtxPosFinal[0][j];
-		// Normalize(toPMT);
-		// Normalize(fTrueDir);
-		// double dotP = dot(toPMT, fTrueDir);
-		// double angle = std::acos(std::max(-1.0, std::min(1.0, dotP))) * 180 / TMath::Pi();
-		// fOutput.VtxHitHangles.push_back(angle);
-	// }
 }
 
-void LEAF::FitEnergy(FitterOutput &fOutput)
+void LEAF::FitEnergy()
 {
-	int iInTime = 0;
 	double totalPE = 0;  
 	double totalPECorr = 0;
 
@@ -1105,51 +962,40 @@ void LEAF::FitEnergy(FitterOutput &fOutput)
 	timer.Reset();
 	timer.Start();
 	
-	double a = -0.000440808;
-	double b = 1.71313;
-	double c = -2.01675;
-	double d = 1.81755;
+	// Taha's Polynomial Correction
+	// double a = -0.000440808;
+	// double b = 1.71313;
+	// double c = -2.01675;
+	// double d = 1.81755;
 	
 	for (unsigned int ihit = 0; ihit < fHitCollection->Size(); ihit++)
 	{
-		// Hit lHit = fHitInfo[ihit];
 		Hit lHit = fHitCollection->At(ihit);
 		
-		int iPMT = lHit.PMT;
-		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
-		double PMTOrientation[3];
-		double dirVector[3];
-		for(int j = 0; j<3; j++) PMTOrientation[j] = lPMTInfo.Orientation[j];
-		for(int j = 0; j<3; j++) dirVector[j] = -(fTrueVtxPos[j] - lPMTInfo.Position[j]);
-		GeoTools::Normalize(PMTOrientation);
-		GeoTools::Normalize(dirVector);
-		double cosPMThitAngle = abs(dirVector[0] * PMTOrientation[0] + dirVector[1] * PMTOrientation[1] + dirVector[2] * PMTOrientation[2]);
-		double Ftheta = a + b*cosPMThitAngle + c*(pow(cosPMThitAngle,2)) + d*(pow(cosPMThitAngle,3));
+		// int iPMT = lHit.PMT;
+		// PMTInfo lPMTInfo = (*fPMTList)[iPMT];
+		// double PMTOrientation[3];
+		// double dirVector[3];
+		// for(int j = 0; j<3; j++) PMTOrientation[j] = lPMTInfo.Orientation[j];
+		// for(int j = 0; j<3; j++) dirVector[j] = -(fTrueVtxPos[j] - lPMTInfo.Position[j]);
+		// GeoTools::Normalize(PMTOrientation);
+		// GeoTools::Normalize(dirVector);
+		// double cosPMThitAngle = abs(dirVector[0] * PMTOrientation[0] + dirVector[1] * PMTOrientation[1] + dirVector[2] * PMTOrientation[2]);
+		// double Ftheta = a + b*cosPMThitAngle + c*(pow(cosPMThitAngle,2)) + d*(pow(cosPMThitAngle,3)); // Taha's Polynomial Correction
 		
-		// totalPECorr += (lHit.Q/(cosPMThitAngle/**sin(PMThitAngle)*/)) * Ftheta;
-		// std::cout <<" correction : " << Ftheta / cosPMThitAngle << " for cosPMThitAngle = " << cosPMThitAngle << std::endl;
-		// totalPECorr += lHit.Q / cosPMThitAngle;
 		totalPECorr += lHit.Q;
-		// std::cout << "corr: " << Ftheta / cosPMThitAngle << std::endl;
 		totalPE += lHit.Q;
-		double residual = ComputeResidualTime(fOutput.Vtx, fOutput.Vtx[3], fHitCollection->At(ihit));
-		if (residual > fSTimePDFLimitsQueueNegative && residual < fSTimePDFLimitsQueuePositive) iInTime++;
 	}
 	
-	fOutput.InTime 	= iInTime;
-	// double ProportionalFactor = 0.0881523; //* computed experimentally by looking at the steepness of estimated energy vs true energy
-	// double plus = 4.826;
-	// ProportionalFactor = 1;
-	// double energyEstimate = totalPECorr * ProportionalFactor / plus;
-	double energyEstimate = totalPECorr * 0.111247 - 12.970173;
+	double energyEstimate = totalPECorr * 0.111247 - 12.970173; //* Affine correction (affine because of dark rate and systematic errors), convert from charge to energy
 	fOutput.TotalCharge = totalPE;
 	fOutput.Energy = energyEstimate;
 
 	timer.Stop();
-	fOutput.Energy_Fit_ComputeTime = timer.RealTime();
+	fOutputProps.Energy_Fit_ComputeTime = timer.RealTime();
 }
 
-std::vector<JointFitCandidate> LEAF::SearchVertexAndDir(FitterOutput &fOutput)
+std::vector<JointFitCandidate> LEAF::SearchVertexAndDir()
 {
 	TStopwatch timer;
 	timer.Reset();
@@ -1158,8 +1004,6 @@ std::vector<JointFitCandidate> LEAF::SearchVertexAndDir(FitterOutput &fOutput)
 	std::vector<JointFitCandidate> Candidates = std::vector<JointFitCandidate>();
 
 	std::vector<VtxCandidate> tVtxCandidates = this->SearchVertex_Main(fHitCollection->Size(),fSearchVtxTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false);
-	
-	fOutput.stepOneContainsTrueVtx = (int)ContainsTrueVtx(&tVtxCandidates, fTrueVtxPos);
 	
 	for(int i=0; i<(int)tVtxCandidates.size(); i++)
 	{
@@ -1170,8 +1014,6 @@ std::vector<JointFitCandidate> LEAF::SearchVertexAndDir(FitterOutput &fOutput)
 			JointFitCandidate candidate;
 			candidate.VtxPart = tVtxCandidates[i];
 			candidate.DirPart = tDirCandidates[j];
-			// double DNLL = Likelihoods::Dir_NLL(fHitCollection ,candidate.Vtx, theta, phi, fHitCollection->Size());
-			// double VNLL = Likelihoods::Vertex_Score(fHitCollection, candidate.Vtx, fHitCollection->Size(), fMinimizeLimitsNegative, fMinimizeLimitsPositive, true, false, fUseDirectionality);
 			candidate.NLL = candidate.DirPart.DNLL * candidate.VtxPart.NLL;
 			Candidates.push_back(candidate);
 		}
@@ -1183,15 +1025,15 @@ std::vector<JointFitCandidate> LEAF::SearchVertexAndDir(FitterOutput &fOutput)
 
 	std::vector<DirectionCandidate> dirCandidates = std::vector<DirectionCandidate>();
 	for(int i=0; i<(int)Candidates.size(); i++) dirCandidates.push_back(Candidates[i].DirPart);
-	fOutput.stepOneContainsTrueDir = (int)ContainsTrueDir(&dirCandidates, fTrueDir);
+	// fOutput.stepOneContainsTrueDir = (int)ContainsTrueDir(&dirCandidates, fTrueDir);
 
 	timer.Stop();
-	fOutput.Vtx_Search_ComputeTime = timer.RealTime();
+	fOutputProps.Vtx_Search_ComputeTime = timer.RealTime();
 
 	return Candidates;
 }
 
-JointFitCandidate LEAF::MinimizeVertexAndDir(std::vector<JointFitCandidate> initialCandidates, FitterOutput &fOutput)
+JointFitCandidate LEAF::MinimizeVertexAndDir(std::vector<JointFitCandidate> initialCandidates)
 {
 	TStopwatch timer;
 	timer.Reset();
@@ -1273,7 +1115,7 @@ JointFitCandidate LEAF::MinimizeVertexAndDir(std::vector<JointFitCandidate> init
 	delete minimizer;
 
 	timer.Stop();
-	fOutput.Vtx_Minimize_ComputeTime = timer.RealTime();
+	fOutputProps.Vtx_Minimize_ComputeTime = timer.RealTime();
 
 	return tContainer[0];
 }
@@ -1290,19 +1132,13 @@ void LEAF::LoadHitCollection(const HitCollection<Hit> *lHitCol, const TimeDelta 
 struct FitterOutput LEAF::NewOutuput()
 {
 	struct FitterOutput fOutput;
-	// fOutput.SNRList = std::vector<double>(); 
 	fOutput.Vtx = std::vector<double>(4);
 	fOutput.Dir = std::vector<double>(3);
 	fOutput.NLL		= 0.;
 	fOutput.DNLL	= 0.;
 	fOutput.Energy = 0.;
 	fOutput.TotalCharge = 0.;
-	fOutput.InTime		= 0;
-	fOutput.True_NLLDiff	= 0;
-	fOutput.True_TimeDiff	= 0;
-	fOutput.True_TistDiff	= 0;
 
-	// fOutput.VtxHitHangles = std::vector<double>();
 	return fOutput;
 }
 
@@ -1314,28 +1150,37 @@ struct FitterOutput LEAF::MakeSequentialFit(const HitCollection<Hit> *lHitCol, c
 
 	LoadHitCollection(lHitCol, lTriggerTime, bMultiPMT);
 	
-	struct FitterOutput fOutput = NewOutuput();
-	if(fHitCollection->Size() <= 0) return fOutput;
+	if(fHitCollection->Size() <= 0) return NewOutuput();
 	
 	//* Vertex
-	FitVertex(fOutput);
+	FitVertex();
 
 	//* Goodness of fit
 	fOutput.NLLR = Likelihoods::GoodnessOfFit(fHitCollection, fOutput.Vtx, fHitCollection->Size(), fMinimizeLimitsNegative, fMinimizeLimitsPositive, true, false, fUseDirectionality); //* Goodness of Fit
 	
 	//* Direction
-	FitDirectionQuick(fOutput.Vtx, fOutput);
-	FitDirection(fOutput.Vtx, fOutput, fHitCollection->Size(), true);
+
+	//? three direction methods are stored, one can use only the Fit Direction method
+	// FitDirectionQuick(fOutput.Vtx); // prefit
+
+	// // the prefit is stored in fOutput.Dir
+	// FitDirection(fOutput.Vtx, fHitCollection->Size(), true); // optimization with one candidate that is the prefit
+	// fOutput.MyDir = fOutput.Dir;
+	// FitDirection(fOutput.Vtx, fHitCollection->Size(), false); // optimization without prefit, 30 candidates used
+
+	FitDirectionQuick(fTrueVtxPos); // prefit
+
+	// the prefit is stored in fOutput.Dir
+	FitDirection(fTrueVtxPos, fHitCollection->Size(), true); // optimization with one candidate that is the prefit
 	fOutput.MyDir = fOutput.Dir;
-	fOutput.myDNLL = fOutput.DNLL;
-	FitDirection(fOutput.Vtx, fOutput, fHitCollection->Size(), false);
-	// FitDirectionQuick_bis(fOutput.Vtx, fOutput);
+	FitDirection(fTrueVtxPos, fHitCollection->Size(), false); // optimization without prefit, 30 candidates used
+	
 
 	//* Energy
-	FitEnergy(fOutput);
+	FitEnergy();
 
 	timer.Stop();
-	fOutput.Leaf_ComputeTime = timer.RealTime();
+	fOutputProps.Leaf_ComputeTime = timer.RealTime();
 
 	return fOutput;
 }
@@ -1348,11 +1193,10 @@ struct FitterOutput LEAF::MakeJointFit(const HitCollection<Hit> *lHitCol, const 
 	timer.Reset();
 	timer.Start();
 
-	struct FitterOutput fOutput = NewOutuput();
-	if(fHitCollection->Size() <= 0) return fOutput;
+	if(fHitCollection->Size() <= 0) return NewOutuput();
 
-	std::vector<JointFitCandidate> Candidates = SearchVertexAndDir(fOutput);
-	JointFitCandidate finalCandidate = MinimizeVertexAndDir(Candidates, fOutput);
+	std::vector<JointFitCandidate> Candidates = SearchVertexAndDir();
+	JointFitCandidate finalCandidate = MinimizeVertexAndDir(Candidates);
 
 	fOutput.Vtx = {finalCandidate.VtxPart.X, finalCandidate.VtxPart.Y, finalCandidate.VtxPart.Z, finalCandidate.VtxPart.T};
 	fOutput.Dir = PolarToCartesianNorm({finalCandidate.DirPart.theta, finalCandidate.DirPart.phi});
@@ -1361,11 +1205,11 @@ struct FitterOutput LEAF::MakeJointFit(const HitCollection<Hit> *lHitCol, const 
 
 	fOutput.NLLR = Likelihoods::GoodnessOfFit(fHitCollection, fOutput.Vtx, fHitCollection->Size(), fMinimizeLimitsNegative, fMinimizeLimitsPositive, true, false, fUseDirectionality); //* Goodness of Fit
 	
-	//* Energy
-	FitEnergy(fOutput);
+	//* Energy, alone
+	FitEnergy();
 
 	timer.Stop();
-	fOutput.Leaf_ComputeTime = timer.RealTime();
+	fOutputProps.Leaf_ComputeTime = timer.RealTime();
 
 	return fOutput;
 }

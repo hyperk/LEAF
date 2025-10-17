@@ -89,6 +89,8 @@ void InitConfig(const Geometry *lGeometry)
 
 	fPDFNorm_fullTimeWindow = 0.;
 	
+	//*** These maps describe what will be loaded from the config file given */
+
 	std::map<std::string, double*> envVariables = 
 	{
 		{"SearchVtxStep", &fSearchVtxStep},

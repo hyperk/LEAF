@@ -31,36 +31,30 @@
 
 struct FitterOutput 
 {
-    int stepOneContainsTrueVtx;
-    int stepOneContainsTrueDir;
-    std::vector<double> Vtx;
-    double NLL;
-    double DNLL;
-    double myDNLL;
-    double NLLR;
+    std::vector<double> Vtx; // leaf vertex
+    double NLL; // Vertex Likelihood
+    double NLLR; // Goodness of fit
 
-    int InTime;
+    std::vector<double> Dir; // leaf Direction
+    double DNLL; // Direction Likelihood
+
+    double Energy; // leaf energy
+    double TotalCharge; // raw total charge before affine correction
     
-    double True_NLLDiff;
-    double True_TimeDiff;
-    double True_TistDiff;
-
-    double Energy;
-    double TotalCharge;
-    std::vector<double> Dir;
-    std::vector<double> SNRList; 
-
     std::vector<double> MyDir;
     std::vector<double> Quick_Dir;
+};
 
-  //Add informations about computation time in the output:
-  double Leaf_ComputeTime;//Total leaf computational time
-  double Vtx_Search_ComputeTime;//Vertex coarse grid search computational time
-  double Vtx_Minimize_ComputeTime;//Vertex MINUIT minimisation computational time
-  double Dir_Quick_Search_ComputeTime;//Direction using unit vectors from vector to PMTT - computational time
-  double Dir_Search_ComputeTime;//Direction coarse grid search computational time
-  double Dir_Minimize_ComputeTime;//Direction MINUIT minimisation computational time
-  double Energy_Fit_ComputeTime;//Energy finder computational time
+struct FitterOutputProps
+{
+    // Computations times
+    double Leaf_ComputeTime;//Total leaf computational time
+    double Vtx_Search_ComputeTime;//Vertex coarse grid search computational time
+    double Vtx_Minimize_ComputeTime;//Vertex MINUIT minimisation computational time
+    double Dir_Quick_Search_ComputeTime;//Direction using unit vectors from vector to PMTT - computational time
+    double Dir_Search_ComputeTime;//Direction coarse grid search computational time
+    double Dir_Minimize_ComputeTime;//Direction MINUIT minimisation computational time
+    double Energy_Fit_ComputeTime;//Energy finder computational time
 };
 
 struct DirectionCandidate 
@@ -84,8 +78,6 @@ struct JointFitCandidate
 {
     VtxCandidate VtxPart;
     DirectionCandidate DirPart;
-    // std::vector<double> Vtx;
-    // std::vector<double> Dir;
     double NLL;
 };
 
