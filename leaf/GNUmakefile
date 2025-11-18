@@ -8,7 +8,6 @@ HEADERS 	= LEAF.hh
 
 include ../Makefile/Makefile.${OSNAME}
 
-ROOT_VERSION = $(shell root-config --version | tr -d '/' )
 
 
 # set compiler options for ROOT
@@ -18,20 +17,40 @@ CXXFLAGS_BASE += '-fPIC' -Wall -Wpedantic -Wno-long-long -DDATAMODEL_LITE
 CXXFLAGS = $(CXXFLAGS_BASE)
 #CXXFLAGS_ROOT = $(CXXFLAGS_BASE)
 
-ifeq ($(shell echo "$(ROOT_VERSION) >= 6.0" | bc -l ), 1)
+# #ifeq ($(shell echo "$(ROOT_VERSION) >= 6.0" | bc -l ), 1)
+# ROOT_VERSION = $(shell root-config --version | tr -d '/' )
+# ifeq ($(shell [ $(ROOT_VERSION) -ge 6.0 ] && echo 1 || echo 0), 1)
+# MAKE_LEAF_WITH_ROOT6 = 1
+# CXXFLAGS += -std=c++17 -DROOT6 # modifies to c++17 (Nicolas)
+# #CXXFLAGS_ROOT += -std=c++11 -DROOT6
+# else
+# CXXFLAGS += -std=c++11 -DROOT5
+# endif
+
+# ROOT_VERSION = $(shell root-config --version | tr -d '/')
+# ifeq ($(shell echo "$(ROOT_VERSION) >= 6.0" | bc -l), 1)
+# MAKE_LEAF_WITH_ROOT6 = 1
+# CXXFLAGS += -std=c++17 -DROOT6 # modifies to c++17 (Nicolas)
+# #CXXFLAGS_ROOT += -std=c++11 -DROOT6
+# else
+# CXXFLAGS += -std=c++11 -DROOT5
+# endif
+
+
+ROOT_VERSION = $(shell root-config --version | cut -d'.' -f1,2)
+ifeq ($(shell echo "$(ROOT_VERSION) >= 6.0" | bc -l), 1)
 MAKE_LEAF_WITH_ROOT6 = 1
-CXXFLAGS += -std=c++11 -DROOT6
+CXXFLAGS += -std=c++17 -DROOT6 # modifies to c++17 (Nicolas)
 #CXXFLAGS_ROOT += -std=c++11 -DROOT6
 else
-CXXFLAGS += -std=c++11 -DROOT5
-#CXXFLAGS_ROOT += -DROOT5
+CXXFLAGS += -std=c++17 -DROOT5
 endif
 
 INCFLAGS = -I. -I$(shell root-config --incdir)
-INCFLAGS += -I$(WCSIMDIR)/include
+INCFLAGS += -I$(WCSIM_BUILD_DIR)/include/WCSim
 INCFLAGS += -I./DataModel
 
-LIBS += -L${WCSIMDIR} -lWCSimRoot
+LIBS += -L${WCSIM_BUILD_DIR}/lib -lWCSimRoot
 LIBS += $(shell root-config --libs) -lMinuit 
 
 LIB_DATAMODEL = ../lib/libDataModelLite.so
@@ -60,7 +79,7 @@ else
 endif
 
 # library
-$(LIB_FITTER): LEAF.o 
+$(LIB_FITTER): LeafConfig.o LeafInputs.o LeafUtility.o LeafSplines.o Likelihoods.o LEAF.o
 	@if [ ! -d ../lib ]; then \
 		mkdir ../lib; \
 	fi

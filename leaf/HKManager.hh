@@ -33,7 +33,7 @@
 //#define WCSIM_single_PMT_type
 
 // Number of PMT configuration:
-#define NPMT_CONFIGURATION 	2
+#define NPMT_CONFIGURATION 	1
 
 class WCSimReader {
 
@@ -45,9 +45,11 @@ class WCSimReader {
 		void SetGeometry( WCSimRootGeom * wGeo, double dDarkRate_Normal=4200., double dDarkRate_mPMT=100. );
 		
 		const HitCollection<Hit>* GetHitCollection() { return &fHitCollection; }
+		// const HitCollection<Hit>* GetSecondaryHitCollection() { return &fSecondaryHitCollection; }
 				
 		// Manage hit info
 		void ResetHitInfo() { fHitCollection.Clean(); }
+		// void ResetSecondaryHitInfo() { fSecondaryHitCollection.Clean(); }
 		void AddHit(double time, double charge, int pmtType, int tubeNumber) {
 		
 			// tubeNumber is from 1 to xxx in Hit array
@@ -59,6 +61,18 @@ class WCSimReader {
 			
 			fHitCollection.Add(hHit);
 		}
+
+		// void AddSecondaryHit(double time, double charge, int pmtType, int tubeNumber) {
+		
+		// 	// tubeNumber is from 1 to xxx in Hit array
+		// 	if ( tubeNumber < 1 ) {
+		// 		std::cout << "ERROR: tubeNumber is below 0 (" << tubeNumber << ")" << std::endl;
+		// 	}
+			
+		// 	Hit hHit (tubeNumber, time, charge, (HKAA::PMTType) pmtType);	
+			
+		// 	fSecondaryHitCollection.Add(hHit);
+		// }
 		
 		/*
 		// Commented on 2020/11/19 by Guillaume: I don't remember their purpose. To be removed?
@@ -76,6 +90,7 @@ class WCSimReader {
 		
 		// HitCollection
 		HitCollection<Hit> fHitCollection;
+		HitCollection<Hit> fSecondaryHitCollection;
 		
 		// Darknoise
 		double fDarkRate_Normal;

@@ -12,7 +12,6 @@ else
 	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/PMTInfo.* .
 	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/TimeDelta.* .
 	rsync -av --exclude=*.o $HK_ASTROANALYSIS_DIR/DataModelRoot/Pos3DT.* .
-			
 	echo "You should update manually Environments.h"
 fi
 	

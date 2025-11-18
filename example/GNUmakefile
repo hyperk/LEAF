@@ -10,18 +10,22 @@ CXXFLAGS += $(shell root-config --cflags)
 CXXFLAGS += '-fPIC' -std=c++11 -Wall -Wpedantic -Wno-long-long
 
 INCFLAGS = -I. -I$(shell root-config --incdir)
-INCFLAGS += -I$(WCSIMDIR)/include
-INCFLAGS += -I$(BONSAIDIR)/bonsai
+INCFLAGS += -I$(WCSIM_BUILD_DIR)/include/WCSim
+# INCFLAGS += -I$(WCSIMDIR)/include
+# INCFLAGS += -I$(BONSAIDIR)/bonsai
 INCFLAGS += -I$(LEAFDIR)/leaf
 INCFLAGS += -I$(LEAFDIR)/leaf/DataModel
 
-LIBS += -L${WCSIMDIR} -lWCSimRoot 
+# LIBS += -L${WCSIMDIR} -lWCSimRoot 
+LIBS += -L${WCSIM_BUILD_DIR}/lib -lWCSimRoot
 LIBS += $(shell root-config --libs) -lMinuit 
-LIBS_BONSAI += -L${BONSAIDIR} -lWCSimBonsai
+# LIBS_BONSAI += -L${BONSAIDIR} -lWCSimBonsai
 LIBS_LEAF += -L${LEAFDIR}/lib -lDataModelLite -lHKManager -lLEAF #-lHKAstroAnalysis 
 
 
 OBJECT = analysis
+
+CXXFLAGS += -std=c++17
 
 all: $(OBJECT)
 	
