@@ -82,5 +82,3 @@ $ ./ProducePDF -i plots.root -o PDF.root
 Pathess to PDF files required as inputs for LEAF are hard-coded inside leaf/LeafSplines.cc, inside the LoadSplines() methods.
 Make sure these pathes are consistant with the files you generate on your own.
 
-
-wcsim1p12p16_UnifVtx_electron_HK_2MeV_1M
