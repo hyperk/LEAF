@@ -79,6 +79,6 @@ $ ./AnalyzeWSHierarchy  -i wcrim.root  -o plots.root  -s 0  -e 1000  -v
 $ ./ProducePDF -i plots.root -o PDF.root
 ```
 
-Pathess to PDF files required as inputs for LEAF are hard-coded inside leaf/LeafSplines.cc, inside the LoadSplines() methods.
+Pathes to PDF files required as inputs for LEAF are hard-coded inside leaf/LeafSplines.cc, inside the LoadSplines() methods.
 Make sure these pathes are consistant with the files you generate on your own.
 
