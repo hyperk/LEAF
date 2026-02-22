@@ -446,7 +446,8 @@ double Likelihoods::ComputeDirNLL_NoPDF(const HitCollection<Hit>* lHitCol, const
 }
 
 //Uses the PDF to find the DirNLL, used mainly for the MIGRAD optimization
-double Likelihoods::Dir_NLL(const HitCollection<Hit>* lHitCol, const std::vector<double>& vertexPosition, double theta_track, double phi_track, int nhits) {
+double Likelihoods::Dir_NLL(const HitCollection<Hit>* lHitCol, const std::vector<double>& vertexPosition, double theta_track, double phi_track, int nhits) 
+{
     double DNLL = 0;
 
     // Ensure theta and phi are within valid ranges
@@ -485,7 +486,8 @@ double Likelihoods::Dir_NLL(const HitCollection<Hit>* lHitCol, const std::vector
     // vertexDirNormalized[1] = sin_theta_track * sin_phi_track;
     // vertexDirNormalized[2] = cos_theta_track;
 
-    for (int ihit = 0; ihit < nhits; ihit++) {
+    for (int ihit = 0; ihit < nhits; ihit++) 
+	{
 		int trueNHits = lHitCol->Size();
 		if(ihit >= trueNHits)
 		{
@@ -518,6 +520,7 @@ double Likelihoods::Dir_NLL(const HitCollection<Hit>* lHitCol, const std::vector
 		if(DirCondition || DirTakeAll)
 		{		
 			int iPMT = lHit.PMT;
+			int pmtType = Astro_GetPMTType(iPMT);
 			PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 
 			// Ensure lPMTInfo.Position and lPMTInfo.Orientation have the correct size
@@ -566,11 +569,7 @@ double Likelihoods::Dir_NLL(const HitCollection<Hit>* lHitCol, const std::vector
 			double theta = relative_angle * 180.0 / TMath::Pi();
 
 			// Evaluate your PDF at theta
-			// std::cout << "before pdf : " << ihit << std::endl;
-			// double proba = fDirectionPDF->Eval(cos_relative_angle)/*sin(theta)*/; //* if cos spline
-			// double proba = fDirectionPDF->Eval(cos_relative_angle); //* Taha
-			double proba = fHitAnglePDF->Eval(theta); //* Nicolas
-			// std::cout << "after pdf : " << ihit << std::endl;
+			double proba = fDirectionPDF[pmtType]->Eval(theta); //* Nicolas
 
 			// Correct for PMT orientation if necessary
 			double PMTOrientation[3];
@@ -626,6 +625,7 @@ double Likelihoods::AngleNLL(const HitCollection<Hit>* lHitCol, std::vector<doub
 		//* compute angle
 		Hit lHit = lHitCol->At(ihit);
 		int iPMT = lHit.PMT;
+		int pmtType = Astro_GetPMTType(iPMT);
 		PMTInfo lPMTInfo = (*fPMTList)[iPMT];
 		std::vector<double> toPMT = std::vector<double>(3);
 		for(int j = 0; j < 3; j++) toPMT[j] = lPMTInfo.Position[j] - vertexPosition[j];
@@ -634,9 +634,7 @@ double Likelihoods::AngleNLL(const HitCollection<Hit>* lHitCol, std::vector<doub
 		double dotP = dot(toPMT, vertexDirection);
 		dotP = std::max(-1.0, std::min(1.0, dotP)); // Ensure dot product is within valid range for acos
 		double angle = std::acos(dotP) * 180 / TMath::Pi();
-		// std::cout<<"angle : " << angle << " on pdf : " << fHitAnglePDF->Eval(angle) << std::endl;
-		// NLL += -TMath::Log(std::max(1e-20, fDirectionPDF->Eval(dotP))); //? Taha
-		NLL += -TMath::Log(std::max(1e-20, fHitAnglePDF->Eval(angle))); //? Nicolas
+		NLL += -TMath::Log(std::max(1e-20, fDirectionPDF[pmtType]->Eval(angle))); //? Nicolas
 	}
 
 	return NLL;
@@ -647,72 +645,9 @@ double Likelihoods::FindNLLDirectionality(const HitCollection<Hit>* lHitCol, std
 {
 
 	double NLL = 0;
-	// std::vector<double> vDirection(2, 0.); // Return phi and theta.
-
-	// // Interpolate isn't compatible with multi-thread, need to use mutex which lead to long deadtime.
-	// // Copy TGraph2D
-	// mtx.lock();
-	// static thread_local TGraph2D gPMTDirectionality_2D_local_0 = TGraph2D(*gPMTDirectionality_2D[MiniPMT][0]);
-	// static thread_local TGraph2D gPMTDirectionality_2D_local_1 = TGraph2D(*gPMTDirectionality_2D[MiniPMT][1]);
-	// static thread_local TGraph2D gPMTDirectionality_2D_local_2 = TGraph2D(*gPMTDirectionality_2D[MiniPMT][2]);
-	// mtx.unlock();
-
-	// TGraph2D *tDirectionality[3];
-	// tDirectionality[0] = &gPMTDirectionality_2D_local_0;
-	// tDirectionality[1] = &gPMTDirectionality_2D_local_1;
-	// tDirectionality[2] = &gPMTDirectionality_2D_local_2;
-
-	// for (int ihit = 0; ihit < nhits; ihit++)
-	// {
-	// 	// Hit lHit = fHitInfo[ihit];
-	// 	Hit lHit = LeafInputs::fHitCollection->At(ihit);
-
-	// 	int iPMT = lHit.PMT;
-
-	// 	PMTInfo lPMTInfo = (*fPMTList)[iPMT];
-	// 	int pmtType = Astro_GetPMTType(iPMT);
-
-	// 	if (pmtType == 0)
-	// 		continue;
-	// 	bool condition = true;
-
-	// 	if (condition)
-	// 	{
-	// 		double vPMTVtx[4];
-	// 		this->VectorVertexPMT(vVtxPos, iPMT, vPMTVtx);
-
-	// 		double dPhi = vPMTVtx[0];
-	// 		double dTheta = vPMTVtx[1];
-	// 		double dDist = vPMTVtx[2];
-
-	// 		int pmtGroup = lPMTInfo.mPMT_Group;
-
-	// 		double proba = 0;
-	// 		proba = tDirectionality[pmtGroup]->Interpolate(dPhi, dTheta);
-
-	// 		double dDistCorr = fDistResponsePMT[pmtType]->Eval(dDist);
-
-	// 		proba *= dDistCorr;
-
-	// 		if (proba == 0)
-	// 		{
-	// 			proba = 1e-20;
-	// 			if (verbose)
-	// 				std::cout << "We are at proba = 0, theta = " << dTheta << ", proba used = " << proba << std::endl;
-	// 		}
-	// 		NLL += -TMath::Log(proba);
-
-	// 		if (VERBOSE >= 3)
-	// 		{
-	// 			// std::cout<<"PMT type="<<pmtType<< ", hit#"<<ihit<<", theta =" << vDirection[1] << ", proba="<<proba<<std::endl;
-	// 			std::cout << "PMT type=" << pmtType << ", hit#" << ihit << ", theta =" << dTheta << ", proba=" << proba << std::endl;
-	// 		}
-	// 	}
-	// }
-	// if (VERBOSE >= 2)
-	// 	std::cout << "NLL directionnel=" << NLL << std::endl;
 	return NLL;
 }
+
 
 double Likelihoods::GoodnessOfFit(const HitCollection<Hit>* lHitCol, std::vector<double> vertexPosition, int nhits, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality)
 {

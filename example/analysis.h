@@ -114,7 +114,6 @@ FitterOutputProps fOutputProps;
 double fLFTime;
 
 //* Other hits infos
-
 int Hit_ID;
 int Hit_ID_20;
 int Hit_ID_50;
@@ -153,6 +152,33 @@ float bsT[2000];
 float bsQ[2000];
 int bsnhit[1];
 
+
+//-----------------------------------------------------------------------------------------//
+
+struct arguments
+{
+    char * inputFile  = NULL;
+    char * outputFile = NULL;
+	double darkNoise  = 4.2;	// Dark noise frequency in Hz
+	double darkNoiseH = 0.;		// Dark noise frequency in Hz when using the hybrid geometry
+	double timeshift  = 0.;		// Shift hit time
+    int startEvent    = 0;		// First event to analyze
+    int endEvent      = 0;		// Last event to analyze
+	bool hybrid       = false;
+    bool verbose      = false;
+};
+
+struct FitterAnalysis 
+{
+	double Wall;
+	double Good;
+	int n50[3];
+	double dir[3][3];
+	double dir_goodness[3];
+	double dirKS[3];
+};
+
+
 //-----------------------------------------------------------------------------------------//
 
 void SetCustomBranch(TTree *fPrimaryTree, FitterOutput leaf_output);
@@ -160,3 +186,7 @@ void SetCustomBranchInput(TTree *fPrimaryTree);
 void SetGeoBranch(TTree *fGeoTree);
 bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType);
 bool PostLeafAnalysis(WCSimRootEvent * tEvent, int iEventType, FitterOutput leaf_output);
+arguments FetchInput(int argc, char* argv[]);
+
+
+

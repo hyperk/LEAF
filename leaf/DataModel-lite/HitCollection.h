@@ -18,8 +18,8 @@
  *          
  */
 
-template <typename T> class HitCollection {
-
+template <typename T> class HitCollection 
+{
 	public:
 		HitCollection(); 
 		virtual ~HitCollection(); 

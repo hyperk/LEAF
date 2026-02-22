@@ -1,9 +1,9 @@
 #include "LeafSplines.hh"
 
+TSpline3 *	fSplineTimePDFConv[NPMT_CONFIGURATION];
 TSpline3 *	fSplineTimePDFQueue[NPMT_CONFIGURATION];
 TSpline3 *	fSplineTimePDFDarkRate[NPMT_CONFIGURATION];
-TSpline3* fDirectionPDF;
-TSpline3* fHitAnglePDF;
+TSpline3 *  fDirectionPDF[NPMT_CONFIGURATION];
 TGraph2D * 	gPMTDirectionality_2D[NPMT_CONFIGURATION][HKAA::kmPMT_Groups];
 TF1 * 		fDistResponsePMT[NPMT_CONFIGURATION];
 
@@ -43,32 +43,17 @@ double SplineIntegralExpo(TSpline3 *s, double start, double end, double sigma, d
 void LoadSplines()
 {
 	std::cout << "Loading splines..." << std::endl;
-	TFile *fSplines, *fSplines2, *fSplines1, *fSplineAngleFile;
+	TFile *fSplines;
 	if (fHighEnergy)
 	{
-		fSplines = new TFile("${LEAFDIR}/inputs/timePDF_HE.root", "read"); // To generate with my code ProduceWSPlots.c
-		fSplines2 = fSplines;
+		fSplines = new TFile("${LEAFDIR}/inputs/PDF_electron_upto100MeV_uniform_isotropic_10k_withDN.root", "read");
 	}
 	else
 	{
-		std::cout << "spline 1" << std::endl;
-		fSplines1 = new TFile("${LEAFDIR}/inputs/timePDFNoDR_50000_e10MeV_Hit_720.root","read");//To generate with my code ProduceWSPlots.c		
-		// fSplines = new TFile("${LEAFDIR}/inputs/timePDF_DRnew_Large.root", "read");			  // To generate with my code ProduceWSPlots.c
-		std::cout << "spline 2" << std::endl;
-		fSplines = new TFile("${LEAFDIR}/inputs/timePDFDR_5000_e10MeV_Hit_fiducial.root","read"); //*TAHA
-		// fSplines = new TFile("${LEAFDIR}/inputs/timePDF_3M_10T_500000.root","read"); //*NICOLAS
-		// fSplines = new TFile("${LEAFDIR}/inputs/timePDF_3M_10T.root","read");
-		std::cout << "spline 3" << std::endl;
-		fSplines2 = new TFile("${LEAFDIR}/inputs/timePDF_Directionality_DRnew.root", "read"); // To generate with my code ProduceWSPlots.c
-		// fSplines2 = new TFile("${LEAFDIR}/inputs/timePDF_Directionality_DRnew.root","read");//To generate with my code ProduceWSPlots.c
-		std::cout<< "angle spline" << std::endl;
-		fSplineAngleFile = new TFile("${LEAFDIR}/inputs/Hit_Angle_PDF.root", "read");
+		fSplines = new TFile("${LEAFDIR}/inputs/PDF_electron_upto100MeV_uniform_isotropic_10k_withDN.root","read");
 	}
 
-	std::cout << "spline file read" << std::endl;
-
 	// Prevent TGraph2D to be append to TFile (this is needed as we are doing multiple copy of TGraph2D)
-	// For a strange reason sometimes the TGraph2D is see as a TH1 and stored in an open TFile
 	TH1::AddDirectory(false);
 
 	//Check if the files are opened
@@ -77,43 +62,18 @@ void LoadSplines()
 		std::cerr << "Error: Splines file is not opened." << std::endl;
 		exit(1);
 	}
-	if (!fSplines2 || !fSplines2->IsOpen())
-	{
-		std::cerr << "Error: Splines file is not opened." << std::endl;
-		exit(1);
-	}
-	if (!fSplines1 || !fSplines1->IsOpen())
-	{
-		std::cerr << "Error: Splines file is not opened." << std::endl;
-		exit(1);
-	}
-	if (!fSplineAngleFile || !fSplineAngleFile->IsOpen())
-	{
-		std::cerr << "Error: Angle spline file is not opened." << std::endl;
-		exit(1);
-	}
-
-	// std::cout << "splines files loaded" << std::endl;
 
 	int configs = NPMT_CONFIGURATION;
-
-	for(int pmtType=0;pmtType<configs;pmtType++)
+	for(int pmtType=0 ; pmtType<configs ; pmtType++)
 	{
-		std::cout << "Get spline" << std::endl;
-		//Load 1D t-tof splines
-		fSplineTimePDFQueue[pmtType]    = (TSpline3*) fSplines->Get(Form("splineExpoQueue%d_%d",0,pmtType));
-		fSplineTimePDFDarkRate[pmtType] = (TSpline3*) fSplines->Get(Form("splineDR%d_%d",0,pmtType));
-		fDirectionPDF = (TSpline3*) fSplines1->Get(Form("ChargeProfileCos_PDF_spline_pmtType0"));
-		// fDirectionPDF = (TSpline3*) fSplineAngleFile->Get("Hit_Angle_Spline");
-		if (!fDirectionPDF) 
-		{
-			std::cerr << "Error: fDirectionPDF is not loaded properly." << std::endl;
-			exit(1);
-		}
-		fHitAnglePDF = (TSpline3*) fSplineAngleFile->Get("Hit_Angle_Spline");
-		// fHitAnglePDF = (TSpline3*) fSplines1->Get(Form("ChargeProfileCos_PDF_spline_pmtType0"));
+		std::cout << "Process spline" << std::endl;
 
-		std::cout << "process spline" << std::endl;
+		//Load TOF residuals splines
+		fSplineTimePDFConv[pmtType]     = (TSpline3*) fSplines->Get(Form("splineExpoConv_%d", pmtType));
+		fSplineTimePDFQueue[pmtType]    = (TSpline3*) fSplines->Get(Form("splineExpoQueue_%d", pmtType));
+		fSplineTimePDFDarkRate[pmtType] = (TSpline3*) fSplines->Get(Form("splineDR_%d", pmtType));
+		fDirectionPDF[pmtType]          = (TSpline3*) fSplines->Get(Form("splineChargeProfile_%d", pmtType));
+
 		// std::cout << "ok ?" << std::endl;
 		fSTimePDFLimitsQueueNegative_fullTimeWindow = fSplineTimePDFQueue[pmtType]->GetXmin();
 		fSTimePDFLimitsQueuePositive_fullTimeWindow = fSplineTimePDFQueue[pmtType]->GetXmax();
@@ -124,36 +84,15 @@ void LoadSplines()
 		// std::cout << "okay ?" << std::endl;
 		//Load 3D directionality histograms.
 		std::cout << "directionality" << std::endl;
-		// Ensure HKAA::kmPMT_Groups is defined and initialized
-		if (!fSplines2 || !fSplines2->IsOpen()) {
-			std::cerr << "Error: fSplines2 is not opened or is null." << std::endl;
-			exit(1);
-		}
 
 		int grpNB = 0;
-		if (HKAA::kmPMT_Groups > 0) {
-			grpNB = HKAA::kmPMT_Groups;
-		} else {
-			std::cerr << "Error: HKAA::kmPMT_Groups is not properly defined or initialized." << std::endl;
-			exit(1);
-		}
-
-		std::cout << "got grnNB" << std::endl;
-
-		for (int pmtGroup = 0; pmtGroup < grpNB; pmtGroup++) {
-			gPMTDirectionality_2D[pmtType][pmtGroup] = (TGraph2D*) fSplines2->Get(Form("gPMTDirectionality_2D_%d_%d_%d", 0, pmtType, pmtGroup));
-			if (!gPMTDirectionality_2D[pmtType][pmtGroup]) {
-				std::cerr << "Error: Failed to load gPMTDirectionality_2D for pmtType " << pmtType << " and pmtGroup " << pmtGroup << std::endl;
-				exit(1);
-			}
-		}
-		
-		std::cout << "dist response" << std::endl;
-
-		fDistResponsePMT[pmtType] = (TF1*) fSplines2->Get(Form("fDistResponsePMT_pmtType%d", pmtType));
-		if (!fDistResponsePMT[pmtType]) 
+		if (HKAA::kmPMT_Groups > 0) 
 		{
-			std::cerr << "Error: Failed to load fDistResponsePMT for pmtType " << pmtType << std::endl;
+			grpNB = HKAA::kmPMT_Groups;
+		}
+		else
+		{
+			std::cerr << "Error: HKAA::kmPMT_Groups is not properly defined or initialized." << std::endl;
 			exit(1);
 		}
 	}

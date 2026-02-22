@@ -11,7 +11,12 @@
 
 LEAF *LEAF::myFitter = NULL;
 std::mutex mtx;
+FitterOutput LEAF::fOutput;
+FitterOutputProps LEAF::fOutputProps;
 
+
+/*****************************************************************************************************/
+/* GENERAL LEAF METHODS AND STRUCTURES FOR FITS */
 /*****************************************************************************************************/
 
 LEAF::LEAF()
@@ -38,10 +43,6 @@ void LEAF::DeleteME()
 	if (myFitter) delete myFitter;
 }
 
-FitterOutput LEAF::fOutput;
-FitterOutputProps LEAF::fOutputProps;
-
-/*****************************************************************************************************/
 void LEAF::Initialize(const Geometry *lGeometry)
 {
 	InitConfig(lGeometry);
@@ -49,6 +50,104 @@ void LEAF::Initialize(const Geometry *lGeometry)
 	LoadSplines();
 	fOutput = NewOutuput();
 }
+
+void LEAF::LoadHitCollection(const HitCollection<Hit> *lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT)
+{
+	fHitCollection = lHitCol;
+	fTriggerTime = lTriggerTime;
+	fTimeCorrection = fHitCollection->timestamp - fTriggerTime;
+	if (fPositionList.size() == 0) MakePositionList();
+	fUseDirectionality = bMultiPMT ? fUseDirectionality : false;
+}
+
+struct FitterOutput LEAF::NewOutuput()
+{
+	struct FitterOutput fOutput;
+	fOutput.Vtx = std::vector<double>(4);
+	fOutput.Dir = std::vector<double>(3);
+	fOutput.NLL		= 0.;
+	fOutput.DNLL	= 0.;
+	fOutput.Energy = 0.;
+	fOutput.TotalCharge = 0.;
+
+	return fOutput;
+}
+
+struct FitterOutput LEAF::MakeSequentialFit(const HitCollection<Hit> *lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT)
+{
+	TStopwatch timer;
+	timer.Reset();
+	timer.Start();
+
+	LoadHitCollection(lHitCol, lTriggerTime, bMultiPMT);
+	
+	if(fHitCollection->Size() <= 0) return NewOutuput();
+	
+	//* Vertex
+	FitVertex();
+
+	//* Goodness of fit
+	fOutput.NLLR = Likelihoods::GoodnessOfFit(fHitCollection, fOutput.Vtx, fHitCollection->Size(), fMinimizeLimitsNegative, fMinimizeLimitsPositive, true, false, fUseDirectionality); //* Goodness of Fit
+	
+	//* Direction
+
+	//? three direction methods are stored, one can use only the Fit Direction method
+	// FitDirectionQuick(fOutput.Vtx); // prefit
+
+	// // the prefit is stored in fOutput.Dir
+	// FitDirection(fOutput.Vtx, fHitCollection->Size(), true); // optimization with one candidate that is the prefit
+	// fOutput.MyDir = fOutput.Dir;
+	// FitDirection(fOutput.Vtx, fHitCollection->Size(), false); // optimization without prefit, 30 candidates used
+
+	FitDirectionQuick(fTrueVtxPos); // prefit
+
+	// the prefit is stored in fOutput.Dir
+	FitDirection(fTrueVtxPos, fHitCollection->Size(), true); // optimization with one candidate that is the prefit
+	fOutput.MyDir = fOutput.Dir;
+	FitDirection(fTrueVtxPos, fHitCollection->Size(), false); // optimization without prefit, 30 candidates used
+	
+
+	//* Energy
+	FitEnergy();
+
+	timer.Stop();
+	fOutputProps.Leaf_ComputeTime = timer.RealTime();
+
+	return fOutput;
+}
+
+struct FitterOutput LEAF::MakeJointFit(const HitCollection<Hit> *lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT)
+{
+	LoadHitCollection(lHitCol, lTriggerTime, bMultiPMT);
+
+	TStopwatch timer;
+	timer.Reset();
+	timer.Start();
+
+	if(fHitCollection->Size() <= 0) return NewOutuput();
+
+	std::vector<JointFitCandidate> Candidates = SearchVertexAndDir();
+	JointFitCandidate finalCandidate = MinimizeVertexAndDir(Candidates);
+
+	fOutput.Vtx  = {finalCandidate.VtxPart.X, finalCandidate.VtxPart.Y, finalCandidate.VtxPart.Z, finalCandidate.VtxPart.T};
+	fOutput.Dir  = PolarToCartesianNorm({finalCandidate.DirPart.theta, finalCandidate.DirPart.phi});
+	fOutput.NLL  = finalCandidate.NLL;
+	fOutput.DNLL = Likelihoods::Dir_NLL(fHitCollection, fOutput.Vtx, finalCandidate.DirPart.theta, finalCandidate.DirPart.phi , fHitCollection->Size());
+	fOutput.NLLR = Likelihoods::GoodnessOfFit(fHitCollection, fOutput.Vtx, fHitCollection->Size(), fMinimizeLimitsNegative, fMinimizeLimitsPositive, true, false, fUseDirectionality); //* Goodness of Fit
+	
+	//* Energy, alone
+	FitEnergy();
+
+	timer.Stop();
+	fOutputProps.Leaf_ComputeTime = timer.RealTime();
+
+	return fOutput;
+}
+
+
+/*****************************************************************************************************/
+/* DIRECTION FIT */
+/*****************************************************************************************************/
 
 //Creates the candidates list after Coarse grid search, refines the fit, then outputs the best candidate
 std::vector<double> LEAF::FitDirection(const std::vector<double>& fixedVertexPosition, int nhits, bool searchPrior) 
@@ -238,88 +337,58 @@ DirectionCandidate LEAF::MinimizeDirection(const std::vector<double>& fixedVerte
     return candidates[0]; // Returns [theta, phi]
 }
 
+
+/*****************************************************************************************************/
+/* VERTEX FIT */
 /*****************************************************************************************************/
 
-// Coarse search of the vertex. It will search in a cylinder having the radius = tankRadius and a height tankHeight.
-// The step between each grid points is given by stepSize (in centimeters).
-// We give the list of hit information through the 2D array fHitInfo to make the code faster, instead of using the whole code information
-// The code provide as an output not only one vertex, but a list of vertices whose likelihood is higher (Negative Log Likelihood is lower).
-// The number of output vertices can be chosen using "tolerance".
-std::vector<std::vector<double>> LEAF::SearchVertex(int nhits, int tolerance, bool likelihood, double lowerLimit, double upperLimit, int directionality)
+
+void LEAF::FitVertex(std::vector<double>* fDirection_Filter, float FilterThreshold)
 {
-	// 2. How to set the search?
-	// double stepSize = 0.5;//in m
+	double *tLimits = new double[4];
+	int iHitsTotal = fHitCollection->Size();
+	std::vector< std::vector<double> > fRecoVtxPosFinal;
 
-	std::vector<double> tBestReconstructedVertexPosition;
+	TStopwatch timer;
+	timer.Reset();
+	timer.Start();
 
-	// double ** reconstructedVertexPosition = new double[4];
+	std::vector<VtxCandidate> tRecoVtxPosCand = this->SearchVertex_Main(iHitsTotal,fSearchVtxTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false);
+	std::vector<std::vector<double>> tRecoVtxPos;
 
-	std::vector<struct FitPosition> tVtxContainer;
-
-	clock_t timeStart = clock();
-
-	if (fPositionList.size() == 0)
-		std::cout << " Position list not filled " << std::endl;
-	if (VERBOSE >= 3)
-		std::cout << "Number of hits for coarse grid search = " << nhits << std::endl;
-	for (unsigned int iPos = 0; iPos < fPositionList.size(); iPos++)
+	// Extract only the vertex positions from the VtxCandidate structure
+	for (const auto& cand : tRecoVtxPosCand) 
 	{
-		struct FitPosition hPos;
-		hPos.Vtx = fPositionList[iPos];
-		hPos.NLL = 0;
-
-		if (likelihood)
-			hPos.NLL = Likelihoods::Vertex_Time_NLL(fHitCollection, hPos.Vtx, nhits, lowerLimit, upperLimit, false, false, directionality);
-		else
-			hPos.NLL = Likelihoods::Vertex_Score(fHitCollection, hPos.Vtx, nhits, lowerLimit, upperLimit, false, false, directionality);
-
-		hPos.NLL += fRand->Uniform(0, 1e-5); // Here only not to have exactly the same value for 2NLL, and be removed from map
-
-		tVtxContainer.push_back(hPos);
-
-		if (VERBOSE >= 3)
-			std::cout << "Test Pos: " << hPos.Vtx[3] << " " << hPos.Vtx[0] << " " << hPos.Vtx[1] << " " << hPos.Vtx[2] << " NLL = " << hPos.NLL << " " << likelihood << std::endl;
-
-#ifdef VERBOSE_VTX
-		// if(verbose && distanceToTrue < 2) std::cout << "Distance to true vertex = " << distanceToTrue << ", Probability = " << NLL <<std::endl;
-#endif
+		tRecoVtxPos.push_back({cand.X, cand.Y, cand.Z, cand.T, cand.NLL});
 	}
 
-	std::sort(tVtxContainer.begin(), tVtxContainer.end(), Likelihoods::SortingNLL());
-	while ((int)tVtxContainer.size() > tolerance)
+	if (VERBOSE >= 2)
 	{
-#ifdef VERBOSE_VTX
-		std::cout << " Remove end: " << tVtxContainer.back().NLL << " (first " << tVtxContainer[0].NLL << ") " << tVtxContainer.size() << std::endl;
-#endif
-		tVtxContainer.pop_back();
+		for (unsigned int a = 0; a < tRecoVtxPos.size(); a++)
+			std::cout << "Candidate vertex [ " << a << " ] = " << tRecoVtxPos[a][0] << " , " << tRecoVtxPos[a][1] << " , " << tRecoVtxPos[a][2] << " , " << tRecoVtxPos[a][3] << ", NLL = " << tRecoVtxPos[a][4] << std::endl;
 	}
 
-	clock_t timeEndLoop = clock();
+	timer.Stop();
+	fOutputProps.Vtx_Search_ComputeTime = timer.RealTime();
+	// std::cout << "SearchVertex took: " << timer.RealTime() << std::endl;
 
-	std::vector<std::vector<double>> tReconstructedVertexPosition;
-	for (int iPos = 0; iPos < tolerance; iPos++)
-	{
-		std::vector<double> vPos(5, 0.);
-		struct FitPosition hPos = tVtxContainer[iPos];
+	double dStepSizeFinal = 10;
+	int iToleranceFinal = 1;
 
-		vPos[0] = hPos.Vtx[0];
-		vPos[1] = hPos.Vtx[1];
-		vPos[2] = hPos.Vtx[2];
-		vPos[3] = hPos.Vtx[3];
-		vPos[4] = hPos.NLL;
+	timer.Reset();
+	timer.Start();
+	
+	for (int i = 0; i < 4; i++) tLimits[i] = 2 * fSearchVtxStep;
+	fRecoVtxPosFinal = this->MinimizeVertex_Main(tRecoVtxPos, tLimits, dStepSizeFinal, iHitsTotal, fSearchVtxTolerance, iToleranceFinal, VERBOSE, true, false, fMinimizeLimitsNegative, fMinimizeLimitsPositive, fUseDirectionality,  fDirection_Filter, FilterThreshold);
 
-		tReconstructedVertexPosition.push_back(vPos);
+	timer.Stop();
+	fOutputProps.Vtx_Minimize_ComputeTime = timer.RealTime();
 
-#ifdef VERBOSE_VTX
-		std::cout << "NLL = " << hPos.NLL << ", vertex = " << vPos[0] << ", " << vPos[1] << ", " << vPos[2] << ", " << vPos[3] << std::endl;
-#endif
-	}
-
-	clock_t timeEnd = clock();
-
-	std::cout << "SearchVertex: Time it took for the loop = " << (timeEndLoop - timeStart) / 1e6 << ", time total = " << (timeEnd - timeStart) / 1e6 << " " << fPositionList.size() << std::endl;
-
-	return tReconstructedVertexPosition;
+	fOutput.Vtx[0] = fRecoVtxPosFinal[0][0];
+	fOutput.Vtx[1] = fRecoVtxPosFinal[0][1];
+	fOutput.Vtx[2] = fRecoVtxPosFinal[0][2];
+	fOutput.Vtx[3] = fRecoVtxPosFinal[0][3];
+	fOutput.NLL = fRecoVtxPosFinal[0][4];
 }
 
 std::vector<VtxCandidate> LEAF::SearchVertex_Main(int nhits, int tolerance, bool likelihood, double lowerLimit, double upperLimit, int directionality)
@@ -427,272 +496,6 @@ void LEAF::SearchVertex_thread(int iStart, int iIte, int nhits, int tolerance, b
 		fThreadOutput.push_back(vPos);
 	}
 	mtx.unlock();
-}
-
-// Fine grid search of the vertex. It will search in a box this time, and not a cylinder as searchVertex is doing. It is useful when we have one or several first candidate vertices. Therefore, this code is generally run after serachVertex.
-// The box is centered around the initial vertex provided.
-// The box size is 2 x limits in each direction, centered on the initial vertex provided.
-// nCandidate provide the size of the list of inital vertices, while tolerance provide the size of the output list.
-// Other informations are the same as searchVertex.
-std::vector<std::vector<double>> LEAF::SearchVertexFine(std::vector<std::vector<double>> initialVertex, double *limits, double stepSize, int nhits, int nCandidates, int tolerance, int verbose, bool likelihood, bool average, double lowerLimit, double upperLimit, int directionality)
-{
-	if (verbose) std::cout << "Start fine search, use directionality? " << directionality << std::endl;
-	std::vector<double> tBestReconstructedVertexPosition;
-	double minNLL = 1e15;
-	clock_t timeStart = clock();
-
-	std::map<double, std::vector<double>> vertexContainer;
-
-	for (int icand = 0; icand < nCandidates; icand++)
-	{
-		if (verbose)
-			std::cout << "Candidate #" << icand << std::endl;
-		for (double time = initialVertex[icand][VTX_T] - limits[0] / fLightSpeed; time <= initialVertex[icand][VTX_T] + limits[0] / fLightSpeed; time += (stepSize / fLightSpeed))
-		{
-			if (VERBOSE >= 2)
-				std::cout << "Time = " << time << "ns" << std::endl;
-			for (double x = initialVertex[icand][VTX_X] - limits[1]; x <= initialVertex[icand][VTX_X] + limits[1]; x += stepSize)
-			{
-				if (VERBOSE >= 2)
-					std::cout << "x = " << x << "m" << std::endl;
-				for (double y = initialVertex[icand][VTX_Y] - limits[2]; y <= initialVertex[icand][VTX_Y] + limits[2]; y += stepSize)
-				{
-					if (VERBOSE >= 2)
-						std::cout << "y = " << y << "m" << std::endl;
-					for (double z = initialVertex[icand][VTX_Z] - limits[3]; z <= initialVertex[icand][VTX_Z] + limits[3]; z += stepSize)
-					{
-						if (VERBOSE >= 2)
-							std::cout << "z = " << z << "m" << std::endl;
-
-						std::vector<double> tVtxPosition(4, 0.); // In centimeters
-						tVtxPosition[0] = x;					 // radius*TMath::Cos(angle);
-						tVtxPosition[1] = y;					 // radius*TMath::Sin(angle);
-						tVtxPosition[2] = z;					 // height;
-						tVtxPosition[3] = time;
-
-						double NLL = 0;
-						if (average)
-						{
-							// double vNLL[fAveraging];
-							for (int irand = 0; irand < fAveraging; irand++)
-							{
-								// Determine the position around the vertex
-								double radius = 1.5 * fRand->Uniform(0, stepSize);
-								double phi = fRand->Uniform(0, 2 * TMath::Pi());
-								double theta = fRand->Uniform(0, TMath::Pi());
-								double timeRand = 1.5 * fRand->Uniform(-stepSize / fLightSpeed, stepSize / fLightSpeed);
-								std::vector<double> randVertexPosition(4, 0.); // In centimeters
-								randVertexPosition[0] = tVtxPosition[0] + radius * TMath::Sin(theta) * TMath::Cos(phi);
-								randVertexPosition[1] = tVtxPosition[1] + radius * TMath::Sin(theta) * TMath::Sin(phi);
-								randVertexPosition[2] = tVtxPosition[2] + radius * TMath::Cos(theta);
-								randVertexPosition[3] = tVtxPosition[3] + timeRand; // rand->Uniform(-stepSize/fLightSpeed/2,stepSize/fLightSpeed/2);
-								// Evaluate its NLL
-								double nll = Likelihoods::FindNLL(fHitCollection, randVertexPosition, nhits, likelihood, verbose, lowerLimit, upperLimit, false, false, directionality);
-								NLL += nll;
-								// vNLL[irand]=nll;
-							}
-
-							if (fAveraging != 0)
-								NLL /= fAveraging;
-						}
-						else
-							NLL = Likelihoods::FindNLL(fHitCollection, tVtxPosition, nhits, likelihood, verbose, lowerLimit, upperLimit, false, false, directionality);
-
-						std::vector<double> candidateReconstructedVertexPosition(4, 0.);
-						for (int i = 0; i < 4; i++)
-							candidateReconstructedVertexPosition[i] = tVtxPosition[i];
-
-						vertexContainer[NLL] = candidateReconstructedVertexPosition;
-						if ((int)vertexContainer.size() > tolerance)
-						{
-							vertexContainer.erase(--vertexContainer.rbegin().base());
-						}
-
-						if (NLL < minNLL)
-						{
-							minNLL = NLL;
-							// std::cout << "minNLL = "<<minNLL << std::endl;
-							tBestReconstructedVertexPosition = tVtxPosition;
-						}
-					}
-				}
-			}
-		}
-	}
-	clock_t timeEndLoop = clock();
-	std::vector<std::vector<double>> tReconstructedVertexPosition;
-	for (int count = 0; count < tolerance; count++)
-	{
-		std::vector<double> vTmp(5, 0.);
-		tReconstructedVertexPosition.push_back(vTmp);
-	}
-	int counter = 0;
-	for (std::map<double, std::vector<double>>::iterator it = vertexContainer.begin(); it != vertexContainer.end(); it++)
-	{
-		// for(std::map< double, std::vector<double> >::iterator it = vertexContainer.begin();it!=vertexContainer.end();it++){
-		if (counter < tolerance)
-		{
-			// tReconstructedVertexPosition[counter] = new double[4];
-			for (int i = 0; i < 4; i++)
-				tReconstructedVertexPosition[counter][i] = (it->second)[i];
-			tReconstructedVertexPosition[counter][4] = it->first;
-		}
-		counter++;
-	}
-
-	clock_t timeEnd = clock();
-	if (verbose) std::cout << "SearchVertexFine: Time it took for the loop = " << (timeEndLoop - timeStart) / 1e6 << ", time total = " << (timeEnd - timeStart) / 1e6 << std::endl << std::endl;
-
-	return tReconstructedVertexPosition;
-	// return tBestReconstructedVertexPosition;
-}
-
-// here is the function where minimization gonna take place. The loop is inside this function
-std::vector<std::vector<double>> LEAF::MinimizeVertex(std::vector<std::vector<double>> initialVertex, double *limits, double stepSize, int nhits, int nCandidates, int tolerance, int verbose, bool /*likelihood*/, bool /*average*/, double lowerLimit, double upperLimit, int directionality)
-{
-	if (VERBOSE >= 2) std::cout << "Minimizer" << std::endl;
-	// 2. How to set the search?
-	// double stepSize = 0.5;//in m
-	// double * reconstructedVertexPosition = new double[4];
-	std::vector<double> tBestReconstructedVertexPosition;
-	clock_t timeStart = clock();
-
-	std::vector<struct FitPosition> tVtxContainer;
-
-	if (VERBOSE >= 2)
-		std::cout << "Minimizer" << std::endl;
-	TFitter *minimizer = new TFitter(8); // 4=nb de params?
-	TMinuit *minuit = minimizer->GetMinuit();
-
-	double arglist[20];
-	int err = 0;
-	double p1 = verbose - 1;
-	minimizer->ExecuteCommand("SET PRINTOUT", &p1, 1); // quiet mode
-	minuit->SetErrorDef(1);
-	// minuit->SetPrintLevel(-1); // quiet mode
-	if (VERBOSE < 2) minuit->mnexcm("SET NOWarnings", 0, 0, err);
-	arglist[0] = 2;
-	minuit->mnexcm("SET STR", arglist, 1, err); // set strategy sets the number of derivative estimated. in the present case (2), this is the highest number of it with a counter-balance: very slow!
-	minimizer->SetFCN(MinuitLikelihood);		// here is function to minimize
-
-	double Mig[2] = {1e6, 1e0}; // maxcalls and tolerance
-
-	minimizer->SetParameter(0, "vertex0", 0, stepSize, -limits[0], limits[0]);
-	minimizer->SetParameter(1, "vertex1", 0, stepSize, -limits[1], limits[1]);
-	minimizer->SetParameter(2, "vertex2", 0, stepSize, -limits[2], limits[2]);
-	minimizer->SetParameter(3, "vertex3", 0, stepSize / fLightSpeed, -limits[3] / fLightSpeed, limits[3] / fLightSpeed);
-
-	minimizer->SetParameter(4, "PMTConfiguration", 0, 0, 0, 0); // Useless now
-	minimizer->SetParameter(5, "nhits", nhits, nhits, nhits - 1, nhits + 1);
-	minimizer->SetParameter(6, "lowerLimit", lowerLimit, 5e-1, -7, -2);
-	minimizer->SetParameter(7, "upperLimit", upperLimit, 5e-1, 2, 10);
-	minimizer->SetParameter(8, "expoSigma", 100, 5, 0, 1e3);
-	minimizer->SetParameter(9, "directionality", directionality, 1, 0, 2);
-	minimizer->SetParameter(10, "thread", 0, 0, 0, 0);
-	minimizer->FixParameter(4);
-	minimizer->FixParameter(5);
-	minimizer->FixParameter(6);
-	minimizer->FixParameter(7);
-	minimizer->FixParameter(8);
-	minimizer->FixParameter(9);
-	minimizer->FixParameter(10);
-
-	for (int icand = 0; icand < nCandidates; icand++)
-	{
-#ifdef VERBOSE_MIN
-		if (verbose >= 1)
-		{
-			std::cout << "Candidate #" << icand << std::endl;
-			std::cout << "Initial (x,y,z,t): " << initialVertex[icand][0]
-					  << ", " << initialVertex[icand][1]
-					  << ", " << initialVertex[icand][2]
-					  << ", " << initialVertex[icand][3] << std::endl;
-		}
-#endif
-
-		minimizer->SetParameter(0, "vertex0", initialVertex[icand][0], stepSize, initialVertex[icand][0] - limits[0], initialVertex[icand][0] + limits[0]);
-		minimizer->SetParameter(1, "vertex1", initialVertex[icand][1], stepSize, initialVertex[icand][1] - limits[1], initialVertex[icand][1] + limits[1]);
-		minimizer->SetParameter(2, "vertex2", initialVertex[icand][2], stepSize, initialVertex[icand][2] - limits[2], initialVertex[icand][2] + limits[2]);
-		minimizer->SetParameter(3, "vertex3", initialVertex[icand][3], stepSize / fLightSpeed, initialVertex[icand][3] - limits[3] / fLightSpeed, initialVertex[icand][3] + limits[3] / fLightSpeed);
-
-		minimizer->SetParameter(4, "PMTConfiguration", 0, 0, 0, 0); // Useless now
-		minimizer->SetParameter(5, "nhits", nhits, nhits, nhits - 1, nhits + 1);
-		minimizer->SetParameter(6, "lowerLimit", lowerLimit, 5e-1, -7, -2);
-		minimizer->SetParameter(7, "upperLimit", upperLimit, 5e-1, 2, 10);
-		minimizer->SetParameter(8, "expoSigma", 100, 5, 0, 1e3);
-		// minimizer->SetParameter(8,"scaling factor",1,1,0,1e3);
-		// minimizer->SetParameter(8,"signal pe",1,1,0,1e3);
-		minimizer->SetParameter(9, "directionality", directionality, 1, 0, 2);
-		minimizer->SetParameter(10, "thread", 0, 0, 0, 0);
-		minimizer->FixParameter(4);
-		minimizer->FixParameter(5);
-		minimizer->FixParameter(6);
-		minimizer->FixParameter(7);
-		minimizer->FixParameter(8);
-		minimizer->FixParameter(9);
-		minimizer->FixParameter(10);
-
-		minimizer->ExecuteCommand("MIGRAD", Mig, 2);
-
-		std::vector<double> tCandRecoVtxPos(4, 0.);
-
-		tCandRecoVtxPos[0] = minimizer->GetParameter(0);
-		tCandRecoVtxPos[1] = minimizer->GetParameter(1);
-		tCandRecoVtxPos[2] = minimizer->GetParameter(2);
-		tCandRecoVtxPos[3] = minimizer->GetParameter(3);
-
-		struct FitPosition hPos;
-		hPos.Vtx = tCandRecoVtxPos;
-		hPos.NLL = 0;
-
-		// Get minuit
-		minuit = minimizer->GetMinuit();
-		double fmin, fedm, errdef;
-		int npar, nparx, istat;
-		minuit->mnstat(fmin, fedm, errdef, npar, nparx, istat);
-
-		hPos.NLL = fmin;
-
-#ifdef VERBOSE_MIN
-		if (verbose >= 1)
-			std::cout << "NLL=" << hPos.NLL << std::endl;
-#endif
-		tVtxContainer.push_back(hPos);
-
-		if (VERBOSE >= 2)
-			std::cout << "Initial vertex position = " << initialVertex[icand][0] << "," << initialVertex[icand][1] << "," << initialVertex[icand][2] << "," << initialVertex[icand][3] << ", Candidate vertex position = (" << tCandRecoVtxPos[0] << "," << tCandRecoVtxPos[1] << "," << tCandRecoVtxPos[2] << "," << tCandRecoVtxPos[3] << ", NLL = " << fmin << std::endl;
-	}
-
-	std::sort(tVtxContainer.begin(), tVtxContainer.end(), Likelihoods::SortingNLL());
-	while ((int)tVtxContainer.size() > tolerance) tVtxContainer.pop_back();
-
-	clock_t timeEndLoop = clock();
-
-	std::vector<std::vector<double>> tReconstructedVertexPosition;
-	for (int iPos = 0; iPos < tolerance; iPos++)
-	{
-		std::vector<double> vPos(5, 0.);
-		struct FitPosition hPos = tVtxContainer[iPos];
-
-		vPos[0] = hPos.Vtx[0];
-		vPos[1] = hPos.Vtx[1];
-		vPos[2] = hPos.Vtx[2];
-		vPos[3] = hPos.Vtx[3];
-		vPos[4] = hPos.NLL;
-
-		tReconstructedVertexPosition.push_back(vPos);
-	}
-
-	delete minimizer;
-
-	tBestReconstructedVertexPosition = tReconstructedVertexPosition[0];
-
-	clock_t timeEnd = clock();
-
-	if (verbose) std::cout << "MinimizeVertex: Time it took for the loop = " << (timeEndLoop - timeStart) / 1e6 << ", time total = " << (timeEnd - timeStart) / 1e6 << std::endl << std::endl;
-
-	return tReconstructedVertexPosition;
-	// return tBestReconstructedVertexPosition;
 }
 
 std::vector<std::vector<double>> LEAF::MinimizeVertex_Main(std::vector<std::vector<double>> initialVertex, double *limits, double stepSize, int nhits, int nCandidates, int tolerance, int verbose, bool likelihood, bool average, double lowerLimit, double upperLimit, int directionality, std::vector<double>* fDirection_Filter, float FilterThreshold)
@@ -866,92 +669,10 @@ void LEAF::MinimizeVertex_thread(
 	mtx.unlock();
 }
 
-void LEAF::FitVertex(std::vector<double>* fDirection_Filter, float FilterThreshold)
-{
-	double *tLimits = new double[4];
-	int iHitsTotal = fHitCollection->Size();
-	std::vector< std::vector<double> > fRecoVtxPosFinal;
 
-	TStopwatch timer;
-	timer.Reset();
-	timer.Start();
-
-	std::vector<VtxCandidate> tRecoVtxPosCand = this->SearchVertex_Main(iHitsTotal,fSearchVtxTolerance,false,fSTimePDFLimitsQueueNegative,fSTimePDFLimitsQueuePositive,false);
-	std::vector<std::vector<double>> tRecoVtxPos;
-
-	// Extract only the vertex positions from the VtxCandidate structure
-	for (const auto& cand : tRecoVtxPosCand) 
-	{
-		tRecoVtxPos.push_back({cand.X, cand.Y, cand.Z, cand.T, cand.NLL});
-	}
-
-	if (VERBOSE >= 2)
-	{
-		for (unsigned int a = 0; a < tRecoVtxPos.size(); a++)
-			std::cout << "Candidate vertex [ " << a << " ] = " << tRecoVtxPos[a][0] << " , " << tRecoVtxPos[a][1] << " , " << tRecoVtxPos[a][2] << " , " << tRecoVtxPos[a][3] << ", NLL = " << tRecoVtxPos[a][4] << std::endl;
-	}
-
-	timer.Stop();
-	fOutputProps.Vtx_Search_ComputeTime = timer.RealTime();
-	// std::cout << "SearchVertex took: " << timer.RealTime() << std::endl;
-
-	double dStepSizeFinal = 10;
-	int iToleranceFinal = 1;
-	if (fStepByStep) //* Not used and not tested
-	{
-		// 2.b. Refined vertex search around candidate found previously
-		//  -> Commented since ages, removed on 2020/11/20
-
-		// 2.c. More refined vertex search around candidate found previously
-		double dStepSizeFine2 = 100;
-		int iToleranceFine2 = 20;
-		for (int i = 0; i < 4; i++) tLimits[i] = fSearchVtxStep; // particleStart[i]*1e-2;//onversion to meter
-		std::vector<std::vector<double>> tRecoVtxPosFine2 = this->SearchVertexFine(tRecoVtxPos, tLimits, dStepSizeFine2, iHitsTotal, fSearchVtxTolerance, iToleranceFine2, VERBOSE, true, false, fSTimePDFLimitsQueueNegative, fSTimePDFLimitsQueuePositive, fUseDirectionality);
-		//////////////////////////////////////////
-
-		// 2.d. Final refined vertex search around candidate found previously
-		double dStepSizeFine3 = 20;
-		int iToleranceFine3 = 1;
-		for (int i = 0; i < 4; i++)
-			tLimits[i] = dStepSizeFine2; // particleStart[i]*1e-2;//onversion to meter
-		std::vector<std::vector<double>> tRecoVtxPosFine3 = this->SearchVertexFine(tRecoVtxPosFine2, tLimits, dStepSizeFine3, iHitsTotal, iToleranceFine2, iToleranceFine3, VERBOSE, true, false, fSTimePDFLimitsQueueNegative, fSTimePDFLimitsQueuePositive, fUseDirectionality);
-		if (VERBOSE == 1)
-		{
-			for (int a = 0; a < iToleranceFine3; a++)
-				std::cout << "Final candidate vertex time = " << tRecoVtxPosFine3[a][0] << ", x = " << tRecoVtxPosFine3[a][1] << ", y = " << tRecoVtxPosFine3[a][2] << ", z=" << tRecoVtxPosFine3[a][3] << std::endl;
-		}
-		//////////////////////////////////////////
-
-		for (int i = 0; i < 4; i++)
-			tLimits[i] = 100; // dStepSizeFine2;//particleStart[i]*1e-2;//onversion to meter
-		fRecoVtxPosFinal = this->MinimizeVertex(tRecoVtxPosFine3, tLimits, dStepSizeFinal, iHitsTotal, iToleranceFine3, iToleranceFinal, VERBOSE, true, false, fMinimizeLimitsNegative, fMinimizeLimitsPositive, fUseDirectionality);
-		if (VERBOSE >= 1)
-		{
-			for (int a = 0; a < iToleranceFinal; a++)
-			{
-				std::cout << "Final candidate vertex time = " << fRecoVtxPosFinal[a][0] << ", x = " << fRecoVtxPosFinal[a][1] << ", y = " << fRecoVtxPosFinal[a][2] << ", z=" << fRecoVtxPosFinal[a][3] << std::endl;
-			}
-		}
-	}
-	else
-	{
-		timer.Reset();
-		timer.Start();
-		
-		for (int i = 0; i < 4; i++) tLimits[i] = 2 * fSearchVtxStep;
-
-		fRecoVtxPosFinal = this->MinimizeVertex_Main(tRecoVtxPos, tLimits, dStepSizeFinal, iHitsTotal, fSearchVtxTolerance, iToleranceFinal, VERBOSE, true, false, fMinimizeLimitsNegative, fMinimizeLimitsPositive, fUseDirectionality,  fDirection_Filter, FilterThreshold);
-
-		timer.Stop();
-		fOutputProps.Vtx_Minimize_ComputeTime = timer.RealTime();
-	}
-
-	fOutput.Vtx[0] = fRecoVtxPosFinal[0][0];
-	fOutput.Vtx[1] = fRecoVtxPosFinal[0][1];
-	fOutput.Vtx[2] = fRecoVtxPosFinal[0][2];
-	fOutput.Vtx[3] = fRecoVtxPosFinal[0][3];
-	fOutput.NLL = fRecoVtxPosFinal[0][4];
-}
+/*****************************************************************************************************/
+/* ENERGY FIT */
+/*****************************************************************************************************/
 
 void LEAF::FitEnergy()
 {
@@ -994,6 +715,11 @@ void LEAF::FitEnergy()
 	timer.Stop();
 	fOutputProps.Energy_Fit_ComputeTime = timer.RealTime();
 }
+
+
+/*****************************************************************************************************/
+/* DIRECTION AND VERTEX FIT */
+/*****************************************************************************************************/
 
 std::vector<JointFitCandidate> LEAF::SearchVertexAndDir()
 {
@@ -1120,96 +846,4 @@ JointFitCandidate LEAF::MinimizeVertexAndDir(std::vector<JointFitCandidate> init
 	return tContainer[0];
 }
 
-void LEAF::LoadHitCollection(const HitCollection<Hit> *lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT)
-{
-	fHitCollection = lHitCol;
-	fTriggerTime = lTriggerTime;
-	fTimeCorrection = fHitCollection->timestamp - fTriggerTime;
-	if (fPositionList.size() == 0) MakePositionList();
-	fUseDirectionality = bMultiPMT ? fUseDirectionality : false;
-}
 
-struct FitterOutput LEAF::NewOutuput()
-{
-	struct FitterOutput fOutput;
-	fOutput.Vtx = std::vector<double>(4);
-	fOutput.Dir = std::vector<double>(3);
-	fOutput.NLL		= 0.;
-	fOutput.DNLL	= 0.;
-	fOutput.Energy = 0.;
-	fOutput.TotalCharge = 0.;
-
-	return fOutput;
-}
-
-struct FitterOutput LEAF::MakeSequentialFit(const HitCollection<Hit> *lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT)
-{
-	TStopwatch timer;
-	timer.Reset();
-	timer.Start();
-
-	LoadHitCollection(lHitCol, lTriggerTime, bMultiPMT);
-	
-	if(fHitCollection->Size() <= 0) return NewOutuput();
-	
-	//* Vertex
-	FitVertex();
-
-	//* Goodness of fit
-	fOutput.NLLR = Likelihoods::GoodnessOfFit(fHitCollection, fOutput.Vtx, fHitCollection->Size(), fMinimizeLimitsNegative, fMinimizeLimitsPositive, true, false, fUseDirectionality); //* Goodness of Fit
-	
-	//* Direction
-
-	//? three direction methods are stored, one can use only the Fit Direction method
-	// FitDirectionQuick(fOutput.Vtx); // prefit
-
-	// // the prefit is stored in fOutput.Dir
-	// FitDirection(fOutput.Vtx, fHitCollection->Size(), true); // optimization with one candidate that is the prefit
-	// fOutput.MyDir = fOutput.Dir;
-	// FitDirection(fOutput.Vtx, fHitCollection->Size(), false); // optimization without prefit, 30 candidates used
-
-	FitDirectionQuick(fTrueVtxPos); // prefit
-
-	// the prefit is stored in fOutput.Dir
-	FitDirection(fTrueVtxPos, fHitCollection->Size(), true); // optimization with one candidate that is the prefit
-	fOutput.MyDir = fOutput.Dir;
-	FitDirection(fTrueVtxPos, fHitCollection->Size(), false); // optimization without prefit, 30 candidates used
-	
-
-	//* Energy
-	FitEnergy();
-
-	timer.Stop();
-	fOutputProps.Leaf_ComputeTime = timer.RealTime();
-
-	return fOutput;
-}
-
-struct FitterOutput LEAF::MakeJointFit(const HitCollection<Hit> *lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT)
-{
-	LoadHitCollection(lHitCol, lTriggerTime, bMultiPMT);
-
-	TStopwatch timer;
-	timer.Reset();
-	timer.Start();
-
-	if(fHitCollection->Size() <= 0) return NewOutuput();
-
-	std::vector<JointFitCandidate> Candidates = SearchVertexAndDir();
-	JointFitCandidate finalCandidate = MinimizeVertexAndDir(Candidates);
-
-	fOutput.Vtx = {finalCandidate.VtxPart.X, finalCandidate.VtxPart.Y, finalCandidate.VtxPart.Z, finalCandidate.VtxPart.T};
-	fOutput.Dir = PolarToCartesianNorm({finalCandidate.DirPart.theta, finalCandidate.DirPart.phi});
-	fOutput.NLL = finalCandidate.NLL;
-	fOutput.DNLL = Likelihoods::Dir_NLL(fHitCollection, fOutput.Vtx, finalCandidate.DirPart.theta, finalCandidate.DirPart.phi , fHitCollection->Size());
-
-	fOutput.NLLR = Likelihoods::GoodnessOfFit(fHitCollection, fOutput.Vtx, fHitCollection->Size(), fMinimizeLimitsNegative, fMinimizeLimitsPositive, true, false, fUseDirectionality); //* Goodness of Fit
-	
-	//* Energy, alone
-	FitEnergy();
-
-	timer.Stop();
-	fOutputProps.Leaf_ComputeTime = timer.RealTime();
-
-	return fOutput;
-}

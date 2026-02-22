@@ -15,26 +15,6 @@ CXXFLAGS_BASE += $(shell root-config --cflags)
 CXXFLAGS_BASE += '-fPIC' -Wall -Wpedantic -Wno-long-long -DDATAMODEL_LITE
 
 CXXFLAGS = $(CXXFLAGS_BASE)
-#CXXFLAGS_ROOT = $(CXXFLAGS_BASE)
-
-# #ifeq ($(shell echo "$(ROOT_VERSION) >= 6.0" | bc -l ), 1)
-# ROOT_VERSION = $(shell root-config --version | tr -d '/' )
-# ifeq ($(shell [ $(ROOT_VERSION) -ge 6.0 ] && echo 1 || echo 0), 1)
-# MAKE_LEAF_WITH_ROOT6 = 1
-# CXXFLAGS += -std=c++17 -DROOT6 # modifies to c++17 (Nicolas)
-# #CXXFLAGS_ROOT += -std=c++11 -DROOT6
-# else
-# CXXFLAGS += -std=c++11 -DROOT5
-# endif
-
-# ROOT_VERSION = $(shell root-config --version | tr -d '/')
-# ifeq ($(shell echo "$(ROOT_VERSION) >= 6.0" | bc -l), 1)
-# MAKE_LEAF_WITH_ROOT6 = 1
-# CXXFLAGS += -std=c++17 -DROOT6 # modifies to c++17 (Nicolas)
-# #CXXFLAGS_ROOT += -std=c++11 -DROOT6
-# else
-# CXXFLAGS += -std=c++11 -DROOT5
-# endif
 
 
 ROOT_VERSION = $(shell root-config --version | cut -d'.' -f1,2)
@@ -107,15 +87,6 @@ $(LIB_DATAMODEL): $(DATAMODEL_OBJECTS)
 		mkdir ../lib; \
 	fi
 	@$(SOMAKER) $(SOFLAGS) -o $@  $(DATAMODEL_OBJECTS)  $(LIBS)
-	
-# Not needed anymore
-#DataModelRootDict.cpp:
-#	@echo '<< generating ' $@ ' >>'
-#	@rootcint -f DataModelRootDict.cpp -c $(CXXFLAGS_ROOT) -p $(DATAMODEL_HEADERS) $(PWD)/DataModel/LinkDef.h
-#ifeq ($(MAKE_LEAF_WITH_ROOT6),1)
-#	@echo '<< install DataModelRootDict_rdict.pcm >>'
-#	@cp DataModelRootDict_rdict.pcm ../lib/.
-#endif
 	
 # DataModel objects
 %.o: DataModel/%.cpp DataModel/%.h

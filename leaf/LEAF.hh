@@ -13,6 +13,7 @@
 // Time residuals are defined as:
 // time - time-of-flight-assuming-straight-line-from-vertex-to PMT - time-of-vertex
 /*****************************************************************************************************/
+
 /*****************************************************************************************************/
 // The standard method relies on two parts which are runned successively:
 //
@@ -70,6 +71,8 @@
 #include "LeafUtility.hh"
 #include "LeafDefinitions.hh"
 
+
+
 class LEAF 
 {
 	public:
@@ -86,40 +89,41 @@ class LEAF
 
 		//* slower and less performant for now
 		struct FitterOutput MakeJointFit(const HitCollection<Hit>* lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT=true);
-	    
+
+
+		/*****************/
+  		/* VERTEX FITTER */
+		/*****************/
+
 		void SearchVertex_thread(int iStart, int iIte, int nhits, int tolerance=1, bool likelihood=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality=false);
-		
 		void MinimizeVertex_thread(int iStart, int iIte, std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true, std::vector<double>* fDirection_Filter = nullptr, float FilterThreshold = 180);
-		
+
+
 	private:
 		
 		LEAF();
 		~LEAF();
-
 		struct FitterOutput NewOutuput();
-
 		void LoadHitCollection(const HitCollection<Hit> *lHitCol, const TimeDelta lTriggerTime, bool bMultiPMT);
+		static LEAF* myFitter;
+		std::vector< std::vector<double> > fThreadOutput;
 
-  		//##### VERTEX FITTER #####
+		/*****************/
+  		/* VERTEX FITTER */
+		/*****************/
 
 		void FitVertex(std::vector<double>* fDirection_Filter = nullptr, float FilterThreshold = 180);
-		
-		//? Coarse GRID Search Raw version, not parallelized, slow
-		std::vector< std::vector<double> > SearchVertex(int nhits, int tolerance=1, bool likelihood=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality=false);
 		
 		//? Coarse GRID Search Parallelized version
 		std::vector<VtxCandidate> SearchVertex_Main(int nhits, int tolerance, bool likelihood, double lowerLimit, double upperLimit, int directionality);
 		
-		//? Coarse GRID Search used for step by step vertex fit, written in 2023, not used and not tested
-		std::vector< std::vector<double> > SearchVertexFine(std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality=false);
-		
-		//? LLH Minimization Raw version, not parallelized, slow
-		std::vector< std::vector<double> > MinimizeVertex(std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true);
-		
 		//? Second Step Parallelized version
 		std::vector< std::vector<double> > MinimizeVertex_Main(std::vector< std::vector<double> > initialVertex, double * limits, double stepSize, int nhits, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=fSTimePDFLimitsQueueNegative, double upperLimit=fSTimePDFLimitsQueuePositive, int directionality = true, std::vector<double>* fDirection_Filter = nullptr, float FilterThreshold = 180);
-		
-  		//##### Direction FITTER #####
+
+
+		/********************/
+  		/* DIRECTION FITTER */
+		/********************/
 
 		// Global fitter function that selects canidates and call the minimize method
 		std::vector<double> FitDirection(const std::vector<double>& fixedVertexPosition, int nhits, bool searchPrior = false);
@@ -133,21 +137,23 @@ class LEAF
   		// LLH Minimization Search
 		DirectionCandidate MinimizeDirection(const std::vector<double>& fixedVertexPosition, std::vector<DirectionCandidate>& candidates, int nhits, double *limits, int verbose);
 
-  		//##### ENERGY FITTER #####
+
+		/*****************/
+  		/* ENERGY FITTER */
+		/*****************/
 
   		void FitEnergy();
 
-  		//##### JOINT FITTER #####
+
+		/****************/
+  		/* JOINT FITTER */
+		/****************/
 
 		// Search combined candidates
   		std::vector<JointFitCandidate> SearchVertexAndDir();
 
 		// Minimize these candidates
 		JointFitCandidate MinimizeVertexAndDir(std::vector<JointFitCandidate> initialCandidates);
-		
-		static LEAF* myFitter;
-
-		std::vector< std::vector<double> > fThreadOutput;
 };
 
 #endif
