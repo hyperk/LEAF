@@ -1,7 +1,5 @@
-*.root
 *.o
 *.swp
-*.root
 *.log
 .depend
 leaf/DataModelRootDict*
