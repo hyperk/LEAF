@@ -10,9 +10,9 @@
 //* DataModel informations
 #include "Geometry.h"
 #include "HitCollection.h"
-#include "LeafConfig.hh"
-#include "LeafInputs.hh"
-#include "LeafDefinitions.hh"
+#include "LeafConfig.hpp"
+#include "LeafInputs.hpp"
+#include "LeafDefinitions.hpp"
 
 inline bool SortOutputVector ( const std::vector<double>& v1, const std::vector<double>& v2 ) 
 { 

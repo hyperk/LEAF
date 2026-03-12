@@ -15,7 +15,7 @@
 #include "WCSimRootGeom.hh"
 #include "Geometry.h"
 #include "HitCollection.h"
-#include "LeafConfig.hh"
+#include "LeafConfig.hpp"
 
 extern const Geometry* fGeometry;
 extern const HitCollection<Hit>* fHitCollection;

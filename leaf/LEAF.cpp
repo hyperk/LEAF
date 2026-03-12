@@ -6,8 +6,8 @@
 /**	Desc: Low-E Fitter for Hyper-K								**/
 /*****************************************************************************************************/
 
-#include "LEAF.hh"
-#include "TStopwatch.h"
+#include "LEAF.hpp"
+#include <TStopwatch.h>
 
 LEAF *LEAF::myFitter = NULL;
 std::mutex mtx;

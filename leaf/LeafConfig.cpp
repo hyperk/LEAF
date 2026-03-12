@@ -1,4 +1,4 @@
-#include "LeafConfig.hh"
+#include "LeafConfig.hpp"
 
 //* Geometry & Constants
 double fTankRadius;

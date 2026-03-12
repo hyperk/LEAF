@@ -1,4 +1,4 @@
-#include "LeafInputs.hh"
+#include "LeafInputs.hpp"
 
 const Geometry* fGeometry;
 

@@ -24,9 +24,9 @@
 #include "WCSimRootGeom.hh"
 #include "WCSimEnumerations.hh"
 
-#include "LEAF.hh"	
-#include "LeafDefinitions.hh"
-#include "HKManager.hh"	
+#include "LEAF.hpp"	
+#include "LeafDefinitions.hpp"
+#include "HKManager.hpp"	
 
 #define OLD_WCSIM // To be used if WCSim version is older than 1.8 (i.e. without multi vertex)
 // #define mPMT // To be used if you are using mPMT
@@ -56,6 +56,8 @@ std::vector<double> true_origin_Z; // True origin vertex (cm)
 std::vector<double> true_origin_T; // True origin vertex (ns)
 std::vector<double> trueDir;
 std::vector<double> trueVertex;
+double trueEnergy;
+
 double dWall =0;
 double toWall =0;
 int digithit_num;				 // Number of digit hit
@@ -111,6 +113,7 @@ std::vector<double> hit_residual; // List of residual times
 
 //* Computation Times
 FitterOutputProps fOutputProps;
+FitterOutput fOutputFitter;
 double fLFTime;
 
 //* Other hits infos
@@ -157,8 +160,8 @@ int bsnhit[1];
 
 struct arguments
 {
-    char * inputFile  = NULL;
-    char * outputFile = NULL;
+    std::string inputFile  = "";
+    std::string outputFile = "";
 	double darkNoise  = 4.2;	// Dark noise frequency in Hz
 	double darkNoiseH = 0.;		// Dark noise frequency in Hz when using the hybrid geometry
 	double timeshift  = 0.;		// Shift hit time
@@ -181,7 +184,7 @@ struct FitterAnalysis
 
 //-----------------------------------------------------------------------------------------//
 
-void SetCustomBranch(TTree *fPrimaryTree, FitterOutput leaf_output);
+void SetCustomBranch(TTree *fPrimaryTree);
 void SetCustomBranchInput(TTree *fPrimaryTree);
 void SetGeoBranch(TTree *fGeoTree);
 bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType);

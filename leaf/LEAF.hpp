@@ -64,12 +64,12 @@
 #include "HitCollection.h"
 
 //* LEAF Headers
-#include "Likelihoods.hh"
-#include "LeafInputs.hh"
-#include "LeafConfig.hh"
-#include "LeafSplines.hh"
-#include "LeafUtility.hh"
-#include "LeafDefinitions.hh"
+#include "Likelihoods.hpp"
+#include "LeafInputs.hpp"
+#include "LeafConfig.hpp"
+#include "LeafSplines.hpp"
+#include "LeafUtility.hpp"
+#include "LeafDefinitions.hpp"
 
 
 

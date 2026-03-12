@@ -15,10 +15,10 @@
 #include "WCSimRootGeom.hh"
 #include "Geometry.h"
 #include "HitCollection.h"
-#include "LeafInputs.hh"
-#include "LeafSplines.hh"
-#include "LeafUtility.hh"
-#include "LeafDefinitions.hh"
+#include "LeafInputs.hpp"
+#include "LeafSplines.hpp"
+#include "LeafUtility.hpp"
+#include "LeafDefinitions.hpp"
 
 void MinuitDirNLL(int& nDim, double* gout, double& NLL, double* par, int flg);
 void MinuitLikelihood(int& nDim, double * gout, double & NLL, double par[], int flg);

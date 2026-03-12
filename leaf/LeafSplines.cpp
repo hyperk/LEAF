@@ -1,4 +1,4 @@
-#include "LeafSplines.hh"
+#include "LeafSplines.hpp"
 
 TSpline3 *	fSplineTimePDFConv[NPMT_CONFIGURATION];
 TSpline3 *	fSplineTimePDFQueue[NPMT_CONFIGURATION];

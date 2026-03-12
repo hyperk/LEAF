@@ -25,7 +25,7 @@
 #include "WCSimRootGeom.hh"
 #include "Geometry.h"
 #include "HitCollection.h"
-#include "LeafInputs.hh"
+#include "LeafInputs.hpp"
 
 
 struct EventInfo 

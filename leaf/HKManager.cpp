@@ -5,7 +5,7 @@
 /**	Desc: Manage fitter and PMT hits for HK analysis			   **/
 /*********************************************************************************/
 
-#include "HKManager.hh"
+#include "HKManager.hpp"
 
 HKManager* HKManager::myManager=NULL;
 

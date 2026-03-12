@@ -1,5 +1,5 @@
-#include "Likelihoods.hh"
-#include "LeafInputs.hh"
+#include "Likelihoods.hpp"
+#include "LeafInputs.hpp"
 
 //Function to optimize, for MIGRAD
 void MinuitLikelihood(int & /*nDim*/, double * /*gout*/, double &NLL, double par[], int /*flg*/)
