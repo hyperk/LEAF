@@ -2,6 +2,7 @@
 *.swp
 *.log
 .depend
+example/analysis
 leaf/DataModelRootDict*
 leaf/HKAstroAnalysis.*
 leaf/DataModel
