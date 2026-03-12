@@ -7,12 +7,11 @@ include ../Makefile/Makefile.${OSNAME}
 
 # set compiler options for ROOT
 CXXFLAGS += $(shell root-config --cflags)
-CXXFLAGS += '-fPIC' -std=c++11 -Wall -Wpedantic -Wno-long-long
+CXXFLAGS += -fPIC -std=c++17 -Wall -Wpedantic -Wno-long-long
 
-INCFLAGS = -I. -I$(shell root-config --incdir)
+INCFLAGS = -I. 
+#INCFLAGS += -I$(shell root-config --incdir) #included in --cflags
 INCFLAGS += -I$(LEAFDIR)/libWCSIM/include
-# INCFLAGS += -I$(WCSIMDIR)/include
-# INCFLAGS += -I$(BONSAIDIR)/bonsai
 INCFLAGS += -I$(LEAFDIR)/leaf
 INCFLAGS += -I$(LEAFDIR)/leaf/DataModel-lite
 
@@ -25,15 +24,12 @@ LIBS_LEAF += -L${LEAFDIR}/lib -lDataModelLite -lHKManager -lLEAF #-lHKAstroAnaly
 
 OBJECT = analysis
 
-CXXFLAGS += -std=c++17
-
 all: $(OBJECT)
 	
 analysis: analysis.o 
 	@echo '<< compiling bin analysis >>'
-	@$(CXX) -g $(CXXFLAGS) -o $@ $^ $(LIBS) $(LIBS_BONSAI) $(LIBS_LEAF)
-	
-	
+	@$(CXX) -g $(CXXFLAGS) -o $@ $^ $(LIBS) $(LIBS_LEAF)
+		
 # default rules
 .cc.o: 
 	@echo '<< compiling' $< '>>'

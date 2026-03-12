@@ -24,8 +24,6 @@ Then make sure the following pre-requisites are installed.
 1. ROOT v5r34 or superior (not tested for older versions, but might work).
 2. WCSim version compatible with your ROOT version.
 3. BONSAI installation (although LEAF can work without it).
-4. HKAstroAnalysis class is private and can be downloaded by SK collaborators on sukap cluster (although LEAF can work without it).
-
 
 # COMPATIBILITY
 

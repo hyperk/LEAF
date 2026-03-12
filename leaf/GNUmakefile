@@ -33,12 +33,11 @@ LIBS += $(shell root-config --libs) -lMinuit
 LIB_DATAMODEL = ../lib/libDataModelLite.so
 LIB_MANAGER = ../lib/libHKManager.so
 LIB_FITTER = ../lib/libLEAF.so
-LIB_ASTROANALYSIS = ../lib/libHKAstroAnalysis.so
 
-LIBS_OBJECTS = $(LIB_DATAMODEL) $(LIB_MANAGER) $(LIB_FITTER) #$(LIB_ASTROANALYSIS)
+LIBS_OBJECTS = $(LIB_DATAMODEL) $(LIB_MANAGER) $(LIB_FITTER) 
 
-DATAMODEL_SOURCES = $(filter-out DataModel/DataModelRootDict.cpp, $(wildcard DataModel/*.cpp))
-DATAMODEL_SRC_NOP = $(DATAMODEL_SOURCES:DataModel/%=./%)
+DATAMODEL_SOURCES = $(filter-out DataModel-lite/DataModelRootDict.cpp, $(wildcard DataModel-lite/*.cpp))
+DATAMODEL_SRC_NOP = $(DATAMODEL_SOURCES:DataModel-lite/%=./%)
 
 DATAMODEL_HEADERS = $(DATAMODEL_SOURCES:%.cpp=%.h)
 DATAMODEL_OBJECTS = $(DATAMODEL_SRC_NOP:%.cpp=%.o) #DataModelRootDict.o
@@ -69,14 +68,7 @@ $(LIB_MANAGER): HKManager.o
 		mkdir ../lib; \
 	fi
 	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS)
-	
-$(LIB_ASTROANALYSIS): HKAstroAnalysis.o 
-	@echo '<< generating ' $@ ' >>'
-	@if [ ! -d ../lib ]; then \
-		mkdir ../lib; \
-	fi
-	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS)
-	
+		
 #$(LIB_DATAMODEL): DataModelRootDict.cpp $(DATAMODEL_OBJECTS) 
 $(LIB_DATAMODEL): $(DATAMODEL_OBJECTS) 
 	@echo '<< generating ' $@ ' >>'
@@ -86,7 +78,7 @@ $(LIB_DATAMODEL): $(DATAMODEL_OBJECTS)
 	@$(SOMAKER) $(SOFLAGS) -o $@  $(DATAMODEL_OBJECTS)  $(LIBS)
 	
 # DataModel objects
-%.o: DataModel/%.cpp DataModel/%.h
+%.o: DataModel-lite/%.cpp DataModel-lite/%.h
 	@echo '<< compiling DataModel object: ' $@ ' >>'
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
 
