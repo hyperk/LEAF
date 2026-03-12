@@ -5,7 +5,7 @@
 /**	Desc: Example application code for Benjamin's Low-E Fitter for Hyper-K	**/
 /*********************************************************************************/
 
-#include "analysis.h"
+#include "analysis.hpp"
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -28,7 +28,7 @@ double GetResidualTime(const std::vector<double>& origin, double originTime, WCS
 	return hitTime - tof - originTime;
 }
 
-arguments FetchInput(int argc, char* argv[])
+arguments FetchInput(int argc, char** argv)
 {
     int c = -1;
     arguments arglist;
@@ -49,7 +49,7 @@ arguments FetchInput(int argc, char* argv[])
         //Output file name
         case 'o':
             arglist.outputFile = optarg;
-            if(arglist.outputFile == NULL){sprintf(arglist.outputFile,"out.txt");}
+            if(arglist.outputFile == ""){ arglist.outputFile = "out.txt";}
             std::cout << "Output root file: " << arglist.outputFile << std::endl;
             break;
 
@@ -69,14 +69,14 @@ arguments FetchInput(int argc, char* argv[])
         //Starting event
         case 's':
             arglist.startEvent = atoi(optarg);
-            if(arglist.startEvent == NULL  ||  arglist.startEvent < 0){arglist.startEvent = 0;}
+            if(arglist.startEvent < 0){arglist.startEvent = 0;}
             std::cout << "Starting event #" << arglist.startEvent << std::endl;
             break;
 
         //Ending event
         case 'e':
             arglist.endEvent = atoi(optarg);
-            if(arglist.endEvent == NULL){arglist.endEvent = 0;}
+            if(arglist.endEvent < 0){arglist.endEvent = 0;}
 			if(arglist.endEvent >= arglist.startEvent){std::cout << "Ending event #" << arglist.endEvent << std::endl;}
 			if(arglist.endEvent <  arglist.startEvent){std::cout << "Ending event = last WCSim event" << std::endl;}
             break;
@@ -151,8 +151,7 @@ int main(int argc, char **argv)
 	TTree *fGeoTree     = new TTree("wcsimGeoT", "Geometry TTree");
 	TTree *fPrimaryTree = new TTree("Reduced", "Reduced TTree");
 	fGeoTree->Branch("wcsimrootgeom", fLeafGeometry);
-	FitterOutput leaf_output;
-	SetCustomBranch(fPrimaryTree, leaf_output);
+	SetCustomBranch(fPrimaryTree);
 	fGeoTree->Fill();
 
 	// Get PMT Number:
@@ -353,9 +352,9 @@ int main(int argc, char **argv)
 		// To be replaced by meaningful TriggerTime
 		TimeDelta fDummyTrigger(0.);
 
-		leaf_output = LEAF::GetME()->MakeSequentialFit(HKManager::GetME()->GetHitCollection(), fDummyTrigger);
+		fOutputFitter = LEAF::GetME()->MakeSequentialFit(HKManager::GetME()->GetHitCollection(), fDummyTrigger);
 		// the fit method can be replaced by a joint fit (doesn't work better for now)
-		// leaf_output = LEAF::GetME()->MakeJointFit(HKManager::GetME()->GetHitCollection(), fDummyTrigger);
+		// fOutputFitter = LEAF::GetME()->MakeJointFit(HKManager::GetME()->GetHitCollection(), fDummyTrigger);
 		fOutputProps = LEAF::fOutputProps;
 		
 		timerLF.Stop();
@@ -377,15 +376,15 @@ int main(int argc, char **argv)
     			    << "  //  direction: (" << trueDir[0] 
 						            << ", " << trueDir[1]
 						            << ", " << trueDir[2] 
-					    << "  //  energy: " << true_energy << std::endl;
-			std::cout << "  LEAF vertex: (" << fOutput.Vtx[0] 
-			                        << ", " << fOutput.Vtx[1] 
-									<< ", " << fOutput.Vtx[2] 
-									<< ", " << fOutput.Vtx[3] << ")  [cm/cm/cm/ns]" <
-    			    << "  //  direction: (" << fOutput.Dir[0] 
-						            << ", " << fOutput.Dir[1]
-						            << ", " << fOutput.Dir[2] 
-					    << "  //  energy: " << fOutput.Energy << std::endl;
+					    << "  //  energy: " << trueEnergy << std::endl;
+			std::cout << "  LEAF vertex: (" << fOutputFitter.Vtx[0] 
+			                        << ", " << fOutputFitter.Vtx[1] 
+									<< ", " << fOutputFitter.Vtx[2] 
+									<< ", " << fOutputFitter.Vtx[3] << ")  [cm/cm/cm/ns]" 
+    			    << "  //  direction: (" << fOutputFitter.Dir[0] 
+						            << ", " << fOutputFitter.Dir[1]
+						            << ", " << fOutputFitter.Dir[2] 
+					    << "  //  energy: " << fOutputFitter.Energy << std::endl;
 		}
 
 		/****************************************************************************************/
@@ -410,7 +409,7 @@ int main(int argc, char **argv)
 
 
 //* All the variables that will be kept in the output Tree
-void SetCustomBranch(TTree *fPrimaryTree, FitterOutput leaf_output)
+void SetCustomBranch(TTree *fPrimaryTree)
 {
 	fPrimaryTree->Branch("eventId", &eventId, "eventId/I");
 	fPrimaryTree->Branch("nTrigger", &nTrigger, "nTrigger/I");
@@ -438,14 +437,14 @@ void SetCustomBranch(TTree *fPrimaryTree, FitterOutput leaf_output)
 	fPrimaryTree->Branch("mPMT_hits_400", &Hit_mPMT_400, "Hit_mPMT_400/I");
 
 	fPrimaryTree->Branch("lf_vertex", &leaf_Vertex);
-	fPrimaryTree->Branch("lf_NLL", &leaf_output.NLL, "lf_NLL/D");
-	fPrimaryTree->Branch("lf_good", &leaf_output.NLLR, "lf_good/D");
+	fPrimaryTree->Branch("lf_NLL", &fOutputFitter.NLL, "lf_NLL/D");
+	fPrimaryTree->Branch("lf_good", &fOutputFitter.NLLR, "lf_good/D");
 	fPrimaryTree->Branch("lf_ctime", &fLFTime, "lf_ctime/D"); // Computation time
-	fPrimaryTree->Branch("lf_energy", &leaf_output.Energy, "lf_energy/D");
+	fPrimaryTree->Branch("lf_energy", &fOutputFitter.Energy, "lf_energy/D");
 	fPrimaryTree->Branch("lf_Dir", &leaf_Dir);
 	fPrimaryTree->Branch("lf_MyDir", &leaf_MyDir);
 	fPrimaryTree->Branch("lf_Quick_Dir", &leaf_QuickDir);
-	fPrimaryTree->Branch("lf_Dir_NLL", &leaf_output.DNLL, "lf_Dir_NLL/D");
+	fPrimaryTree->Branch("lf_Dir_NLL", &fOutputFitter.DNLL, "lf_Dir_NLL/D");
 	fPrimaryTree->Branch("lf_ComputeTime", &fOutputProps.Leaf_ComputeTime, "Leaf_ComputeTime/D");
 	fPrimaryTree->Branch("lf_Vtx_Search_ComputeTime", &fOutputProps.Vtx_Search_ComputeTime, "Vtx_Search_ComputeTime/D");
 	fPrimaryTree->Branch("lf_Vtx_Minimize_ComputeTime", &fOutputProps.Vtx_Minimize_ComputeTime, "Vtx_Minimize_ComputeTime/D");
@@ -455,7 +454,7 @@ void SetCustomBranch(TTree *fPrimaryTree, FitterOutput leaf_output)
 	fPrimaryTree->Branch("lf_Energy_Fit_ComputeTime", &fOutputProps.Energy_Fit_ComputeTime, "Energy_Fit_ComputeTime/D");
 
 	fPrimaryTree->Branch("rawTriggerTime", &rawTriggerTime, "rawTriggerTime/D");
-	fPrimaryTree->Branch("TotalCharge", &leaf_output.TotalCharge, "TotalCharge/D");
+	fPrimaryTree->Branch("TotalCharge", &fOutputFitter.TotalCharge, "TotalCharge/D");
 	
 	fPrimaryTree->Branch("DigiHitT", &digithit_T);
 	fPrimaryTree->Branch("CorrectedDigiHitT", &correctedDigithit_T);
@@ -552,7 +551,8 @@ bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType)
 					for(int j=0; j<3; j++) trueDir[j] = wcTrack->GetPdir(j);  
 					Normalize(trueDir);
 				}
-
+				
+				trueEnergy = wcTrack->GetE();
 				true_particleId.push_back(wcTrack->GetIpnu());
 				true_energy.push_back(wcTrack->GetE());
 				true_origin_T.push_back(fRootTrigger->GetVtx(3));
