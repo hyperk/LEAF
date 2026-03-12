@@ -1,7 +1,7 @@
 #include <cmath>
 #include "TimeDelta.h"
 
-#ifdef ROOT5
+#ifndef HK_USE_ROOT7
 const double TimeDelta::s_long_time_unit = 1.;
 #endif
 
