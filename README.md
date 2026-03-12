@@ -51,11 +51,9 @@ $ ln -s /path/to/your/WCSim/lib/libWCSimRoot.so.1.12.xx libWCSimRoot.so.1.12.xx
 $ cd /path/to/the/cloned/repository/LEAF
 $ source ./RunAtStart.sh
 ```
-3. Run the script ./SetupDataModel.sh to define the DataModel (if you have hk-AstroAnalysis, you should setup the global variable)
-4. Enter the leaf/ repository and `make clean; make`
-5. Enter the example/ repository and `make clean; make`
-6. One example of how to run the code is set in example: test_example.sh
-
+3. Enter the leaf/ repository and `make clean; make`
+4. Enter the example/ repository and `make clean; make`
+5. One example of how to run the code is set in example: test_example.sh
 
 # TUNING FILES
 

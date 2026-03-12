@@ -10,14 +10,14 @@ CXXFLAGS += $(shell root-config --cflags)
 CXXFLAGS += '-fPIC' -std=c++11 -Wall -Wpedantic -Wno-long-long
 
 INCFLAGS = -I. -I$(shell root-config --incdir)
-INCFLAGS += -I$(WCSIM_BUILD_DIR)/include/WCSim
+INCFLAGS += -I$(LEAFDIR)/libWCSIM/include
 # INCFLAGS += -I$(WCSIMDIR)/include
 # INCFLAGS += -I$(BONSAIDIR)/bonsai
 INCFLAGS += -I$(LEAFDIR)/leaf
-INCFLAGS += -I$(LEAFDIR)/leaf/DataModel
+INCFLAGS += -I$(LEAFDIR)/leaf/DataModel-lite
 
 # LIBS += -L${WCSIMDIR} -lWCSimRoot 
-LIBS += -L${WCSIM_BUILD_DIR}/lib -lWCSimRoot
+LIBS += -L$(LEAFDIR)/libWCSIM -lWCSimRoot
 LIBS += $(shell root-config --libs) -lMinuit 
 # LIBS_BONSAI += -L${BONSAIDIR} -lWCSimBonsai
 LIBS_LEAF += -L${LEAFDIR}/lib -lDataModelLite -lHKManager -lLEAF #-lHKAstroAnalysis 
@@ -39,14 +39,9 @@ analysis: analysis.o
 	@echo '<< compiling' $< '>>'
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $< 
 
-%.o: %.cc %.hh
+%.o: %.cpp %.hpp
 	@echo '<< compiling' $< '>>'
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
-
-%.o: %.cpp
-	@echo '<< compiling' $< '>>'
-	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
-	
 
 %.o: %.C %.h
 	@echo '<< compiling' $< '>>'

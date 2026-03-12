@@ -3,8 +3,8 @@ OSNAME          = $(shell uname -s)
 HOST            = $(shell uname -n)
 OSNAMEMODE      = $(OSNAME)
 
-SOURCES 	= LEAF.cc
-HEADERS 	= LEAF.hh
+SOURCES 	= LEAF.cpp
+HEADERS 	= LEAF.hpp
 
 include ../Makefile/Makefile.${OSNAME}
 
@@ -14,23 +14,20 @@ include ../Makefile/Makefile.${OSNAME}
 CXXFLAGS_BASE += $(shell root-config --cflags)
 CXXFLAGS_BASE += '-fPIC' -Wall -Wpedantic -Wno-long-long -DDATAMODEL_LITE
 
-CXXFLAGS = $(CXXFLAGS_BASE)
+CXXFLAGS = $(CXXFLAGS_BASE) -std=c++17
 
 
 ROOT_VERSION = $(shell root-config --version | cut -d'.' -f1,2)
 ifeq ($(shell echo "$(ROOT_VERSION) >= 6.0" | bc -l), 1)
-MAKE_LEAF_WITH_ROOT6 = 1
-CXXFLAGS += -std=c++17 -DROOT6 # modifies to c++17 (Nicolas)
-#CXXFLAGS_ROOT += -std=c++11 -DROOT6
-else
-CXXFLAGS += -std=c++17 -DROOT5
+	HK_USE_ROOT7 = 1
+	CXXFLAGS += -DHK_USE_ROOT7
 endif
 
 INCFLAGS = -I. -I$(shell root-config --incdir)
-INCFLAGS += -I$(WCSIM_BUILD_DIR)/include/WCSim
-INCFLAGS += -I./DataModel
+INCFLAGS += -I../libWCSIM/include
+INCFLAGS += -I./DataModel-lite
 
-LIBS += -L${WCSIM_BUILD_DIR}/lib -lWCSimRoot
+LIBS += -L../libWCSIM -lWCSimRoot
 LIBS += $(shell root-config --libs) -lMinuit 
 
 LIB_DATAMODEL = ../lib/libDataModelLite.so
@@ -50,10 +47,10 @@ DATAMODEL_OBJECTS = $(DATAMODEL_SRC_NOP:%.cpp=%.o) #DataModelRootDict.o
 all: .depend ROOT_CHECK $(LIBS_OBJECTS)
 
 ROOT_CHECK:
-ifeq ($(MAKE_LEAF_WITH_ROOT6),1)
-	@echo '<< compile with ROOT6 >>'
+ifeq ($(HK_USE_ROOT7),1)
+	@echo '<< compile with ROOT7 >>'
 else
-	@echo '<< compile with ROOT5 >>'
+	@echo '<< compile with old ROOT >>'
 	@echo $(DATAMODEL_SOURCES)
 	
 endif
@@ -102,10 +99,9 @@ $(LIB_DATAMODEL): $(DATAMODEL_OBJECTS)
 	@echo '<< compiling' $< '>>'
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
 
-%.o: %.cpp
+%.o: %.cpp %.hpp
 	@echo '<< compiling' $< '>>'
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
-	
 
 %.o: %.C %.h
 	@echo '<< compiling' $< '>>'
