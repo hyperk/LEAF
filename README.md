@@ -69,24 +69,17 @@ $ make AnalyzeWSHierarchy
 $ make ProducePDF
 ```
 
-2. Produce plots using AnalyzeWSHierarchy which reads out WCSim output. Optionally, you can index a range of events to read with -s (start index) and -e (end index).
+2. Produce plots using AnalyzeWSHierarchy which reads out WCSim output. Optionally, you can index a range of events to read with -s (start index) and -e (end index). Use option -h if when using a hybrid HK geometry presenting both PMTs and mPMTs.
 ```
-$ ./AnalyzeWSHierarchy  -i wcrim.root  -o plots.root  -s 0  -e 1000  -v
+$ ./AnalyzeWSHierarchy  -i wcsim.root  -o plots.root  -s 0  -e 1000  -h
 ```
 
 3. Produce time PDF and angular PDF using ProducePDF: uses plots made using AnalyzeWSHierarchy and generate PDFs for LEAF.
 ```
-$ ./ProducePDF -i plots.root -o PDF.root
+$ ./ProducePDF  -i wcsim.root  -o PDF.root  -s 0  -e 1000  -v
+
 ```
 
-<<<<<<< HEAD
-PathesREADME.md to PDF files required as inputs for LEAF are hard-coded inside leaf/LeafSplines.cc, inside the LoadSplines() methods.
-Make sure these pathes are consistant with the files you generate on your own.
-
-
-
-=======
 Pathes to PDF files required as inputs for LEAF are hard-coded inside leaf/LeafSplines.cc, inside the LoadSplines() methods.
 Make sure these pathes are consistant with the files you generate on your own.
 
->>>>>>> 6c738c91a8be639f138e7765a9fe559a05cd35c3
