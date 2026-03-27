@@ -7,29 +7,11 @@
 
 #include "analysis.hpp"
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///* Some Utility Functions
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-double GetResidualTime(const std::vector<double>& origin, double originTime, WCSimRootCherenkovDigiHit *wcDigitHit, TimeDelta fTimeCorrection, double fLfTriggerTime)
-{
-	float fCVacuum = 29.9792458; // speed of light, in centimeter per ns.
-	float fNIndex = 1.373;			  // 1.385;//1.373;//refraction index of water
-	double fLightSpeed = fCVacuum / fNIndex;
-	double HitT = wcDigitHit->GetT() + fLfTriggerTime;
-	WCSimRootPMT pmt = fLeafGeometry->GetPMT(wcDigitHit->GetTubeId() - 1, false);
-	double PMTpos[3];
-	for (int j = 0; j < 3; j++) PMTpos[j] = pmt.GetPosition(j);
-	double distance = Astro_GetDistance(PMTpos, origin);
-	double tof = distance / fLightSpeed;
-	double hitTime = (fTimeCorrection + HitT) / TimeDelta::ns;
-	return hitTime - tof - originTime;
-}
-
-arguments FetchInput(int argc, char** argv)
-{
+arguments FetchInput(int argc, char** argv) {
     int c = -1;
     arguments arglist;
 
@@ -98,8 +80,7 @@ arguments FetchInput(int argc, char** argv)
 /* MAIN EXECUTION */
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
 	//Get arguments
     arguments arglist = FetchInput(argc, argv);
     std::string sInputFile  = arglist.inputFile;
@@ -168,29 +149,32 @@ int main(int argc, char **argv)
 	HKManager::GetME()->SetGeometry(fLeafGeometry, dDarkNoise * 1e3, dDarkNoiseHybrid * 1e3);
 
 	// Initialize LEAF
-	LEAF::GetME()->Initialize(HKManager::GetME()->GetGeometry()); // Loads the geometry in leaf and loads the pdfs
+	LEAF::GetME()->Initialize(	HKManager::GetME()->GetGeometry(),
+								HKManager::GetME()->GetDarkNoise(),
+								HKManager::GetME()->GetGeometryPMT_ID(),
+								HKManager::GetME()->GetGeometryPMT_mPMT()); // Loads the geometry in leaf and loads the pdfs
 
 	//* for each config variable, check if it has been set, take the default variable if not
 	const char* envValue = std::getenv("maxHitsAngle");
-	if (envValue != nullptr) 
-	{
+	if (envValue != nullptr) {
 		maxHitAngle = std::stof(envValue);
 		std::cout << "max hit angle : " << maxHitAngle << "°" << std::endl;
-	} else std::cout << "Environment variable max hit angle is not set. Using default value : " << maxHitAngle << std::endl;
+	} 
+	else std::cout << "Environment variable max hit angle is not set. Using default value : " << maxHitAngle << std::endl;
 
 	envValue = std::getenv("N_Neighbors");
-	if (envValue != nullptr) 
-	{
+	if (envValue != nullptr) {
 		N_Neighbors = std::stof(envValue);
 		std::cout << "N_Neighbors : " << N_Neighbors << std::endl;
-	} else std::cout << "Environment variable N_Neighbors is not set. Using default value : " << N_Neighbors << std::endl;
+	} 
+	else std::cout << "Environment variable N_Neighbors is not set. Using default value : " << N_Neighbors << std::endl;
 
 	envValue = std::getenv("maxDistanceToNeighbors");
-	if (envValue != nullptr) 
-	{
+	if (envValue != nullptr) {
 		maxDistanceToNeighbors = std::stof(envValue);
 		std::cout << "maxDistanceToNeighbors : " << maxDistanceToNeighbors << "cm" << std::endl;
-	} else std::cout << "Environment variable maxDistanceToNeighbors is not set. Using default value : " << maxDistanceToNeighbors << std::endl;
+	} 
+	else std::cout << "Environment variable maxDistanceToNeighbors is not set. Using default value : " << maxDistanceToNeighbors << std::endl;
 
 	// Read Input Tree
 	int iWrite = 0;
@@ -203,16 +187,15 @@ int main(int argc, char **argv)
 	timer.Start();
 
 	// Loop on Primary events
-	for (int i=firstEvents ; i<nPrimaryEvents ; i++)
-	{
+	for (int i=firstEvents ; i<nPrimaryEvents ; i++) {
+		//if ( i > 10 ) break;
 		// Reset Hit vector and clock
 		HKManager::GetME()->ResetHitInfo();
 		// HKManager::GetME()->ResetSecondaryHitInfo();
 		timer.Stop();
 		timer.Reset();
 
-		if(verbose)
-		{
+		if(verbose) {
 			std::cout << "\n===========================================================================================================================================================" << std::endl;
 			std::cout << "Event # = " << i+1 << " / " << nPrimaryEvents << std::endl;
 		}
@@ -227,11 +210,8 @@ int main(int argc, char **argv)
 		rawhit_num_noDN = 0;
 
 		true_particleId.clear();
-		true_energy.clear();
-		true_origin_X.clear();
-		true_origin_Y.clear();
-		true_origin_Z.clear();
-		true_origin_T.clear();
+		true_energies.clear();
+		true_vertexes.clear();
 
 		leaf_Vertex.clear();
 		leaf_Dir.clear();
@@ -267,9 +247,6 @@ int main(int argc, char **argv)
 
 		fLastRawHit = 0;
 
-		trueVertex = std::vector<double>(4);
-		trueDir = std::vector<double>(3);
-
 		bestTrigger = 0;
 		fLfTriggerTime = 0.;
 
@@ -285,10 +262,9 @@ int main(int argc, char **argv)
 
 		// this is where we send all the informations of the event to leaf
 		// we return false if we don't want to process this event based on defined filters
-		bool shouldProcess = AnalyseEvent(fIDevent, ID_EVENT);
+		bool shouldProcess = AnalyseEvent(fIDevent, PMTType::kID);
 
-		if(!shouldProcess)
-		{
+		if(!shouldProcess) {
 			failAmount++;
 			std::cout << "Event # = " << i << " cannot be processed " << std::endl;
 			continue;
@@ -301,7 +277,7 @@ int main(int argc, char **argv)
 		Hit_ID_400 = fHit_400;
 
 		/****************************************************************************************/
-		/* mPMT events										*/
+		/* mPMT events																			*/
 		/****************************************************************************************/
 
 #ifdef mPMT
@@ -311,7 +287,7 @@ int main(int argc, char **argv)
 		fHit_200 = 0;
 		fHit_400 = 0;
 
-		// /*bool bmPMT =*/AnalyseEvent(fHybridevent, mPMT_EVENT);
+		// /*bool bmPMT =*/AnalyseEvent(fHybridevent, PMTType::kmPMT);
 
 		Hit_mPMT = fHit;
 		Hit_mPMT_20 = fHit_20;
@@ -321,7 +297,7 @@ int main(int argc, char **argv)
 #endif
 
 		/****************************************************************************************/
-		/* OD events										*/
+		/* OD events																			*/
 		/****************************************************************************************/
 
 #ifdef OD_ON
@@ -342,49 +318,49 @@ int main(int argc, char **argv)
 #endif
 
 		/****************************************************************************************/
-		/* Benjamin Quilain Fitter									*/
+		/* Benjamin Quilain Fitter																*/
 		/****************************************************************************************/
 
 		TStopwatch timerLF;
 		timerLF.Reset();
 		timerLF.Start();
 
-		// To be replaced by meaningful TriggerTime
-		TimeDelta fDummyTrigger(0.);
+		LEAF::GetME()->LoadHitsCollection(HKManager::GetME()->GetHitCollection_ID(),HKManager::GetME()->GetHitCollection_mPMT());
+		fLeafOutput = LEAF::GetME()->MakeSequentialFit();
+		//std::cout << "(X, Y, Z, T): (" << fLeafOutput.vtx.X() << ", " << fLeafOutput.vtx.Y() << ", " << fLeafOutput.vtx.Z() << ", " << fLeafOutput.vtx.T() << ") NLL: " << fLeafOutput.vtx_nll << std::endl;
+		//std::cout << "(dX, dY, dZ, T): (" << fLeafOutput.dir.X() << ", " << fLeafOutput.dir.Y() << ", " << fLeafOutput.dir.Z() << ") NLL: " << fLeafOutput.dir_nll << std::endl;
 
-		fOutputFitter = LEAF::GetME()->MakeSequentialFit(HKManager::GetME()->GetHitCollection(), fDummyTrigger);
 		// the fit method can be replaced by a joint fit (doesn't work better for now)
-		// fOutputFitter = LEAF::GetME()->MakeJointFit(HKManager::GetME()->GetHitCollection(), fDummyTrigger);
-		fOutputProps = LEAF::fOutputProps;
-		
+		// fLeafOutput = LEAF::GetME()->MakeJointFit(HKManager::GetME()->GetHitCollection(), fDummyTrigger);
+		fLeafPerformances = LEAF::GetME()->GetPerformances();
+
 		timerLF.Stop();
 
 		fLFTime = timerLF.RealTime();
 
-		if (verbose)
-		{
-			std::cout << "  LEAF took: " << timerLF.RealTime() << " sec for " << HKManager::GetME()->GetHitCollection()->Size() << " Hits";
-			std::cout << "  (Vtx Search : "   << fOutputProps.Vtx_Search_ComputeTime 
-			          << " , Vtx Minimize : " << fOutputProps.Vtx_Minimize_ComputeTime 
-					  << ", Dir Search : "    << fOutputProps.Dir_Search_ComputeTime 
-					  << " , Dir Minimize : " << fOutputProps.Dir_Minimize_ComputeTime 
-					  << " , Energy Fit : "   << fOutputProps.Energy_Fit_ComputeTime << ")" << std::endl;
-			std::cout << "  True vertex: (" << trueVertex[0]
-			                        << ", " << trueVertex[1] 
-									<< ", " << trueVertex[2] 
-									<< ", " << trueVertex[3] << ")  [cm/cm/cm/ns] "
-    			    << "  //  direction: (" << trueDir[0] 
-						            << ", " << trueDir[1]
-						            << ", " << trueDir[2] 
-					    << "  //  energy: " << trueEnergy << std::endl;
-			std::cout << "  LEAF vertex: (" << fOutputFitter.Vtx[0] 
-			                        << ", " << fOutputFitter.Vtx[1] 
-									<< ", " << fOutputFitter.Vtx[2] 
-									<< ", " << fOutputFitter.Vtx[3] << ")  [cm/cm/cm/ns]" 
-    			    << "  //  direction: (" << fOutputFitter.Dir[0] 
-						            << ", " << fOutputFitter.Dir[1]
-						            << ", " << fOutputFitter.Dir[2] 
-					    << "  //  energy: " << fOutputFitter.Energy << std::endl;
+		if (verbose) {
+			std::cout << "  LEAF took: " << timerLF.RealTime() << " sec for " << HKManager::GetME()->GetHitCollection_ID()->size() +  HKManager::GetME()->GetHitCollection_mPMT()->size() << " Hits";
+			std::cout << "  (Vtx Search : "   << fLeafPerformances.vtx_search_ct 
+			          << " , Vtx Minimize : " << fLeafPerformances.vtx_minimize_ct 
+					  << ", Dir Search : "    << fLeafPerformances.dir_search_ct 
+					  << " , Dir Minimize : " << fLeafPerformances.dir_minimize_ct 
+					  << " , Energy Fit : "   << fLeafPerformances.energy_fit_ct << ")" << std::endl;
+			std::cout << "  True vertex: (" << true_vertex.X()
+			                        << ", " << true_vertex.Y()
+									<< ", " << true_vertex.Z() 
+									<< ", " << true_vertex.T()<< ")  [cm/cm/cm/ns] "
+    			    << "  //  direction: (" << true_dir.X()
+						            << ", " << true_dir.Y()
+						            << ", " << true_dir.Z() 
+					    << "  //  energy: " << true_energy << std::endl;
+			std::cout << "  LEAF vertex: (" << fLeafOutput.vtx.X() 
+			                        << ", " << fLeafOutput.vtx.Y()
+									<< ", " << fLeafOutput.vtx.Z()
+									<< ", " << fLeafOutput.vtx.T()<< ")  [cm/cm/cm/ns]" 
+    			    << "  //  direction: (" << fLeafOutput.dir.X() 
+						            << ", " << fLeafOutput.dir.Y()
+						            << ", " << fLeafOutput.dir.Z()
+					    << "  //  energy: " << fLeafOutput.energy << std::endl;
 		}
 
 		/****************************************************************************************/
@@ -418,12 +394,9 @@ void SetCustomBranch(TTree *fPrimaryTree)
 	fPrimaryTree->Branch("digithit_num", &digithit_num, "digithit_num/I");
 
 	fPrimaryTree->Branch("true_particleId", &true_particleId);
-	fPrimaryTree->Branch("true_origin_X", &true_origin_X);
-	fPrimaryTree->Branch("true_origin_Y", &true_origin_Y);
-	fPrimaryTree->Branch("true_origin_Z", &true_origin_Z);
-	fPrimaryTree->Branch("true_origin_T", &true_origin_T);
-	fPrimaryTree->Branch("true_energy", &true_energy);
-	fPrimaryTree->Branch("true_dir", &trueDir, "true_dir[3]/D");
+	fPrimaryTree->Branch("true_vertexes", &true_vertexes);
+	fPrimaryTree->Branch("true_energies", &true_energies);
+	fPrimaryTree->Branch("true_dir", &true_dir);
 
 	fPrimaryTree->Branch("ID_hits", &Hit_ID, "Hit_ID/I");
 	fPrimaryTree->Branch("ID_hits_50", &Hit_ID_50, "Hit_ID_50/I");
@@ -436,25 +409,19 @@ void SetCustomBranch(TTree *fPrimaryTree)
 	fPrimaryTree->Branch("mPMT_hits_200", &Hit_mPMT_200, "Hit_mPMT_200/I");
 	fPrimaryTree->Branch("mPMT_hits_400", &Hit_mPMT_400, "Hit_mPMT_400/I");
 
-	fPrimaryTree->Branch("lf_vertex", &leaf_Vertex);
-	fPrimaryTree->Branch("lf_NLL", &fOutputFitter.NLL, "lf_NLL/D");
-	fPrimaryTree->Branch("lf_good", &fOutputFitter.NLLR, "lf_good/D");
-	fPrimaryTree->Branch("lf_ctime", &fLFTime, "lf_ctime/D"); // Computation time
-	fPrimaryTree->Branch("lf_energy", &fOutputFitter.Energy, "lf_energy/D");
-	fPrimaryTree->Branch("lf_Dir", &leaf_Dir);
-	fPrimaryTree->Branch("lf_MyDir", &leaf_MyDir);
-	fPrimaryTree->Branch("lf_Quick_Dir", &leaf_QuickDir);
-	fPrimaryTree->Branch("lf_Dir_NLL", &fOutputFitter.DNLL, "lf_Dir_NLL/D");
-	fPrimaryTree->Branch("lf_ComputeTime", &fOutputProps.Leaf_ComputeTime, "Leaf_ComputeTime/D");
-	fPrimaryTree->Branch("lf_Vtx_Search_ComputeTime", &fOutputProps.Vtx_Search_ComputeTime, "Vtx_Search_ComputeTime/D");
-	fPrimaryTree->Branch("lf_Vtx_Minimize_ComputeTime", &fOutputProps.Vtx_Minimize_ComputeTime, "Vtx_Minimize_ComputeTime/D");
-	fPrimaryTree->Branch("lf_Dir_Quick_Search_ComputeTime", &fOutputProps.Dir_Quick_Search_ComputeTime, "Dir_Quick_Search_ComputeTime/D");
-	fPrimaryTree->Branch("lf_Dir_Search_ComputeTime", &fOutputProps.Dir_Search_ComputeTime, "Dir_Search_ComputeTime/D");
-	fPrimaryTree->Branch("lf_Dir_Minimize_ComputeTime", &fOutputProps.Dir_Minimize_ComputeTime, "Dir_Minimize_ComputeTime/D");
-	fPrimaryTree->Branch("lf_Energy_Fit_ComputeTime", &fOutputProps.Energy_Fit_ComputeTime, "Energy_Fit_ComputeTime/D");
-
+	fPrimaryTree->Branch("lf_vtx", &fLeafOutput.vtx);
+	fPrimaryTree->Branch("lf_vtx_nll", &fLeafOutput.vtx_nll);
+	fPrimaryTree->Branch("lf_dir", &fLeafOutput.dir);
+	fPrimaryTree->Branch("lf_dir_nll", &fLeafOutput.dir_nll);
+	fPrimaryTree->Branch("lf_nll", &fLeafOutput.nll_r);
+	fPrimaryTree->Branch("lf_ct", &fLeafPerformances.leaf_ct);
+	fPrimaryTree->Branch("lf_vtx_search_ct", &fLeafPerformances.vtx_search_ct);
+	fPrimaryTree->Branch("lf_vtx_minization_ct", &fLeafPerformances.vtx_minimize_ct);
+	fPrimaryTree->Branch("lf_dir_search_ct", &fLeafPerformances.dir_search_ct);
+	fPrimaryTree->Branch("lf_dir_minization_ct", &fLeafPerformances.dir_minimize_ct);
+	
 	fPrimaryTree->Branch("rawTriggerTime", &rawTriggerTime, "rawTriggerTime/D");
-	fPrimaryTree->Branch("TotalCharge", &fOutputFitter.TotalCharge, "TotalCharge/D");
+	fPrimaryTree->Branch("TotalCharge", &fLeafOutput.total_charge, "TotalCharge/D");
 	
 	fPrimaryTree->Branch("DigiHitT", &digithit_T);
 	fPrimaryTree->Branch("CorrectedDigiHitT", &correctedDigithit_T);
@@ -465,9 +432,9 @@ void SetCustomBranch(TTree *fPrimaryTree)
 }
 
 
-bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType)
-{
-	int iHybrid = 0;
+bool AnalyseEvent(WCSimRootEvent *tEvent, PMTType pmtType) {
+	const int iPMTType = static_cast<int>(pmtType);
+
 	int nVertex = 0;				 // Number of Vertex in event
 	int nTrack = 0;					 // Number of Track in event
 	int nRawCherenkovHits = 0;		 // Number of Raw Cherenkov hits
@@ -478,19 +445,14 @@ bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType)
 	rawTriggerTime = 0.;
 	WCSimRootTrigger *fRootTrigger;
 
-	TimeDelta fDummyTrigger(0.);
-	TimeDelta fTimeCorrection = HKManager::GetME()->GetHitCollection()->timestamp - fDummyTrigger; //*still have no idea what this is
-
 	//* find best trigger (best number of hits)
 	int bestNumbOfHits = 0;
 	bestTrigger = -1;
-	for (int iTrig = 0; iTrig < nTrigger; iTrig++)
-	{
+	for (int iTrig = 0; iTrig < nTrigger; iTrig++) {
 		fRootTrigger = tEvent->GetTrigger(iTrig);
 		nDigitizedCherenkovHits = fRootTrigger->GetNcherenkovdigihits();
 
-		if(nDigitizedCherenkovHits > bestNumbOfHits && fRootTrigger->GetTriggerInfo().size() >= 3)
-		{
+		if(nDigitizedCherenkovHits > bestNumbOfHits && fRootTrigger->GetTriggerInfo().size() >= 3) {
 			bestNumbOfHits = nDigitizedCherenkovHits;
 			bestTrigger = iTrig;
 		}
@@ -502,8 +464,7 @@ bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType)
 
 	//* Retreive true infos (onlyh set by wcsim in the first trigger)
 
-	for (int iTrig = 0; iTrig < tEvent->GetNumberOfEvents(); iTrig++)
-	{
+	for (int iTrig = 0; iTrig < tEvent->GetNumberOfEvents(); iTrig++) {
 		fRootTrigger = tEvent->GetTrigger(iTrig);
 
 #ifdef OLD_WCSIM
@@ -518,26 +479,18 @@ bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType)
 		nDigitizedCherenkovHits = fRootTrigger->GetNcherenkovdigihits();
 
 		//* Fist trigger is the one used to compute true Vertex & Dir
-		if (iTrig == 0)
-		{
+		if (iTrig == 0) {
 			// Loop on vertex
-			for (int iVertex = 0; iVertex < nVertex; iVertex++)
-			{
-
+			for (int iVertex = 0; iVertex < nVertex; iVertex++) {
 #ifdef OLD_WCSIM
-				for(int j=0; j<3; j++) trueVertex[j]=fRootTrigger->GetVtx(j);
-				true_origin_X.push_back(fRootTrigger->GetVtx(0));
-				true_origin_Y.push_back(fRootTrigger->GetVtx(1));
-				true_origin_Z.push_back(fRootTrigger->GetVtx(2));
+				true_vertex = ROOT::Math::XYZTVector(fRootTrigger->GetVtx(0),fRootTrigger->GetVtx(1),fRootTrigger->GetVtx(2),fRootTrigger->GetVtx(3));
+				true_vertexes.push_back(true_vertex);
 #else
-				for(int j=0; j<3; j++) trueVertex[j]=fRootTrigger->GetVtxs(iVertex,j);
-				true_origin_X.push_back(fRootTrigger->GetVtxs(iVertex, 0));
-				true_origin_Y.push_back(fRootTrigger->GetVtxs(iVertex, 1));
-				true_origin_Z.push_back(fRootTrigger->GetVtxs(iVertex, 2));
+				true_vertex = ROOT::Math::XYZTVector(fRootTrigger->GetVtxs(iVertex,0),fRootTrigger->GetVtxs(iVertex,1),fRootTrigger->GetVtxs(iVertex,2),fRootTrigger->GetVtxs(iVertex,3));
+				true_vertexes.push_back(true_vertex);
 #endif
 
-				if (iVertex * 2 > nTrack)
-				{
+				if (iVertex * 2 > nTrack) {
 					std::cout << "ERROR: Vertex and Track number incompatible (nVertex: " << nVertex << " ; nTrack " << nTrack << ") " << std::endl;
 					continue;
 				}
@@ -546,25 +499,19 @@ bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType)
 				TObject *Track = (fRootTrigger->GetTracks())->At(iVertex * 2);
 				WCSimRootTrack *wcTrack = dynamic_cast<WCSimRootTrack *>(Track);
 
-				if (wcTrack->GetParentId() == 0 && wcTrack->GetIpnu()==11) 
-				{
-					for(int j=0; j<3; j++) trueDir[j] = wcTrack->GetPdir(j);  
-					Normalize(trueDir);
+				if (wcTrack->GetParentId() == 0 && wcTrack->GetIpnu()==11) {
+					true_dir = ROOT::Math::XYZVector(wcTrack->GetPdir(0),wcTrack->GetPdir(1),wcTrack->GetPdir(2)).Unit();
 				}
 				
-				trueEnergy = wcTrack->GetE();
+				true_energy = wcTrack->GetE();
 				true_particleId.push_back(wcTrack->GetIpnu());
-				true_energy.push_back(wcTrack->GetE());
-				true_origin_T.push_back(fRootTrigger->GetVtx(3));
+				true_energies.push_back(wcTrack->GetE());
 			}
 
 			// Send True Position to LEAF to make checks of success in the steps of leaf (should be removed for true data)
-			std::vector<double> vVtxTrue(3, 0.);
-			vVtxTrue[0] = true_origin_X[0];
-			vVtxTrue[1] = true_origin_Y[0];
-			vVtxTrue[2] = true_origin_Z[0];
-			SetTrueVertexInfo(vVtxTrue, true_origin_T[0]);
-			SetTrueDirInfo(trueDir);
+
+			LEAF::GetME()->SetTrueVertexInfo(true_vertexes[0]);
+			LEAF::GetME()->SetTrueDirInfo(true_dir);
 
 			rawhit_num = nRawCherenkovHits;
 		}
@@ -576,12 +523,10 @@ bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType)
 		rawTriggerTime = triggerInfo[2];
 
 		startingCherenkovHitID = digithit_pmtId.size();
-		std::vector<double> times;
 
 		// Loop on Digitized Hits
 		double AllQ = 0;
-		for (int iDigitHit = 0; iDigitHit < nDigitizedCherenkovHits; iDigitHit++)
-		{
+		for (int iDigitHit = 0; iDigitHit < nDigitizedCherenkovHits; iDigitHit++) {
 			//* Get Hit Informations
 			TObject *Hit = (fRootTrigger->GetCherenkovDigiHits())->At(iDigitHit);
 			WCSimRootCherenkovDigiHit *wcDigitHit = dynamic_cast<WCSimRootCherenkovDigiHit *>(Hit);
@@ -599,7 +544,7 @@ bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType)
 			correctedDigithit_T.push_back(HitT - fLfTriggerTime - triggerInfo[1]);
 			digithit_Q.push_back(HitQ);
 			Charge_PMT.push_back(peForTube);
-			digithit_Type.push_back(iEventType);
+			digithit_Type.push_back(iPMTType);
 		}
 
 
@@ -607,29 +552,37 @@ bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType)
 
 		nDigitizedCherenkovHits = digithit_pmtId.size();
 		digithit_num = nDigitizedCherenkovHits - startingCherenkovHitID;
+		std::vector<double> times;
 
 		// Feed fitter
-		for (int iDigitHit = startingCherenkovHitID; iDigitHit < nDigitizedCherenkovHits; iDigitHit++)
-		{
-			times.push_back(digithit_T[iDigitHit]);
+		if (pmtType == PMTType::kID) {
+			for (int iDigitHit = startingCherenkovHitID; iDigitHit < nDigitizedCherenkovHits; iDigitHit++) {
+				if (digithit_pmtId[iDigitHit] <= 0) std::cout << " Weird PMT ID " << digithit_pmtId[iDigitHit] << std::endl;
+				
+				times.push_back(digithit_T[iDigitHit]);
+				HKManager::GetME()->AddHit_ID(digithit_T[iDigitHit], digithit_Q[iDigitHit], digithit_pmtId[iDigitHit]);
 
-			if (digithit_pmtId[iDigitHit] <= 0) std::cout << " Weird PMT ID " << digithit_pmtId[iDigitHit] << std::endl;
-			HKManager::GetME()->AddHit(digithit_T[iDigitHit], digithit_Q[iDigitHit], iHybrid, digithit_pmtId[iDigitHit]);
+				// Bonsai (do not store mPMT hits)
+				if (iIdx_BS < 2000 && digithit_T[iDigitHit] < 4000. && digithit_T[iDigitHit] > -4000.) {
+					// std::cout << pmtId << " " << HitT << std::endl;
+					bsCAB[iIdx_BS] = digithit_pmtId[iDigitHit];
+					bsT[iIdx_BS] = digithit_T[iDigitHit]; // shift BS time is needed if interaction time is < 0, this needs to be considered
+					bsQ[iIdx_BS] = digithit_Q[iDigitHit];
 
-			// Bonsai (do not store mPMT hits)
-			if (iIdx_BS < 2000 && digithit_T[iDigitHit] < 4000. && digithit_T[iDigitHit] > -4000. && iHybrid == 0)
-			{
-				// std::cout << pmtId << " " << HitT << std::endl;
-				bsCAB[iIdx_BS] = digithit_pmtId[iDigitHit];
-				bsT[iIdx_BS] = digithit_T[iDigitHit]; // shift BS time is needed if interaction time is < 0, this needs to be considered
-				bsQ[iIdx_BS] = digithit_Q[iDigitHit];
-
-				iIdx_BS += 1;
+					iIdx_BS += 1;
+					bsnhit[0] = iIdx_BS;
+				}
 			}
 		}
+		else {
+			for (int iDigitHit = startingCherenkovHitID; iDigitHit < nDigitizedCherenkovHits; iDigitHit++) {
+				if (digithit_pmtId[iDigitHit] <= 0) std::cout << " Weird PMT ID " << digithit_pmtId[iDigitHit] << std::endl;
+				times.push_back(digithit_T[iDigitHit]);
+				HKManager::GetME()->AddHit_mPMT(digithit_T[iDigitHit], digithit_Q[iDigitHit], digithit_pmtId[iDigitHit]);
+			}
 
-		// Bonsai
-		bsnhit[0] = iIdx_BS;
+		}
+
 		fHit = digithit_pmtId.size();
 
 		// Compute hits
@@ -639,8 +592,7 @@ bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType)
 		std::vector<double> Hit_time_400;
 
 		std::sort(times.begin(), times.end());
-		for (int iDigitHit = 0; iDigitHit < nDigitizedCherenkovHits; iDigitHit++)
-		{
+		for (int iDigitHit = 0; iDigitHit < nDigitizedCherenkovHits; iDigitHit++) {
 			double HitT = times[iDigitHit];
 
 			Hit_time_20.push_back(HitT);
@@ -666,5 +618,6 @@ bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType)
 			if ((unsigned int)fHit_400 < Hit_time_400.size()) fHit_400 = Hit_time_400.size();
 		}
 	}
+
 	return true;
 }

@@ -25,16 +25,16 @@
 #include "WCSimEnumerations.hh"
 
 #include "LEAF.hpp"	
-#include "LeafDefinitions.hpp"
+#include "LEAFUtilities.hpp"	
 #include "HKManager.hpp"	
 
 #define OLD_WCSIM // To be used if WCSim version is older than 1.8 (i.e. without multi vertex)
 // #define mPMT // To be used if you are using mPMT
 
-#define ID_EVENT 1
-#define OD_EVENT 2
-// #define mPMT_EVENT	0
-#define UNDEFINED_EVENT 0
+#define ID_EVENT PMTType::kID
+#define OD_EVENT PMTType::kOD
+#define mPMT_EVENT PMTType::kmPMT
+#define UNDEFINED_EVENT PMTType::kUndefined
 
 //-----------------------------------------------------------------------------------------//
 
@@ -48,15 +48,13 @@ int usedTriggerId; // trigger Id used for the fit
 double fLfTriggerTime;
 int bestTrigger;
 double rawTriggerTime;
+
 std::vector<int> true_particleId;  // True particle Id (PDGId)
-std::vector<double> true_energy;   // True energy (MeV)
-std::vector<double> true_origin_X; // True origin vertex (cm)
-std::vector<double> true_origin_Y; // True origin vertex (cm)
-std::vector<double> true_origin_Z; // True origin vertex (cm)
-std::vector<double> true_origin_T; // True origin vertex (ns)
-std::vector<double> trueDir;
-std::vector<double> trueVertex;
-double trueEnergy;
+std::vector<double> true_energies;   // True energy (MeV)
+std::vector<ROOT::Math::XYZTVector> true_vertexes; // True origin vertex (cm)
+ROOT::Math::XYZVector true_dir;
+ROOT::Math::XYZTVector true_vertex;
+double true_energy;
 
 double dWall =0;
 double toWall =0;
@@ -112,8 +110,8 @@ std::vector<int> Charge_PMT;
 std::vector<double> hit_residual; // List of residual times
 
 //* Computation Times
-FitterOutputProps fOutputProps;
-FitterOutput fOutputFitter;
+LEAFStructures::FitterPerformances fLeafPerformances;
+LEAFStructures::FitterOutput fLeafOutput;
 double fLFTime;
 
 //* Other hits infos
@@ -185,10 +183,7 @@ struct FitterAnalysis
 //-----------------------------------------------------------------------------------------//
 
 void SetCustomBranch(TTree *fPrimaryTree);
-void SetCustomBranchInput(TTree *fPrimaryTree);
-void SetGeoBranch(TTree *fGeoTree);
-bool AnalyseEvent(WCSimRootEvent *tEvent, int iEventType);
-bool PostLeafAnalysis(WCSimRootEvent * tEvent, int iEventType, FitterOutput leaf_output);
+bool AnalyseEvent(WCSimRootEvent *tEvent, PMTType pmtType);
 arguments FetchInput(int argc, char* argv[]);
 
 

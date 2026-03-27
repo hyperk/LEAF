@@ -9,14 +9,34 @@
 
 HKManager* HKManager::myManager=NULL;
 
+#include "HKGeometryV1.hpp"
+#include "HKGeometryPMTV1.hpp"
+#include "HKDarkNoiseV1.hpp"
+#include "HKHitV1.hpp"
 
 /************************************************************************************************************************/
 WCSimReader::WCSimReader() {
-	fGeometry = new Geometry();
+#ifndef HK_USE_ROOT7
+	fGeometry = std::make_unique<HKGeometryV1>();
+	fDarkNoise = std::make_unique<HKDarkNoiseV1>();
+	fGeometryPMT_ID = std::make_unique<HKGeometryPMTCollectionT<HKGeometryPMTV1>>();
+	fGeometryPMT_mPMT = std::make_unique<HKGeometryPMTCollectionT<HKGeometryPMTV1>>();
+
+	fHitCollection_ID = std::make_unique<HKHitsCollectionT<HKHitV1>>();
+	fHitCollection_mPMT = std::make_unique<HKHitsCollectionT<HKHitV1>>();
+#else
+	fGeometry = std::static_pointer_cast<HKGeometry>(std::make_shared<HKGeometryV1>());
+	fDarkNoise = std::static_pointer_cast<HKDarkNoise>(std::make_shared<HKDarkNoiseV1>());
+
+	fGeometryPMT_ID = std::static_pointer_cast<HKGeometryPMTCollection>(std::make_shared<HKGeometryPMTCollectionT<HKGeometryPMTV1>>());
+	fGeometryPMT_mPMT = std::static_pointer_cast<HKGeometryPMTCollection>(std::make_shared<HKGeometryPMTCollectionT<HKGeometryPMTV1>>());
+	
+	fHitCollection_ID = std::static_pointer_cast<HKHitsCollection>(std::make_shared<HKHitsCollectionT<HKHitV1>>());
+	fHitCollection_mPMT = std::static_pointer_cast<HKHitsCollection>(std::make_shared<HKHitsCollectionT<HKHitV1>>());
+#endif
 }
 
 WCSimReader::~WCSimReader() {
-	delete fGeometry;
 }
 /************************************************************************************************************************/
 
@@ -49,42 +69,32 @@ void WCSimReader::SetGeometry( WCSimRootGeom * wGeo, double dDarkRate_Normal, do
 
 	// Keep RootGeometry event:
 	fWCGeo = wGeo;
-	
-	// Fill Geometry class
-	fGeometry = new Geometry();
-	
-	fGeometry->detector_radius = fWCGeo->GetWCCylRadius();
-	fGeometry->detector_length = fWCGeo->GetWCCylLength();
-	
-	fDarkRate_Normal = dDarkRate_Normal;
-	fDarkRate_mPMT   = dDarkRate_mPMT;
-	
-	if ( fDarkRate_Normal == 0 ) {
+		
+	fGeometry->SetInnerTyvekRadius(fWCGeo->GetWCCylRadius());
+	fGeometry->SetInnerTyvekTotalHeight(fWCGeo->GetWCCylLength());
+		
+	if ( dDarkRate_Normal == 0 ) {
 #ifdef WCSIM_single_PMT_type	
-		fDarkRate_ns[0] = 4200.  * fWCGeo->GetWCNumPMT() * 1e-9;
-		fDarkRate_ns[1] = 0;
+		fDarkNoise->SetAverageTotalDarkNoisePerNS(PMTType::kID, 	4200.  * fWCGeo->GetWCNumPMT() * 1e-9);
+		fDarkNoise->SetAverageTotalDarkNoisePerNS(PMTType::kmPMT, 0.0);
 #else
-		fDarkRate_ns[0] = 8400.  * fWCGeo->GetWCNumPMT(false) * 1e-9;
-		fDarkRate_ns[1] = 100.   * fWCGeo->GetWCNumPMT(true ) * 1e-9 * HKAA::kmPMT_TopID;
+		fDarkNoise->SetAverageTotalDarkNoisePerNS(PMTType::kID, 	8400.  * fWCGeo->GetWCNumPMT(false) * 1e-9);
+		fDarkNoise->SetAverageTotalDarkNoisePerNS(PMTType::kmPMT, 100.   * fWCGeo->GetWCNumPMT(true ) * 1e-9 * 19); // 19 is the number of 3" PMTs per mPMT
 #endif
 	}
 	else {	
 #ifdef WCSIM_single_PMT_type	
-		fDarkRate_ns[0] = fDarkRate_Normal * fWCGeo->GetWCNumPMT() * 1e-9;
-		fDarkRate_ns[1] = 0;
+		fDarkNoise->SetAverageTotalDarkNoisePerNS(PMTType::kID,   dDarkRate_Normal * fWCGeo->GetWCNumPMT() * 1e-9);
+		fDarkNoise->SetAverageTotalDarkNoisePerNS(PMTType::kmPMT, 0.0);
 #else
 
 		int iNbr_Norm = fWCGeo->GetWCNumPMT(false);
 		int iNbr_mPMT = fWCGeo->GetWCNumPMT(true );
 
-		fDarkRate_ns[0] = fDarkRate_Normal * iNbr_Norm * 1e-9;
-		fDarkRate_ns[1] = fDarkRate_mPMT   * iNbr_mPMT * 1e-9 * HKAA::kmPMT_TopID;
+		fDarkNoise->SetAverageTotalDarkNoisePerNS(PMTType::kID,   dDarkRate_Normal * iNbr_Norm * 1e-9);
+		fDarkNoise->SetAverageTotalDarkNoisePerNS(PMTType::kmPMT, dDarkRate_mPMT   * iNbr_mPMT * 1e-9 * 19); // 19 is the number of 3" PMTs per mPMT
 #endif
-	}
-	
-	fGeometry->pmt_dark_rate[HKAA::kIDPMT_BnL]	= fDarkRate_ns[0];
-	fGeometry->pmt_dark_rate[HKAA::kIDPMT_3inch]	= fDarkRate_ns[1];
-	
+	}	
 
 	this->LoadPMTInfo();
 }
@@ -105,9 +115,8 @@ void WCSimReader::LoadPMTInfo() {
 #endif
 
 	// Fill geometry object	
-	fGeometry->pmt_num[HKAA::kIDPMT_BnL]		= iNbr_Norm;
-	fGeometry->pmt_num[HKAA::kIDPMT_3inch]	= iNbr_mPMT;
-
+	fGeometryPMT_ID->resize(iNbr_Norm ? iNbr_Norm+1 : 0);
+	fGeometryPMT_mPMT->resize(iNbr_mPMT? iNbr_mPMT+1 : 0);
 
 	std::cout << " LEAF setting # PMT = " << iNbr_Norm << std::endl;
 	std::cout << " LEAF setting # mPMT = " << iNbr_mPMT << std::endl;
@@ -119,45 +128,46 @@ void WCSimReader::LoadPMTInfo() {
 	*/
 	
 	// Normal PMTs
-	for ( int iPMT=0; iPMT < iNbr_Norm; iPMT++ ) {
-	
+	std::cout << "Filling ID PMTs" << std::endl;
+	for ( int iPMT=0; iPMT < iNbr_Norm; iPMT++ ) {	
 #ifdef WCSIM_single_PMT_type	
 		wPMT = fWCGeo->GetPMT(iPMT);
 #else
 		wPMT = fWCGeo->GetPMT(iPMT,false);
 #endif
 
-		PMTInfo lPMTInfo;
-		
-		lPMTInfo.Id				= wPMT.GetTubeNo();
-		
-		lPMTInfo.Type				= HKAA::kIDPMT_BnL;
-		lPMTInfo.mPMT				= false;
-		
-		for ( int j=0; j < 3; j++ ) {
-			lPMTInfo.Position[j]		= wPMT.GetPosition(j);
-			lPMTInfo.Orientation[j] 	= wPMT.GetOrientation(j);
-		}
+		int tubeNo = wPMT.GetTubeNo();
 		/*
-		if ( lPMTInfo.Position[2] < dMin1 ) {
+		std::cout << iPMT << " " 
+					<< "TubeNo: " << wPMT.GetTubeNo() << " "
+					<< "Pos: (" << wPMT.GetPosition(0) << ", " << wPMT.GetPosition(1) << ", " << wPMT.GetPosition(2) << ") "
+					<< "Dir: (" << wPMT.GetOrientation(0) << ", " << wPMT.GetOrientation(1) << ", " << wPMT.GetOrientation(2) << ") "
+					<< std::endl;
+
+		std::cout << " check " << fGeometryPMT_ID->at(iPMT)->GetPMTSoftwareID() << std::endl;
+		*/
+		fGeometryPMT_ID->at(tubeNo)->SetPMTSoftwareID(wPMT.GetTubeNo());
+		fGeometryPMT_ID->at(tubeNo)->SetType(PMTType::kID);
+		fGeometryPMT_ID->at(tubeNo)->SetPositionInCm(wPMT.GetPosition(0), wPMT.GetPosition(1), wPMT.GetPosition(2));
+		fGeometryPMT_ID->at(tubeNo)->SetOrientation(wPMT.GetOrientation(0), wPMT.GetOrientation(1), wPMT.GetOrientation(2));
+
+		/*
+		if ( wPMT.GetPosition(2) < dMin1 ) {
 			dMin2 = dMin1;
-			dMin1 = lPMTInfo.Position[2];
+			dMin1 = wPMT.GetPosition(2);
 		}
 		
-		if ( lPMTInfo.Position[2] > dMin1 && lPMTInfo.Position[2] < dMin2 ) {
-			dMin2 = lPMTInfo.Position[2];
+		if ( wPMT.GetPosition(2) > dMin1 && wPMT.GetPosition(2) < dMin2 ) {
+			dMin2 = wPMT.GetPosition(2);
 		}
 		*/
-		
-		fGeometry->AddPMTInfo(lPMTInfo);
-	}
-	
+	}	
 	
 	// Compute minimal diagonal distance:
 	// PMT 4 is the closest diag PMT from PMT 0
 	/*
-	PMTInfo lInfoIdxZero = fGeometry->PMTList.at(HKAA::kID)[0];
-	PMTInfo lInfoIdxFour = fGeometry->PMTList.at(HKAA::kID)[4];
+	PMTInfo lInfoIdxZero = fGeometry->PMTList.at(PMTType::kID)[0];
+	PMTInfo lInfoIdxFour = fGeometry->PMTList.at(PMTType::kID)[4];
 	fPMTDiagDistance = std::ceil( sqrt( 	  pow(lInfoIdxZero.Position[0]-lInfoIdxFour.Position[0],2.) 
 						+ pow(lInfoIdxZero.Position[1]-lInfoIdxFour.Position[1],2.) 
 						+ pow(lInfoIdxZero.Position[2]-lInfoIdxFour.Position[2],2.) ) );
@@ -168,39 +178,17 @@ void WCSimReader::LoadPMTInfo() {
 	*/
 	
 #ifndef WCSIM_single_PMT_type	
-	// mPMTs
-	
-	for ( int iPMT=0; iPMT < iNbr_mPMT; iPMT++ ) {
-	
+	// mPMTs	
+	std::cout << "Filling mPMT" << std::endl;
+	for ( int iPMT=0; iPMT < iNbr_mPMT; iPMT++ ) {	
 		wPMT = fWCGeo->GetPMT(iPMT,true);
-		
-		PMTInfo lPMTInfo;
-		
-		lPMTInfo.Id				= wPMT.GetTubeNo();
-		lPMTInfo.Type				= HKAA::kIDPMT_3inch;
-		lPMTInfo.mPMT				= true;
-		
-		for ( int j=0; j < 3; j++ ) {
-			lPMTInfo.Position[j]		= wPMT.GetPosition(j);
-			lPMTInfo.Orientation[j] 	= wPMT.GetOrientation(j);
-		}
-		
-		lPMTInfo.mPMT_TubeNum			= wPMT.GetmPMT_PMTNo();
-		 			
-		if ( lPMTInfo.mPMT_TubeNum < 0 || lPMTInfo.mPMT_TubeNum > 30 ) {
-			if ( iPMT > 0 ) {
-				std::cout << " ERROR mPMT " << iPMT << "("<< lPMTInfo.Id << ") is not defined "
-					<< "(" << lPMTInfo.Position[0] << ", " << lPMTInfo.Position[1] << ", " << lPMTInfo.Position[2] << ") " 
-					<< "(" << lPMTInfo.Orientation[0] << ", " << lPMTInfo.Orientation[1] << ", " << lPMTInfo.Orientation[2] << ") " 
-					<< lPMTInfo.mPMT_TubeNum << std::endl;
-			}
-			lPMTInfo.mPMT_TubeNum = 0;
-			
-		}
-		fGeometry->AddPMTInfo(lPMTInfo);
-	}
-	
-	fGeometry->Setup_mPMTs();
-	
+		int tubeNo = wPMT.GetTubeNo();
+
+		fGeometryPMT_mPMT->at(tubeNo)->SetPMTSoftwareID(wPMT.GetTubeNo());
+		fGeometryPMT_mPMT->at(tubeNo)->SetType(PMTType::kmPMT);
+		fGeometryPMT_mPMT->at(tubeNo)->SetPositionInCm(wPMT.GetPosition(0), wPMT.GetPosition(1), wPMT.GetPosition(2));
+		fGeometryPMT_mPMT->at(tubeNo)->SetOrientation(wPMT.GetOrientation(0), wPMT.GetOrientation(1), wPMT.GetOrientation(2));
+		fGeometryPMT_mPMT->at(tubeNo)->SetSubID(wPMT.GetmPMT_PMTNo());
+	}	
 #endif
 }
