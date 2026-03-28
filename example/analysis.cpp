@@ -413,6 +413,7 @@ void SetCustomBranch(TTree *fPrimaryTree)
 	fPrimaryTree->Branch("lf_vtx_nll", &fLeafOutput.vtx_nll);
 	fPrimaryTree->Branch("lf_dir", &fLeafOutput.dir);
 	fPrimaryTree->Branch("lf_dir_nll", &fLeafOutput.dir_nll);
+	fPrimaryTree->Branch("lf_energy", &fLeafOutput.energy);
 	fPrimaryTree->Branch("lf_nll", &fLeafOutput.nll_r);
 	fPrimaryTree->Branch("lf_ct", &fLeafPerformances.leaf_ct);
 	fPrimaryTree->Branch("lf_vtx_search_ct", &fLeafPerformances.vtx_search_ct);

@@ -25,7 +25,7 @@ LIBS += $(shell root-config --libs) -lMinuit
 # LIBS_BONSAI += -L${BONSAIDIR} -lWCSimBonsai
 LIBS_LEAF += -L${LEAFDIR}/lib -lLEAF -lHKManager -lDataModelLite
 
-OBJECT = analysis
+OBJECT = analysis analysis_fullrec
 
 all: ROOT_CHECK $(OBJECT)
 
@@ -40,9 +40,17 @@ endif
 analysis: analysis.o 
 	@echo '<< compiling bin $@ >>'
 	@$(CXX) -g $(CXXFLAGS) $^ $(LIBS) $(LIBS_LEAF) -o $@
+
+analysis_fullrec: analysis_fullrec.o 
+	@echo '<< compiling bin $@ >>'
+	@$(CXX) -g $(CXXFLAGS) $^ $(LIBS) $(LIBS_LEAF) -o $@
 		
 # default rules
 .cc.o: 
+	@echo '<< compiling' $< '>>'
+	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $< 
+	
+.cpp.o: 
 	@echo '<< compiling' $< '>>'
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $< 
 

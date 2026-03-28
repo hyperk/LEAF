@@ -4,6 +4,9 @@
 *.log
 .depend
 example/analysis
+example/analysis_fullrec
+example/data
+example/*.root
 leaf/DataModelRootDict*
 leaf/HKAstroAnalysis.*
 leaf/DataModel
