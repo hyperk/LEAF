@@ -3,127 +3,98 @@ OSNAME          = $(shell uname -s)
 HOST            = $(shell uname -n)
 OSNAMEMODE      = $(OSNAME)
 
-SOURCES 	= LEAF.cc
-HEADERS 	= LEAF.hh
+SOURCES 	= LEAF.cpp
+HEADERS 	= LEAF.hpp
 
 include ../Makefile/Makefile.${OSNAME}
-
-
 
 # set compiler options for ROOT
 CXXFLAGS_BASE += $(shell root-config --cflags)
 CXXFLAGS_BASE += '-fPIC' -Wall -Wpedantic -Wno-long-long -DDATAMODEL_LITE
 
-CXXFLAGS = $(CXXFLAGS_BASE)
-#CXXFLAGS_ROOT = $(CXXFLAGS_BASE)
-
-# #ifeq ($(shell echo "$(ROOT_VERSION) >= 6.0" | bc -l ), 1)
-# ROOT_VERSION = $(shell root-config --version | tr -d '/' )
-# ifeq ($(shell [ $(ROOT_VERSION) -ge 6.0 ] && echo 1 || echo 0), 1)
-# MAKE_LEAF_WITH_ROOT6 = 1
-# CXXFLAGS += -std=c++17 -DROOT6 # modifies to c++17 (Nicolas)
-# #CXXFLAGS_ROOT += -std=c++11 -DROOT6
-# else
-# CXXFLAGS += -std=c++11 -DROOT5
-# endif
-
-# ROOT_VERSION = $(shell root-config --version | tr -d '/')
-# ifeq ($(shell echo "$(ROOT_VERSION) >= 6.0" | bc -l), 1)
-# MAKE_LEAF_WITH_ROOT6 = 1
-# CXXFLAGS += -std=c++17 -DROOT6 # modifies to c++17 (Nicolas)
-# #CXXFLAGS_ROOT += -std=c++11 -DROOT6
-# else
-# CXXFLAGS += -std=c++11 -DROOT5
-# endif
-
+CXXFLAGS = $(CXXFLAGS_BASE) -std=c++17
 
 ROOT_VERSION = $(shell root-config --version | cut -d'.' -f1,2)
 ifeq ($(shell echo "$(ROOT_VERSION) >= 6.0" | bc -l), 1)
-MAKE_LEAF_WITH_ROOT6 = 1
-CXXFLAGS += -std=c++17 -DROOT6 # modifies to c++17 (Nicolas)
-#CXXFLAGS_ROOT += -std=c++11 -DROOT6
-else
-CXXFLAGS += -std=c++17 -DROOT5
+	HK_USE_ROOT7 = 1
+	CXXFLAGS += -DHK_USE_ROOT7
 endif
 
 INCFLAGS = -I. -I$(shell root-config --incdir)
-INCFLAGS += -I$(WCSIM_BUILD_DIR)/include/WCSim
-INCFLAGS += -I./DataModel
+INCFLAGS += -I../libWCSIM/include
+INCFLAGS += -I./DataModel-lite
 
-LIBS += -L${WCSIM_BUILD_DIR}/lib -lWCSimRoot
+LIBS += -L../libWCSIM -lWCSimRoot
 LIBS += $(shell root-config --libs) -lMinuit 
 
 LIB_DATAMODEL = ../lib/libDataModelLite.so
 LIB_MANAGER = ../lib/libHKManager.so
 LIB_FITTER = ../lib/libLEAF.so
-LIB_ASTROANALYSIS = ../lib/libHKAstroAnalysis.so
+PCM_LIB_DATAMODEL = ../lib/libDataModelLite_rdict.pcm
+PCM_DATAMODEL = ../lib/DataModelRootDict_rdict.pcm
 
-LIBS_OBJECTS = $(LIB_DATAMODEL) $(LIB_MANAGER) $(LIB_FITTER) #$(LIB_ASTROANALYSIS)
+LIBS_OBJECTS = $(LIB_DATAMODEL) $(LIB_MANAGER) $(LIB_FITTER) 
 
-DATAMODEL_SOURCES = $(filter-out DataModel/DataModelRootDict.cpp, $(wildcard DataModel/*.cpp))
-DATAMODEL_SRC_NOP = $(DATAMODEL_SOURCES:DataModel/%=./%)
+DATAMODEL_SOURCES = $(filter-out DataModel-lite/DataModelRootDict.cpp, $(wildcard DataModel-lite/*.cpp))
+DATAMODEL_SRC_NOP = $(DATAMODEL_SOURCES:DataModel-lite/%=./%)
 
-DATAMODEL_HEADERS = $(DATAMODEL_SOURCES:%.cpp=%.h)
-DATAMODEL_OBJECTS = $(DATAMODEL_SRC_NOP:%.cpp=%.o) #DataModelRootDict.o
+DATAMODEL_HEADERS = $(DATAMODEL_SOURCES:%.cpp=%.hpp)
+DATAMODEL_OBJECTS = $(DATAMODEL_SRC_NOP:%.cpp=%.o) DataModelRootDict.o
 
-
-all: .depend ROOT_CHECK $(LIBS_OBJECTS)
+all: .depend ROOT_CHECK DIRECTORY_CHECK $(LIBS_OBJECTS) $(PCM_DATAMODEL) 
 
 ROOT_CHECK:
-ifeq ($(MAKE_LEAF_WITH_ROOT6),1)
-	@echo '<< compile with ROOT6 >>'
+ifeq ($(HK_USE_ROOT7),1)
+	@echo '<< compile with ROOT7 >>'
 else
-	@echo '<< compile with ROOT5 >>'
-	@echo $(DATAMODEL_SOURCES)
-	
+	@echo '<< compile with old ROOT >>'
+	@echo $(DATAMODEL_SOURCES)	
 endif
 
-# library
-$(LIB_FITTER): LeafConfig.o LeafInputs.o LeafUtility.o LeafSplines.o Likelihoods.o LEAF.o
+DIRECTORY_CHECK:
 	@if [ ! -d ../lib ]; then \
 		mkdir ../lib; \
 	fi
+
+# library
+$(LIB_FITTER): LEAF.o LEAFUtilities.o SplineUtilities.o
 	@echo '<< generating ' $@ ' >>'
 	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS)
 	
 $(LIB_MANAGER): HKManager.o 
 	@echo '<< generating ' $@ ' >>'
-	@if [ ! -d ../lib ]; then \
-		mkdir ../lib; \
-	fi
 	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS)
-	
-$(LIB_ASTROANALYSIS): HKAstroAnalysis.o 
-	@echo '<< generating ' $@ ' >>'
-	@if [ ! -d ../lib ]; then \
-		mkdir ../lib; \
-	fi
-	@$(SOMAKER) $(SOFLAGS) -o $@ $^ $(LIBS)
-	
+		
 #$(LIB_DATAMODEL): DataModelRootDict.cpp $(DATAMODEL_OBJECTS) 
 $(LIB_DATAMODEL): $(DATAMODEL_OBJECTS) 
 	@echo '<< generating ' $@ ' >>'
-	@if [ ! -d ../lib ]; then \
-		mkdir ../lib; \
-	fi
 	@$(SOMAKER) $(SOFLAGS) -o $@  $(DATAMODEL_OBJECTS)  $(LIBS)
 	
-# Not needed anymore
-#DataModelRootDict.cpp:
-#	@echo '<< generating ' $@ ' >>'
-#	@rootcint -f DataModelRootDict.cpp -c $(CXXFLAGS_ROOT) -p $(DATAMODEL_HEADERS) $(PWD)/DataModel/LinkDef.h
-#ifeq ($(MAKE_LEAF_WITH_ROOT6),1)
-#	@echo '<< install DataModelRootDict_rdict.pcm >>'
-#	@cp DataModelRootDict_rdict.pcm ../lib/.
-#endif
-	
 # DataModel objects
-%.o: DataModel/%.cpp DataModel/%.h
+%.o: DataModel-lite/%.cpp DataModel-lite/%.hpp
 	@echo '<< compiling DataModel object: ' $@ ' >>'
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
 
+# Generate ROOT dictionary
+DataModelRootDict.cpp: $(DATAMODEL_HEADERS) DataModel-lite/LinkDef.h
+	@echo '<< generating ROOT dictionary >>'
+	@rootcling -f $@ -rml $(LIB_DATAMODEL) -rmf $(PCM_LIB_DATAMODEL) \
+		$(INCFLAGS) $(DATAMODEL_HEADERS) DataModel-lite/LinkDef.h
+
+DataModelRootDict.o: DataModelRootDict.cpp
+	@echo '<< compiling ROOT dictionary >>'
+	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
+
+$(PCM_DATAMODEL): DataModelRootDict.o
+	@echo '<< installing ROOT dictionary >>'
+	@mv DataModelRootDict*.pcm ../lib/.
+
 # default rules
 .cc.o: 
+	@echo '<< compiling' $< '>>'
+	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $<
+
+.cpp.o: 
 	@echo '<< compiling' $< '>>'
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c $<
 
@@ -131,10 +102,9 @@ $(LIB_DATAMODEL): $(DATAMODEL_OBJECTS)
 	@echo '<< compiling' $< '>>'
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
 
-%.o: %.cpp
+%.o: %.cpp %.hpp
 	@echo '<< compiling' $< '>>'
 	@$(CXX) $(CXXFLAGS) $(INCFLAGS) -c -o $@ $<
-	
 
 %.o: %.C %.h
 	@echo '<< compiling' $< '>>'
@@ -157,5 +127,7 @@ clean:
 	@rm -f ./*.o
 	@rm -f ./../lib/lib*.so
 	@rm -f ./../lib/*Dict*
+	@rm -f ./../lib/*.pcm
 	@rm -f ./*Dict*
+	@rm -f ./*.pcm
 	

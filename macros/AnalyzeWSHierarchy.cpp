@@ -1034,11 +1034,11 @@ int main(int argc, char **argv){
       
     }
 
-    std::vector<float> triggerInfo;
+    std::vector<double> triggerInfo;
     triggerInfo.clear();
     triggerInfo = wcsimrootevent->GetTriggerInfo();
 
-    std::vector<float> triggerInfo2;
+    std::vector<double> triggerInfo2;
     triggerInfo2.clear();
     if(hybrid) triggerInfo2 = wcsimrootevent2->GetTriggerInfo();
 
