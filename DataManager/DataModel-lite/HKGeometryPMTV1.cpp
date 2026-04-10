@@ -6,6 +6,7 @@ HKGeometryPMTV1::HKGeometryPMTV1() {
 	m_pmt_sub_id      = 0;
 	m_pmt_position.SetXYZ(-9999., -9999., -9999.);
 	m_pmt_orientation.SetXYZ(-9999., -9999., -9999.);
+	m_pmt_bad_flag = false;
 
 	this->Reset();
 }
@@ -18,6 +19,7 @@ HKGeometryPMTV1::HKGeometryPMTV1(HKGeometryPMT* in) {
 	m_pmt_sub_id      = in->GetSubID();
 	m_pmt_position    = in->GetPositionInCm();
 	m_pmt_orientation = in->GetOrientation();
+	m_pmt_bad_flag    = in->GetBadFlag();
 }
 
 HKGeometryPMTV1::~HKGeometryPMTV1() {

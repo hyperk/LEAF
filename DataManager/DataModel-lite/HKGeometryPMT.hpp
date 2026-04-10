@@ -137,10 +137,23 @@ class HKGeometryPMT : public HKObject {
 
 		//! Set PMT Orientation
 		/*!
-		    \param x ROOT::Math::XYZVector
+		    \param in ROOT::Math::XYZVector
 		    \return `true` if successful, `false` if not
 		*/
-		virtual bool SetPoSetOrientationsitionInCm(UNUSED_PARAM ROOT::Math::XYZVector& in) { return false; }
+		virtual bool SetOrientation(UNUSED_PARAM ROOT::Math::XYZVector& in) { return false; }
+
+		//! Get PMT Bad flag
+		/*!
+		    \return bool. Indicate if the PMT is bad or not
+		*/
+		virtual bool GetBadFlag() const { return false; }
+
+		//! Set PMT Bad flag
+		/*!
+		    \param in bool
+		    \return `true` if successful, `false` if not
+		*/
+		virtual bool SetBadFlag(UNUSED_PARAM bool in) { return false; }
 
 		ClassDef(HKGeometryPMT, 1);  //!< ROOT Class definition
 };
@@ -187,14 +200,15 @@ class HKGeometryPMTCollection : public HKObjectCollection {
 			return HKFormatError::ThrowErrorVersion<HKGeometryPMT*>(__PRETTY_FUNCTION__, NULL);
 		}
 
-
 		//! Wrapper for std::vector back()
 		virtual HKGeometryPMT* back() {
 			return HKFormatError::ThrowErrorVersion<HKGeometryPMT*>(__PRETTY_FUNCTION__, NULL);
 		}
 
 		//! Wrapper for std::vector size()
-		virtual size_t size() const { return HKFormatError::ThrowErrorVersion<size_t>(__PRETTY_FUNCTION__, 0); }
+		virtual size_t size() const {
+			return HKFormatError::ThrowErrorVersion<size_t>(__PRETTY_FUNCTION__, 0);
+		}
 
 		//! Wrapper for std::vector resize()
 		/*!
@@ -308,7 +322,12 @@ template<class T> class HKGeometryPMTCollectionT : public HKGeometryPMTCollectio
 		/*!
 		    \param entries integer. Number of entries
 		*/
-		void resize(size_t entries) override { contents->resize(entries); }
+		void resize(size_t entries) override {
+			contents->resize(entries);
+			for(auto& ptr : *contents) {
+				ptr = std::make_unique<T>();
+			}
+		}
 
 		//! Wrapper for std::vector push_back()
 		/*!

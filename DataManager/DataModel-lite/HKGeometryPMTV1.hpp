@@ -147,8 +147,24 @@ class HKGeometryPMTV1 : public HKGeometryPMT {
 		    \param x ROOT::Math::XYZVector
 		    \return `true` if successful, `false` if not
 		*/
-		bool SetPoSetOrientationsitionInCm(ROOT::Math::XYZVector& in) override {
+		bool SetOrientation(ROOT::Math::XYZVector& in) override {
 			m_pmt_orientation = in;
+			return true;
+		}
+
+		//! Get PMT Bad flag
+		/*!
+		    \return bool. Indicate if the PMT is bad or not
+		*/
+		bool GetBadFlag() const override { return m_pmt_bad_flag; }
+
+		//! Set PMT Bad flag
+		/*!
+		    \param in bool
+		    \return `true` if successful, `false` if not
+		*/
+		bool SetBadFlag(bool in) override {
+			m_pmt_bad_flag = in;
 			return true;
 		}
 
@@ -160,6 +176,7 @@ class HKGeometryPMTV1 : public HKGeometryPMT {
 		unsigned int m_pmt_sub_id;             //!< PMT sub id (0 for 20" or OD PMT, 1-19 for mPMT's 3" PMTs)
 		ROOT::Math::XYZVector m_pmt_position;  //!< Position in cm
 		ROOT::Math::XYZVector m_pmt_orientation;  //!< Normalized orientation
+		bool m_pmt_bad_flag;                      //!< Whether the PMT is bad or not
 
 		ClassDefOverride(HKGeometryPMTV1, 1);  //!< ROOT Class definition
 };
