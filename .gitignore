@@ -1,4 +1,8 @@
 .vscode
+build-*/
+install-*/
+__pycache__/
+
 *.o
 *.swp
 *.log
@@ -7,9 +11,7 @@ example/analysis
 example/analysis_fullrec
 example/data
 example/*.root
-leaf/DataModelRootDict*
-leaf/HKAstroAnalysis.*
-leaf/DataModel
+DataManager/DataModelRootDict*
 lib/*
 job.sh
 Config.sh

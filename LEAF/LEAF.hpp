@@ -62,7 +62,6 @@
 #include <Math/Vector3D.h>
 #include <Math/Vector4D.h>
 
-
 #include "Constants/mPMTs.hpp"
 #include "Enums/PMTType.hpp"
 #include "HKGeometry.hpp"
@@ -72,8 +71,6 @@
 #include "LEAFConfig.hpp"
 #include "LEAFUtilities.hpp"
 #include "SplineUtilities.hpp"
-
-std::mutex mtx;
 
 namespace LEAFStructures {
 
@@ -121,18 +118,17 @@ namespace LEAFStructures {
 }
 
 namespace LEAFThreads {
-	void SearchVertex_thread(int iStart, int iIte, int tolerance=1, bool likelihood=false, double lowerLimit=LEAFConfig::fSTimePDFLimitsQueueNegative, double upperLimit=LEAFConfig::fSTimePDFLimitsQueuePositive, int directionality=false);
-	void MinimizeVertex_thread(int iStart, int iIte, std::vector<LEAFStructures::VtxCandidate> initialVertex, ROOT::Math::XYZTVector limits, double stepSize, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=LEAFConfig::fSTimePDFLimitsQueueNegative, double upperLimit=LEAFConfig::fSTimePDFLimitsQueuePositive, int directionality = true, float FilterThreshold = 180);
+	void SearchVertex_thread(int iStart, int iIte, int tolerance, bool likelihood, double lowerLimit, double upperLimit, int directionality);
+	void MinimizeVertex_thread(int iStart, int iIte, std::vector<LEAFStructures::VtxCandidate> initialVertex, ROOT::Math::XYZTVector limits, double stepSize, int nCandidates, int tolerance, int verbose, bool likelihood, bool average, double lowerLimit, double upperLimit, int directionality, float FilterThreshold);
 };
 
 namespace LEAFLikelihoods {
-    void MinuitDirNLL(int& nDim, double* gout, double& NLL, double* par, int flg);
-    void MinuitLikelihood(int& nDim, double * gout, double & NLL, double par[], int flg);
-    void MinuitJointNLL(int& nDim, double * gout, double & NLL, double par[], int flg);
+	void MinuitDirNLL(int& nDim, double* gout, double& NLL, double* par, int flg);
+	void MinuitLikelihood(int& nDim, double * gout, double & NLL, double par[], int flg);
+	void MinuitJointNLL(int& nDim, double * gout, double & NLL, double par[], int flg);
 };
 
-class LEAF 
-{
+class LEAF {
 	public:
 		static LEAF*	GetME();
 		void			DeleteME();
@@ -175,8 +171,8 @@ class LEAF
   		/* VERTEX FITTER */
 		/*****************/
 
-		void SearchVertex_thread(int iStart, int iIte, int tolerance=1, bool likelihood=false, double lowerLimit=LEAFConfig::fSTimePDFLimitsQueueNegative, double upperLimit=LEAFConfig::fSTimePDFLimitsQueuePositive, int directionality=false);
-		void MinimizeVertex_thread(int iStart, int iIte, std::vector<LEAFStructures::VtxCandidate> initialVertex, ROOT::Math::XYZTVector limits, double stepSize, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=LEAFConfig::fSTimePDFLimitsQueueNegative, double upperLimit=LEAFConfig::fSTimePDFLimitsQueuePositive, int directionality = true, float FilterThreshold = 180);
+		void SearchVertex_thread(int iStart, int iIte, int tolerance, bool likelihood, double lowerLimit, double upperLimit, int directionality);
+		void MinimizeVertex_thread(int iStart, int iIte, std::vector<LEAFStructures::VtxCandidate> initialVertex, ROOT::Math::XYZTVector limits, double stepSize, int nCandidates, int tolerance , int verbose, bool likelihood, bool average, double lowerLimit, double upperLimit, int directionality, float FilterThreshold);
 
 		/***************/
   		/* LIKELIHOODS */
@@ -200,7 +196,7 @@ class LEAF
 
 		double GoodnessOfFit(ROOT::Math::XYZTVector vertexPosition, double NLL_theory, double lowerLimit, double upperLimit, bool killEdges, bool scaleDR, int directionality);
 
-	private:
+	public:
 
 		/*******************/
   		/* INTERNAL STRUCT */
@@ -268,7 +264,7 @@ class LEAF
 		std::vector<LEAFStructures::VtxCandidate> SearchVertex_Main(int tolerance, bool likelihood, double lowerLimit, double upperLimit, int directionality);
 		
 		//? Second Step Parallelized version
-		std::vector<LEAFStructures::VtxCandidate> MinimizeVertex_Main(std::vector<LEAFStructures::VtxCandidate> initialVertex, ROOT::Math::XYZTVector limits, double stepSize, int nCandidates = 1, int tolerance = 1, int verbose=0, bool likelihood=false, bool average=false, double lowerLimit=LEAFConfig::fSTimePDFLimitsQueueNegative, double upperLimit=LEAFConfig::fSTimePDFLimitsQueuePositive, int directionality = true, float FilterThreshold = 180);
+		std::vector<LEAFStructures::VtxCandidate> MinimizeVertex_Main(std::vector<LEAFStructures::VtxCandidate> initialVertex, ROOT::Math::XYZTVector limits, double stepSize, int nCandidates, int tolerance, int verbose, bool likelihood, bool average, double lowerLimit, double upperLimit, int directionality, float FilterThreshold);
 
 		/********************/
   		/* DIRECTION FITTER */

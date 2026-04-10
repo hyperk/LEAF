@@ -50,15 +50,15 @@ ROOT::Math::XYZVector LEAF::FitDirection(const ROOT::Math::XYZTVector& vertex, b
 	//? To be removed for real data where true dir is not known, no impact on the fit
 	// fOutput.stepOneContainsTrueDir = (int)ContainsTrueDir(&candidates, fTrueDir); //* a quick check to see if the step one works (one of the candidate is near the true direction)
 
-    if (verbose >= 2) {
-        for (unsigned int j = 0; j < candidates.size(); j++) {
+	if (verbose >= 2) {
+		for (unsigned int j = 0; j < candidates.size(); j++) {
 			std::cout 	<< "Candidate "
 						<< "theta = " << candidates[j].theta * TMath::RadToDeg() << " deg, "
 						<< "phi = "   << candidates[j].phi   * TMath::RadToDeg() << " deg, "
 						<< "NLL = " << candidates[j].nll 
 						<< std::endl;
 		} 
-    }
+	}
 
 	DirectionCandidate finalCandidate = this->MinimizeDirection(vertex, candidates, limits, verbose);
 
@@ -68,7 +68,7 @@ ROOT::Math::XYZVector LEAF::FitDirection(const ROOT::Math::XYZTVector& vertex, b
 
 	fPerformances.dir_minimize_ct = timer2.RealTime();
 
-    return fOutput.dir;
+	return fOutput.dir;
 }
 
 ROOT::Math::XYZVector LEAF::FitDirectionQuick(const ROOT::Math::XYZTVector& vertex) {
@@ -117,20 +117,20 @@ std::vector<LEAF::DirectionCandidate> LEAF::SearchDirection(const ROOT::Math::XY
 {
 	std::vector<DirectionCandidate> candidates;
 
-    // Grid search over theta and phi
-    for (double theta = 0.0; theta <= TMath::Pi(); theta += LEAFConfig::fThetaStep) {
-        for (double phi = -TMath::Pi(); phi < TMath::Pi(); phi += LEAFConfig::fPhiStep) {
-            // Store the candidate
-            DirectionCandidate candidate;
-            candidate.theta = theta;
-            candidate.phi = phi;
-            candidate.nll = this->Dir_NLL(vertex, theta, phi);
-            candidates.push_back(candidate);
-        }
-    }
+	// Grid search over theta and phi
+	for (double theta = 0.0; theta <= TMath::Pi(); theta += LEAFConfig::fThetaStep) {
+		for (double phi = -TMath::Pi(); phi < TMath::Pi(); phi += LEAFConfig::fPhiStep) {
+			// Store the candidate
+			DirectionCandidate candidate;
+			candidate.theta = theta;
+			candidate.phi = phi;
+			candidate.nll = this->Dir_NLL(vertex, theta, phi);
+			candidates.push_back(candidate);
+		}
+	}
 
 
-    std::sort(candidates.begin(), candidates.end(), LEAF::SortingNLL<DirectionCandidate>());
+	std::sort(candidates.begin(), candidates.end(), LEAF::SortingNLL<DirectionCandidate>());
 
 	// Select the best candidates based on tolerance
 	while((int)candidates.size() > tolerance) candidates.pop_back();
@@ -140,24 +140,23 @@ std::vector<LEAF::DirectionCandidate> LEAF::SearchDirection(const ROOT::Math::XY
 
 //MIGRAD Optimization
 LEAF::DirectionCandidate LEAF::MinimizeDirection(const ROOT::Math::XYZTVector& vertex, std::vector<DirectionCandidate>& candidates, ROOT::Math::XYZTVector limits, int verbose) {
-    // Create a minimizer
-    TFitter* minimizer = new TFitter(7); // 2 parameters: theta, phi
-    TMinuit* minuit = minimizer->GetMinuit();
+	// Create a minimizer
+	TFitter* minimizer = new TFitter(7); // 2 parameters: theta, phi
+	TMinuit* minuit = minimizer->GetMinuit();
 
-    double arglist[10];
-    int err = 0;
-    double p1 = verbose - 1;
-    minimizer->ExecuteCommand("SET PRINTOUT", &p1, 1);
-    minuit->SetErrorDef(1);
+	double arglist[10];
+	int err = 0;
+	double p1 = verbose - 1;
+	minimizer->ExecuteCommand("SET PRINTOUT", &p1, 1);
+	minuit->SetErrorDef(1);
 
-    if (verbose < 2) minuit->mnexcm("SET NOWarnings", 0, 0, err);
+	if (verbose < 2) minuit->mnexcm("SET NOWarnings", 0, 0, err);
 
-    arglist[0] = 2;
-    minuit->mnexcm("SET STR", arglist, 1, err);
-    minimizer->SetFCN(LEAFLikelihoods::MinuitDirNLL);
+	arglist[0] = 2;
+	minuit->mnexcm("SET STR", arglist, 1, err);
+	minimizer->SetFCN(LEAFLikelihoods::MinuitDirNLL);
 
-	for (int icand = 0; icand < (int)candidates.size(); icand++)
-	{
+	for (int icand = 0; icand < (int)candidates.size(); icand++) {
 		// Set initial parameters and bounds
 		minimizer->SetParameter(0, "theta", candidates[icand].theta, 2*TMath::Pi()/180, 0.0, TMath::Pi());
 		minimizer->SetParameter(1, "phi", candidates[icand].phi, 2*TMath::Pi()/180, -TMath::Pi(), TMath::Pi());
@@ -191,11 +190,11 @@ LEAF::DirectionCandidate LEAF::MinimizeDirection(const ROOT::Math::XYZTVector& v
 	}
 
 	std::sort(candidates.begin(), candidates.end(), LEAF::SortingNLL<DirectionCandidate>());
-    // Optional: Print the refined parameters
-    // if (verbose >= 2) std::cout << "After refinement: theta = " << optimizedParameters[0] * TMath::RadToDeg() << " deg, phi = " << optimizedParameters[1] * TMath::RadToDeg() << " deg" << std::endl;
+	// Optional: Print the refined parameters
+	// if (verbose >= 2) std::cout << "After refinement: theta = " << optimizedParameters[0] * TMath::RadToDeg() << " deg, phi = " << optimizedParameters[1] * TMath::RadToDeg() << " deg" << std::endl;
 
-    delete minimizer;
-    return candidates[0]; // Returns [theta, phi]
+	delete minimizer;
+	return candidates[0]; // Returns [theta, phi]
 }
 
 
@@ -256,12 +255,11 @@ std::vector<LEAFStructures::VtxCandidate> LEAF::SearchVertex_Main(int tolerance,
 	int iCand_Step = (int)fPositionList.size()/fThread;
 	if(iCand_Step < 1) iCand_Step = 1;
 
-	mtx.lock();
+	LEAFConfig::mtx.lock();
 	fVtxThreadOutput.clear();
-	mtx.unlock();
+	LEAFConfig::mtx.unlock();
 
-	for(int iStart=0; iStart<(int)fPositionList.size(); iStart+=iCand_Step)
-	{
+	for(int iStart=0; iStart<(int)fPositionList.size(); iStart+=iCand_Step) {
 		std::thread tThrd(
 			LEAFThreads::SearchVertex_thread,
 			iStart, iCand_Step,
@@ -276,10 +274,10 @@ std::vector<LEAFStructures::VtxCandidate> LEAF::SearchVertex_Main(int tolerance,
 	for(auto &th: lThreadList) if(th.joinable()) th.join();
 
 	// 2) collect partial results from fThreadOutput.
-	mtx.lock();
+	LEAFConfig::mtx.lock();
 	lOutputFinal = fVtxThreadOutput; 
 	fVtxThreadOutput.clear();
-	mtx.unlock();
+	LEAFConfig::mtx.unlock();
 
 	// 3) Sort by NLL and keep 'tolerance' number of candidates
 	std::sort(lOutputFinal.begin(), lOutputFinal.end(), LEAF::SortingNLL<LEAFStructures::VtxCandidate>());
@@ -338,24 +336,23 @@ void LEAF::SearchVertex_thread(int iStart, int iIte, int tolerance, bool likelih
 
 	// Check if mutex is already lock, if not -> lock
 	// We don't want simultaneous modification of the common output
-	mtx.lock();
+	LEAFConfig::mtx.lock();
 	for (unsigned int iPos = 0; iPos < tVtxContainer.size(); iPos++) {
 		fVtxThreadOutput.push_back(tVtxContainer[iPos]);
 	}
-	mtx.unlock();
+	LEAFConfig::mtx.unlock();
 }
 
-std::vector<LEAFStructures::VtxCandidate> LEAF::MinimizeVertex_Main(std::vector<LEAFStructures::VtxCandidate> initialVertex, ROOT::Math::XYZTVector limits, double stepSize, int nCandidates, int tolerance, int verbose, bool likelihood, bool average, double lowerLimit, double upperLimit, int directionality, float FilterThreshold)
-{
+std::vector<LEAFStructures::VtxCandidate> LEAF::MinimizeVertex_Main(std::vector<LEAFStructures::VtxCandidate> initialVertex, ROOT::Math::XYZTVector limits, double stepSize, int nCandidates, int tolerance, int verbose, bool likelihood, bool average, double lowerLimit, double upperLimit, int directionality, float FilterThreshold) {
 	std::vector<std::thread> lThreadList;
 	std::vector<LEAFStructures::VtxCandidate> lOutputFinal;
 
 	int iCand_Step = nCandidates / fThread;
 	if (iCand_Step < 1) iCand_Step = 1;
 
-	mtx.lock();
+	LEAFConfig::mtx.lock();
 	fVtxThreadOutput.clear();
-	mtx.unlock();
+	LEAFConfig::mtx.unlock();
 
 	for (int iStart = 0; iStart < nCandidates; iStart += iCand_Step) {
 		std::thread tThrd(LEAFThreads::MinimizeVertex_thread, iStart, iCand_Step,
@@ -369,10 +366,10 @@ std::vector<LEAFStructures::VtxCandidate> LEAF::MinimizeVertex_Main(std::vector<
 
 	// Check if mutex is already lock, if not -> lock
 	// We don't want simultaneous modification of the common output
-	mtx.lock();
+	LEAFConfig::mtx.lock();
 	lOutputFinal = fVtxThreadOutput;
 	fVtxThreadOutput.clear();
-	mtx.unlock();
+	LEAFConfig::mtx.unlock();
 
 	std::sort(lOutputFinal.begin(), lOutputFinal.end(), LEAF::SortingNLL<LEAFStructures::VtxCandidate>());
 
@@ -392,9 +389,9 @@ void LEAF::MinimizeVertex_thread(int iStart, int iIte, std::vector<LEAFStructure
 
 	std::vector<LEAFStructures::VtxCandidate> tVtxContainer;
 
-	mtx.lock();
+	LEAFConfig::mtx.lock();
 	TFitter *minimizer = new TFitter(14); // 4=nb de params?
-	mtx.unlock();
+	LEAFConfig::mtx.unlock();
 	TMinuit *minuit = minimizer->GetMinuit();
 
 	double arglist[20];
@@ -498,12 +495,12 @@ void LEAF::MinimizeVertex_thread(int iStart, int iIte, std::vector<LEAFStructure
 	
 	// Check if mutex is already lock, if not -> lock
 	// We don't want simultaneous modification of the common output
-	mtx.lock();
+	LEAFConfig::mtx.lock();
 	for (unsigned int iPos = 0; iPos < tVtxContainer.size(); iPos++) {
 		fVtxThreadOutput.push_back(tVtxContainer[iPos]);
 	}
 	delete minimizer;
-	mtx.unlock();
+	LEAFConfig::mtx.unlock();
 }
 
 

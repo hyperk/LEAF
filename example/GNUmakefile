@@ -17,13 +17,14 @@ endif
 INCFLAGS = -I. 
 #INCFLAGS += -I$(shell root-config --incdir) #included in --cflags
 INCFLAGS += -I$(LEAFDIR)/libWCSIM/include
-INCFLAGS += -I$(LEAFDIR)/leaf
-INCFLAGS += -I$(LEAFDIR)/leaf/DataModel-lite
+INCFLAGS += -I$(LEAFDIR)/LEAF
+INCFLAGS += -I$(LEAFDIR)/DataManager/
+INCFLAGS += -I$(LEAFDIR)/DataManager/DataModel-lite
 
 LIBS += -L$(LEAFDIR)/libWCSIM -lWCSimRoot
 LIBS += $(shell root-config --libs) -lMinuit 
 # LIBS_BONSAI += -L${BONSAIDIR} -lWCSimBonsai
-LIBS_LEAF += -L${LEAFDIR}/lib -lLEAF -lHKManager -lDataModelLite
+LIBS_LEAF += -L${LEAFDIR}/lib -lLEAF -lDataManager -lDataModelLite
 
 OBJECT = analysis analysis_fullrec
 
